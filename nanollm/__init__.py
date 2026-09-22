@@ -1,4 +1,4 @@
-from nanollm.dataset import DecisionSample, MultiQuestionCollator
+from nanollm.dataset import DecisionSample, MultiQuestionCollator, QuestionSpec
 from nanollm.engine import DecisionEngine, IDecisionEngine
 from nanollm.loss import CalibratedLoss
 from nanollm.model import ModelConfig, NanoModel
@@ -31,6 +31,7 @@ __all__ = [
     "Noul",
     "NoulResult",
     "Question",
+    "QuestionSpec",
     "Score",
     "ScoreResult",
     "SubwordTokenizer",

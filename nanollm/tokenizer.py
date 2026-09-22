@@ -17,11 +17,11 @@ class ByteTokenizer:
         return bytes(valid_bytes).decode("utf-8", errors="ignore")
 
 class SubwordTokenizer:
-    def __init__(self, name: str = "bert-base-uncased"):
+    def __init__(self, name: str = "answerdotai/ModernBERT-base"):
         from transformers import AutoTokenizer
         self._tok = AutoTokenizer.from_pretrained(name)
-        self.pad_id = self._tok.pad_token_id or 0
-        self.q_marker_id = self._tok.sep_token_id or 102
+        self.pad_id = self._tok.pad_token_id if self._tok.pad_token_id is not None else 50283
+        self.q_marker_id = self._tok.sep_token_id if self._tok.sep_token_id is not None else 50282
 
     @property
     def vocab_size(self) -> int:
