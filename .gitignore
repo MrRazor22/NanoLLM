@@ -1,0 +1,15 @@
+# Checkpoints and weights (>100MB exceeds GitHub limits)
+*.pt
+*.bin
+*.safetensors
+
+# Python cache
+__pycache__/
+*.py[cod]
+*$py.class
+.pytest_cache/
+
+# Environment and local cache
+.cache/
+venv/
+.venv/
