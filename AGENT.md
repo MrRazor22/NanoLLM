@@ -4,6 +4,82 @@
 
 Less code is a side effect of correct logic. Not a goal unto itself—bloat comes from wrong abstractions.
 
+---
+
+## The Axiomatic Triad Architecture
+
+Every component in NanoLLM strictly belongs to one of four architectural tiers:
+
+```text
+┌─────────────────────────────────────────────────────────────┐
+│                    Consumers / Drivers                      │
+│            (scripts/train.py, scripts/benchmark.py)         │
+└──────────────────────────────┬──────────────────────────────┘
+                               │ orchestrates
+┌──────────────────────────────▼──────────────────────────────┐
+│                  Outer Composable Layers                    │
+│            (nanollm/layers/profiling.py - λ_F: F -> F)      │
+└──────────────────────────────┬──────────────────────────────┘
+                               │ wraps
+┌──────────────────────────────▼──────────────────────────────┐
+│                    The Core Primitives                      │
+│     IDecisionEngine (Domain)  │  ISubstrate (Neural Tensor) │
+└──────────────────────────────▲──────────────────────────────┘
+                               │ injects
+┌──────────────────────────────┴──────────────────────────────┐
+│                     Injected Policies                       │
+│     SlotAssembler  │  DecisionResolver  │  CalibratedLoss    │
+└─────────────────────────────────────────────────────────────┘
+```
+
+### 1. The Core Primitives (`nanollm/core/`)
+- Irreducible, orthogonal contracts defining *what* the system does.
+- `IDecisionEngine`: The single domain entry point (`decide(state, questions) -> DecisionResult`).
+- `ISubstrate`: The hardware tensor compute primitive (`forward(input_ids, mask) -> scores`).
+- Kept razor-thin (<80 lines). Zero intermediate glue.
+
+### 2. Injected Policies (`nanollm/policies/`)
+- Pure, swappable strategies configured into the primitive at initialization.
+- `ISlotAssembler`: Formats sequence layout and maps token slot coordinates. Single source of truth for both training and inference.
+- `IResolver`: Maps raw scalar logits at slot coordinates into typed, calibrated decision results (`Choice`, `Noul`, `Score`).
+- `ITokenizer`: Text-to-token encoding and decoding (`SubwordTokenizer`, `ByteTokenizer`).
+- `CalibratedLoss`: Multi-task objective function combining Cross-Entropy, BCE, and Brier score penalty.
+
+### 3. Composable Layers (`nanollm/layers/`)
+- Endomorphic wrappers ($\lambda_F: F \to F$) that decorate the primitive from the outside without contract mutation.
+- `ProfilingLayer`: Decorates `IDecisionEngine` with CUDA-synchronized latency timing.
+- New capabilities (caching, audit logging, telemetry) must always be added as outer layers, never monkey-patched into core primitives.
+
+### 4. Consumers & Orchestrators (`scripts/`, `examples/`)
+- Standalone execution drivers (`train.py`, `benchmark.py`, `evaluate.py`, `basic_decision.py`).
+- Strictly isolated from the `nanollm` library package to ensure zero dependency bloat and eliminate root clutter.
+
+---
+
+## Retrospective: Mistakes Made & Evolutionary Breakthroughs
+
+### 1. The Bi-Encoder Fallacy (Mistake 1)
+- **What went wrong:** We initially built a dual-tower bi-encoder—encoding state in one forward pass and option candidates in a second pass, computing cosine similarity between pooled vectors.
+- **The Failure:** 
+  1. *Terrible Latency:* Two full forward passes took ~50ms on GPU, destroying the <2ms goal.
+  2. *Catastrophic Accuracy Drop:* Options could not attend to the state context during representation formation, leading to severe underfitting (22% accuracy).
+  3. *Inability to Calibrate:* Cosine similarity cannot be naturally calibrated for true epistemic probabilities.
+- **The Fix (Single-Pass Cross-Attention):** Moved to single-sequence cross-attention (`state [SEP] question: [MASK] opt1 [MASK] opt2 ...`). All tokens attend to each other in one pass. Latency dropped to **1.1ms** (45x faster) with zero-shot accuracy jumping to near 100%.
+
+### 2. Finding the Right Primitive (Mistake 2)
+- **What went wrong:** We initially created speculative abstractions—separate QuestionCollators, distinct Head layers for Choice vs Noul vs Score, and multi-stage pipeline classes.
+- **The Breakthrough:** There is only ONE neural operation: *extracting scalar logits at target slot token positions*. Choice is just softmax across slot logits; Noul is sigmoid on one slot logit; Score is scaled sigmoid on one slot logit. The primitive is simply `ISubstrate`, and the decoding strategy is an injected `DecisionResolver`.
+
+### 3. Layout Train/Serve Skew (Mistake 3)
+- **What went wrong:** Sequence formatting was previously duplicated between training collators and inference prediction loops, risking subtle coordinate misalignment.
+- **The Fix:** `SlotAssembler` was promoted to an injected policy. It is the single source of truth for prompt layout and token coordinate indexing across both training batches and real-time inference.
+
+### 4. The Flat File Trap (Mistake 4)
+- **What went wrong:** Dumping all files flat in `nanollm/` obscured architectural boundaries and blurred the distinction between primitives, policies, and outer layers.
+- **The Fix:** Grouped strictly by role (`core/`, `policies/`, `layers/`, `data/`, `scripts/`, `examples/`). Every file is now under 80 lines and immediately reveals its exact responsibility.
+
+---
+
 ## Guidelines
 
 ### No Needless Convenience
