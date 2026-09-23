@@ -36,7 +36,7 @@ class ScoreResult:
 
 Answer = Union[ChoiceResult, NoulResult, ScoreResult]
 
-@dataclass(frozen=True)
+@dataclass
 class DecisionResult:
     answers: Dict[str, Answer]
-    latency_ms: float
+    latency_ms: float = 0.0

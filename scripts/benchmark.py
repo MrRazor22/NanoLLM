@@ -1,7 +1,12 @@
+from pathlib import Path
 from typing import Dict, List, Tuple
 import sys
 import time
 import torch
+
+ROOT_DIR = Path(__file__).resolve().parent.parent
+sys.path.insert(0, str(ROOT_DIR))
+
 from nanollm import Choice, DecisionEngine, Noul, Score
 
 BENCHMARK_SUITE: List[Dict] = [
@@ -10,64 +15,64 @@ BENCHMARK_SUITE: List[Dict] = [
         "query": "Patient presents with sudden onset unilateral facial droop, slurred speech, and right arm weakness.",
         "options": ["stroke_emergency", "dermatology_rash", "orthopedic_sprain", "routine_dental"],
         "expected": "stroke_emergency",
-        "is_urgent": True
+        "is_urgent": True,
     },
     {
         "domain": "Medical / Clinical Triage",
         "query": "Severe itchy red maculopapular rash developing across torso after taking amoxicillin dose.",
         "options": ["drug_allergy_reaction", "bone_fracture", "concussion", "hypertension"],
         "expected": "drug_allergy_reaction",
-        "is_urgent": True
+        "is_urgent": True,
     },
     {
         "domain": "Medical / Clinical Triage",
         "query": "Twisted right ankle during basketball, severe localized swelling and inability to bear weight.",
         "options": ["orthopedic_injury", "stroke_emergency", "cardiac_arrest", "food_poisoning"],
         "expected": "orthopedic_injury",
-        "is_urgent": False
+        "is_urgent": False,
     },
     {
         "domain": "Legal & Contracts",
         "query": "Neither party shall disclose confidential trade secrets, client lists, or algorithms to third parties.",
         "options": ["confidentiality_nda", "governing_law", "limitation_of_liability", "severability"],
         "expected": "confidentiality_nda",
-        "is_urgent": False
+        "is_urgent": False,
     },
     {
         "domain": "Legal & Contracts",
         "query": "This agreement shall be governed by and construed under the laws of the State of Delaware.",
         "options": ["governing_law_jurisdiction", "force_majeure", "indemnification", "confidentiality_nda"],
         "expected": "governing_law_jurisdiction",
-        "is_urgent": False
+        "is_urgent": False,
     },
     {
         "domain": "Legal & Contracts",
         "query": "Supplier shall indemnify and hold harmless the customer from any third party patent infringement claims.",
         "options": ["indemnification_defense", "payment_terms", "term_and_termination", "severability"],
         "expected": "indemnification_defense",
-        "is_urgent": True
+        "is_urgent": True,
     },
     {
         "domain": "Developer & Git",
         "query": "Need to save my current uncommitted working directory edits temporarily so I can pull origin main.",
         "options": ["git_stash", "git_rebase", "git_cherry_pick", "git_reset_hard"],
         "expected": "git_stash",
-        "is_urgent": False
+        "is_urgent": False,
     },
     {
         "domain": "Developer & Git",
         "query": "Apply commit 7a8b9c from develop branch directly onto release-1.2 branch.",
         "options": ["git_cherry_pick", "git_commit_amend", "git_clean", "git_stash"],
         "expected": "git_cherry_pick",
-        "is_urgent": False
+        "is_urgent": False,
     },
     {
         "domain": "Developer & Git",
         "query": "Discard all unstaged and staged changes completely and revert back to commit HEAD.",
         "options": ["git_reset_hard", "git_merge", "git_stash_pop", "git_branch"],
         "expected": "git_reset_hard",
-        "is_urgent": True
-    }
+        "is_urgent": True,
+    },
 ]
 
 def run_benchmark(engine: DecisionEngine):
@@ -84,7 +89,7 @@ def run_benchmark(engine: DecisionEngine):
         questions = [
             Choice("category", options=item["options"]),
             Noul("is_urgent"),
-            Score("severity", min_value=0.0, max_value=100.0)
+            Score("severity", min_value=0.0, max_value=100.0),
         ]
 
         result = engine.decide(state=item["query"], questions=questions)
@@ -127,7 +132,7 @@ def run_benchmark(engine: DecisionEngine):
     print("==================================================\n")
 
 def main():
-    checkpoint_path = sys.argv[1] if len(sys.argv) > 1 else "checkpoint.pt"
+    checkpoint_path = sys.argv[1] if len(sys.argv) > 1 else str(ROOT_DIR / "checkpoint.pt")
     engine = DecisionEngine.from_checkpoint(checkpoint_path)
     run_benchmark(engine)
 

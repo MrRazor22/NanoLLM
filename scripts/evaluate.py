@@ -1,9 +1,13 @@
+from pathlib import Path
 from typing import List
 import os
 import sys
 import time
-from nanollm import Choice, DecisionEngine, Noul, Score
-from nanollm.dataset import load_jsonl
+
+ROOT_DIR = Path(__file__).resolve().parent.parent
+sys.path.insert(0, str(ROOT_DIR))
+
+from nanollm import Choice, DecisionEngine, Noul, Score, load_jsonl
 
 DEFAULT_DEPARTMENTS = ["Billing", "Infrastructure / Tech", "Enterprise / Sales", "Security"]
 
@@ -29,7 +33,7 @@ def evaluate_dataset(engine: DecisionEngine, path: str):
         questions = [
             Choice("department", options=options),
             Noul("is_urgent"),
-            Score("severity", min_value=0.0, max_value=100.0)
+            Score("severity", min_value=0.0, max_value=100.0),
         ]
 
         result = engine.decide(state=sample.state, questions=questions)
@@ -51,7 +55,7 @@ def evaluate_dataset(engine: DecisionEngine, path: str):
     avg_latency = elapsed_ms / max(1, total_samples)
 
     print("==================================================")
-    print(f"          STANDARDIZED EVALUATION REPORT          ")
+    print("          STANDARDIZED EVALUATION REPORT          ")
     print("==================================================")
     print(f"Target Dataset:       {path} ({total_samples} samples)")
     print(f"Inference Latency:    {avg_latency:.2f} ms / sample")
@@ -66,7 +70,7 @@ def predict_single(engine: DecisionEngine, query: str, options: List[str]):
     questions = [
         Choice("department", options=options),
         Noul("urgent"),
-        Score("severity", min_value=0.0, max_value=100.0)
+        Score("severity", min_value=0.0, max_value=100.0),
     ]
     result = engine.decide(query, questions)
     dept = result.answers["department"]
@@ -82,12 +86,13 @@ def predict_single(engine: DecisionEngine, query: str, options: List[str]):
     print(f"  Severity:   {sev.score:.1f}/100")
 
 def main():
-    engine = DecisionEngine.from_checkpoint("checkpoint.pt")
+    checkpoint_path = str(ROOT_DIR / "checkpoint.pt")
+    engine = DecisionEngine.from_checkpoint(checkpoint_path)
     if len(sys.argv) > 1 and not sys.argv[1].startswith("--"):
         query = " ".join(sys.argv[1:])
         predict_single(engine, query, DEFAULT_DEPARTMENTS)
     else:
-        dataset_path = sys.argv[2] if len(sys.argv) > 2 and sys.argv[1] == "--data" else "data/test.jsonl"
+        dataset_path = sys.argv[2] if len(sys.argv) > 2 and sys.argv[1] == "--data" else str(ROOT_DIR / "data" / "test.jsonl")
         evaluate_dataset(engine, dataset_path)
 
 if __name__ == "__main__":
