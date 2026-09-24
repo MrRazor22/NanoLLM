@@ -65,4 +65,3 @@ MASSIVE_CLUSTERS = {
     "transport": ["transport_query", "transport_taxi", "transport_ticket", "transport_traffic"],
     "weather": ["weather_query"]
 }
-

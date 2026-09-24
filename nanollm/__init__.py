@@ -3,7 +3,11 @@ from nanollm.core.evaluator import IEvaluator, ModelEvaluator
 from nanollm.core.substrate import DecisionSubstrate, ISubstrate, ModelConfig, NanoModel
 from nanollm.core.trainer import EpochTrainer, ITrainer
 from nanollm.data.builder import choice_question, save_jsonl, split_train_val
+from nanollm.data.curriculum import AdaptationCurriculum, ICurriculum
 from nanollm.data.dataset import DecisionSample, MultiQuestionCollator, QuestionSpec, load_jsonl
+from nanollm.data.foundation import FoundationCurriculum
+from nanollm.data.taxonomies import BANKING_CLUSTERS, MASSIVE_CLUSTERS
+from nanollm.layers.checkpointing import CheckpointingTrainer
 from nanollm.layers.evaluator import ProfilingEvaluator
 from nanollm.layers.hierarchical import HierarchicalLayer
 from nanollm.layers.profiling import DecisionEngineLayer, ProfilingLayer
@@ -24,9 +28,12 @@ from nanollm.schema import (
 )
 
 __all__ = [
+    "AdaptationCurriculum",
     "Answer",
+    "BANKING_CLUSTERS",
     "ByteTokenizer",
     "CalibratedLoss",
+    "CheckpointingTrainer",
     "Choice",
     "ChoiceResult",
     "CompiledLayout",
@@ -37,7 +44,9 @@ __all__ = [
     "DecisionSample",
     "DecisionSubstrate",
     "EpochTrainer",
+    "FoundationCurriculum",
     "HierarchicalLayer",
+    "ICurriculum",
     "IDecisionEngine",
     "IEvaluator",
     "IResolver",
@@ -45,6 +54,7 @@ __all__ = [
     "ISubstrate",
     "ITokenizer",
     "ITrainer",
+    "MASSIVE_CLUSTERS",
     "ModelConfig",
     "ModelEvaluator",
     "MultiQuestionCollator",

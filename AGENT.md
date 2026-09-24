@@ -13,7 +13,7 @@ Every component in NanoLLM strictly belongs to one of four architectural tiers:
 ```text
 ┌─────────────────────────────────────────────────────────────┐
 │                    Consumers / Drivers                      │
-│            (scripts/train.py, scripts/benchmark.py)         │
+│                    (cli.py, examples/)                      │
 └──────────────────────────────┬──────────────────────────────┘
                                │ orchestrates
 ┌──────────────────────────────▼──────────────────────────────┐
@@ -50,9 +50,9 @@ Every component in NanoLLM strictly belongs to one of four architectural tiers:
 - `ProfilingLayer`: Decorates `IDecisionEngine` with CUDA-synchronized latency timing.
 - New capabilities (caching, audit logging, telemetry) must always be added as outer layers, never monkey-patched into core primitives.
 
-### 4. Consumers & Orchestrators (`scripts/`, `examples/`)
-- Standalone execution drivers (`train.py`, `benchmark.py`, `evaluate.py`, `basic_decision.py`).
-- Strictly isolated from the `nanollm` library package to ensure zero dependency bloat and eliminate root clutter.
+### 4. Consumers & Orchestrators (`cli.py`, `examples/`)
+- Standalone execution drivers (`cli.py`, `basic_decision.py`).
+- Zero business logic: CLI only parses arguments, wires primitives, decorates them with layers, and invokes them.
 
 ### 5. Interfaces Are the System; Implementations Are Transient
 - The entire architecture is anchored strictly on razor-sharp interfaces (`typing.Protocol`).
