@@ -115,3 +115,9 @@ Keep root representations and decision contracts generic. Never attach single-mo
 
 ### Production Calibrated Decisions
 All probabilities must be epistemically calibrated (calibrated cross-entropy / Brier score loss) so output probabilities reliably reflect true certainty.
+
+### Zero Speculative Tweaking & Compute-Respecting Discipline
+- Speculative ML tweaking, unverified trial-and-error architecture modifications, and ungrounded "hunches" are STRICTLY FORBIDDEN.
+- GPU compute and user time are constrained, serious resources; NEVER waste compute or training cycles on speculative layers or unproven changes.
+- Every architectural change must be justified by prior empirical or mathematical necessity, verified against minimal primitives, and aligned with the user before burning a single GPU second.
+- If an approach hits saturation or regression, immediately report the empirical facts and revert to the last verified baseline rather than chasing speculative patches.
