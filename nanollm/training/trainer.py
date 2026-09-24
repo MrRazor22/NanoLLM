@@ -1,7 +1,7 @@
 from typing import Protocol
 import torch
 from torch.utils.data import DataLoader
-from nanollm.engine.substrate import NanoModel
+from nanollm.engine.policies.substrate import NanoModel
 from nanollm.training.policies.loss import CalibratedLoss
 
 class ITrainer(Protocol):

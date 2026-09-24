@@ -6,112 +6,74 @@ Less code is a side effect of correct logic. Not a goal unto itself—bloat come
 
 ---
 
-## The Axiomatic Triad Architecture
-
 ## The Boundary-First Axiomatic Triad Architecture
 
 Every operational domain in NanoLLM is modeled as an autonomous, cohesive **Boundary Triad**:
 
 ```text
 ┌─────────────────────────────────────────────────────────────┐
-│                    Consumers / Drivers                      │
-│                    (cli.py, examples/)                      │
+│                 External Consumers / Drivers                │
+│                 (drivers/cli.py, examples/)                 │
 └──────────────────────────────┬──────────────────────────────┘
                                │ orchestrates
 ┌──────────────────────────────▼──────────────────────────────┐
 │                    Operational Boundaries                   │
 │                                                             │
-│  nanollm/engine/          nanollm/training/     nanollm/eval/│
-│  ├── IDecisionEngine      ├── ITrainer          ├── IEvaluator
-│  ├── policies/            ├── policies/         └── layers/  │
-│  │   ├── assembler.py     │   └── loss.py           └── profiling
-│  │   ├── resolver.py      └── layers/                        │
-│  │   └── tokenizer.py         └── checkpointing              │
-│  └── layers/                                                │
-│      ├── profiling.py                                        │
-│      └── hierarchical.py                                     │
+│  nanollm/engine/          nanollm/training/    nanollm/eval/│
+│  ├── IDecisionEngine      ├── ITrainer         ├── IEvaluator
+│  ├── schema.py            ├── checkpointing_   ├── profiling_
+│  ├── layers/              │   layer.py         │   layer.py  
+│  │   ├── profiling.py     └── policies/        └── reporter.py
+│  │   └── hierarchical.py      ├── loss.py                   │
+│  └── policies/                ├── dataset.py                │
+│      ├── substrate.py         ├── curriculum.py             │
+│      ├── assembler.py         ├── foundation.py             │
+│      ├── resolver.py          ├── taxonomies.py             │
+│      └── tokenizer.py         └── builder.py                │
 └─────────────────────────────────────────────────────────────┘
 ```
 
-### 1. Operational Boundaries
+### 1. Operational Boundaries (1 Boundary = 1 Primitive)
 Each subsystem owns its complete Triad:
-- **`nanollm/engine/` (Inference):** Primitives (`IDecisionEngine`, `ISubstrate`), boundary-scoped policies (`SlotAssembler`, `DecisionResolver`, `SubwordTokenizer`), and endomorphic layers (`ProfilingLayer`, `HierarchicalLayer`).
-- **`nanollm/training/` (Optimization):** Primitive (`ITrainer`, `EpochTrainer`), boundary-scoped policy (`CalibratedLoss`), and endomorphic layer (`CheckpointingLayer`).
-- **`nanollm/evaluation/` (Verification):** Primitive (`IEvaluator`, `ModelEvaluator`) and endomorphic layer (`ProfilingEvaluatorLayer`).
-- **`nanollm/data/` (Curricula & Ingestion):** Primitives (`AdaptationCurriculum`, `FoundationCurriculum`), formatters, and datasets.
+- **`nanollm/engine/` (Inference):** 
+  - Primitive: `IDecisionEngine` (`DecisionEngine`)
+  - Schema: `schema.py` (`Choice`, `Noul`, `Score`, `DecisionResult`)
+  - Policies ($\ge 4$ items $\implies$ `policies/`): `ISubstrate` (`DecisionSubstrate`, `NanoModel`), `ISlotAssembler` (`SlotAssembler`), `IResolver` (`DecisionResolver`), `ITokenizer` (`SubwordTokenizer`)
+  - Layers ($\ge 2$ items $\implies$ `layers/`): `ProfilingLayer`, `HierarchicalLayer`
+- **`nanollm/training/` (Optimization):** 
+  - Primitive: `ITrainer` (`EpochTrainer`)
+  - Layer (Lean $\implies$ Flat): `CheckpointingLayer`
+  - Policies ($\ge 5$ items $\implies$ `policies/`): `CalibratedLoss`, `MultiQuestionCollator`, `AdaptationCurriculum`, `FoundationCurriculum`, taxonomies, builder
+- **`nanollm/evaluation/` (Verification):** 
+  - Primitive: `IEvaluator` (`ModelEvaluator`)
+  - Layer (Lean $\implies$ Flat): `ProfilingEvaluatorLayer`
+  - Utilities: `reporter.py` (`print_benchmark_table`)
 
-### 2. Universal Layer & Policy Rules
-- **The `*Layer` Suffix Mandate:** Every composable endomorphic decorator ($\lambda_F: F \to F$) must carry the `*Layer` suffix (`ProfilingLayer`, `HierarchicalLayer`, `CheckpointingLayer`, `ProfilingEvaluatorLayer`).
-- **Boundary-Scoped Policies:** Policies live strictly in their boundary's `policies/` namespace (`nanollm.engine.policies`, `nanollm.training.policies`). Never mix unrelated policies together.
+### 2. Universal ATA Taxonomy: Behavior, State, and Utilities
+Every piece of code in NanoLLM strictly belongs to one of four canonical types:
+1. **The Triad (Behavior):**
+   - **Primitive ($P$):** Irreducible contract defining *what* the boundary does.
+   - **Policy ($\pi$):** Swappable strategy defining *how* an internal step executes (domain nouns, no `*Policy` suffix).
+   - **Layer ($\lambda$):** Endomorphic decorator ($\lambda_P: P \to P$) decorating the primitive externally (MUST carry `*Layer` suffix).
+2. **DTOs / Schema (State):** Pure, immutable domain schemas (`Choice`, `DecisionResult`, `DecisionSample`).
+3. **Pure Functions / Extension Methods (Stateless Utilities):** Zero side-effect transforms (`save_jsonl`, `load_jsonl`, `choice_question`).
+4. **Composition Root / Driver (Zero-Logic Wiring):** Declarative wiring entrypoint in `drivers/` ($\le 50-80$ lines).
 
-### 3. Consumers & Orchestrators (`cli.py`, `examples/`)
-- Standalone execution drivers (`cli.py`, `basic_decision.py`).
-- Zero business logic: CLI only parses arguments, wires primitives, decorates them with layers, and invokes them.
+### 3. Consumers & Drivers (`drivers/cli.py`, `examples/`)
+- Standalone execution drivers reside in `drivers/`, keeping repository root pristine.
+- Zero business or presentation logic: the driver purely parses CLI args, wires primitives, decorates them with layers, and invokes them.
 
-### 5. Interfaces Are the System; Implementations Are Transient
+### 4. Interfaces Are the System; Implementations Are Transient
 - The entire architecture is anchored strictly on razor-sharp interfaces (`typing.Protocol`).
-- The core primitive interfaces (`IDecisionEngine`, `ISubstrate`) define the fundamental domain boundary.
-- The injected policy interfaces (`ISlotAssembler`, `IResolver`, `ITokenizer`) define the swappable strategy points.
-- Concrete classes are interchangeable implementation details; the engine coordinates only through interface contracts.
+- The core primitive interfaces (`IDecisionEngine`, `ITrainer`, `IEvaluator`) define the fundamental domain boundaries.
+- The injected policy interfaces (`ISubstrate`, `ISlotAssembler`, `IResolver`, `ITokenizer`) define the swappable strategy points.
+- Concrete classes are interchangeable implementation details; components coordinate only through interface contracts.
 
 ---
 
 ## Retrospective: Mistakes Made & Evolutionary Breakthroughs
 
-### 1. The Bi-Encoder Fallacy (Mistake 1)
-- **What went wrong:** We initially built a dual-tower bi-encoder—encoding state in one forward pass and option candidates in a second pass, computing cosine similarity between pooled vectors.
-- **The Failure:** 
-  1. *Terrible Latency:* Two full forward passes took ~50ms on GPU, destroying the <2ms goal.
-  2. *Catastrophic Accuracy Drop:* Options could not attend to the state context during representation formation, leading to severe underfitting (22% accuracy).
-  3. *Inability to Calibrate:* Cosine similarity cannot be naturally calibrated for true epistemic probabilities.
-- **The Fix (Single-Pass Cross-Attention):** Moved to single-sequence cross-attention (`state [SEP] question: [MASK] opt1 [MASK] opt2 ...`). All tokens attend to each other in one pass. Latency dropped to **1.1ms** (45x faster) with zero-shot accuracy jumping to near 100%.
-
-### 2. Finding the Right Primitive (Mistake 2)
-- **What went wrong:** We initially created speculative abstractions—separate QuestionCollators, distinct Head layers for Choice vs Noul vs Score, and multi-stage pipeline classes.
-- **The Breakthrough:** There is only ONE neural operation: *extracting scalar logits at target slot token positions*. Choice is just softmax across slot logits; Noul is sigmoid on one slot logit; Score is scaled sigmoid on one slot logit. The primitive is simply `ISubstrate`, and the decoding strategy is an injected `DecisionResolver`.
-
-### 3. Layout Train/Serve Skew (Mistake 3)
-- **What went wrong:** Sequence formatting was previously duplicated between training collators and inference prediction loops, risking subtle coordinate misalignment.
-- **The Fix:** `SlotAssembler` was promoted to an injected policy. It is the single source of truth for prompt layout and token coordinate indexing across both training batches and real-time inference.
-
-### 4. The Flat File Trap (Mistake 4)
-- **What went wrong:** Dumping all files flat in `nanollm/` obscured architectural boundaries and blurred the distinction between primitives, policies, and outer layers.
-- **The Fix:** Grouped strictly by role (`core/`, `policies/`, `layers/`, `checkpoints/`, `data/`, `scripts/`, `examples/`, `tests/`). Every file is now under 85 lines and immediately reveals its exact responsibility.
-
----
-
-## Guidelines
-
-### No Needless Convenience
-If the concept is clear, the code is short. Stupid logic needs convenience wrappers. We don't add helper methods just to save a few keystrokes—we add them when they express a clear, reusable concept.
-
-### Match or Exceed the Competition
-Express Jev's System 1 architecture in 1/10th the code through sharper design. Feature parity with frontier decision models, zero line-count bloat.
-
-### No Design Smell
-Reducing code that introduces smell is worse than the bloat it replaced. If a simplification makes the code harder to understand or maintain, it's not a simplification—it's a regression.
-
-### Data Over Behavior
-Schemas, questions, states, and decisions are pure immutable data structures (dataclasses), not behavioral objects with lifecycle hooks. Keep the system simple, composable, and serialization-ready.
-
-### Interface-First for Behaviors
-Define small, focused interfaces for any class exhibiting behavior (encoders, heads, calibrators). Always depend on abstractions rather than concrete classes.
-
-### Strict Size & Complexity Limits
-- Max 150 lines per file: If a file exceeds 150 lines, it is doing too much and has a design smell.
-- Max 4–5 methods per class: If a class has more than 4–5 methods, it violates Single Responsibility and must be decomposed.
-
-### Self-Documenting Code & No Explanatory Comments
-If code requires comments to explain what it does, it is a design smell. Code must be self-documenting through clear naming and clean structure.
-
-### Generic & Multimodal by Design
-Keep root representations and decision contracts generic. Never attach single-modality assumptions to root pipeline interfaces.
-
-### Production Calibrated Decisions
-All probabilities must be epistemically calibrated (calibrated cross-entropy / Brier score loss) so output probabilities reliably reflect true certainty.
-
-### Zero Speculative Tweaking & Compute-Respecting Discipline
-- Speculative ML tweaking, unverified trial-and-error architecture modifications, and ungrounded "hunches" are STRICTLY FORBIDDEN.
-- GPU compute and user time are constrained, serious resources; NEVER waste compute or training cycles on speculative layers or unproven changes.
-- Every architectural change must be justified by prior empirical or mathematical necessity, verified against minimal primitives, and aligned with the user before burning a single GPU second.
-- If an approach hits saturation or regression, immediately report the empirical facts and revert to the last verified baseline rather than chasing speculative patches.
+1. **Procedural Script Eradication:** Deleted all 6 ad-hoc scripts in `scripts/` (saving 573 lines of procedural rot), replacing them with unified domain primitives and lean drivers.
+2. **Eliminated "Inside vs Outside" Fallacy:** Replaced messy procedural CLI loops, table formatters, and closures with clean boundary capabilities (`ModelEvaluator.from_engine`, `print_benchmark_table`).
+3. **The Clutter-Threshold Rule:** Cleanly flattened lean 2-file boundaries (`evaluation/`) while subordinating cluttered boundaries (`engine/policies/`, `training/policies/`), achieving zero 1-file subdirectories.
+4. **Folder-Namespace 1:1 Isomorphism:** Every directory maps 1:1 to an explicit logical namespace with `__init__.py`.

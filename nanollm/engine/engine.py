@@ -4,9 +4,9 @@ from transformers import AutoModel
 from nanollm.engine.layers.profiling import ProfilingLayer
 from nanollm.engine.policies.assembler import ISlotAssembler, SlotAssembler
 from nanollm.engine.policies.resolver import DecisionResolver, IResolver
+from nanollm.engine.policies.substrate import DecisionSubstrate, ISubstrate, ModelConfig
 from nanollm.engine.policies.tokenizer import SubwordTokenizer
-from nanollm.engine.substrate import DecisionSubstrate, ISubstrate, ModelConfig
-from nanollm.schema import DecisionResult, Question
+from nanollm.engine.schema import DecisionResult, Question
 
 class IDecisionEngine(Protocol):
     def decide(self, state: str, questions: Sequence[Question]) -> DecisionResult: ...

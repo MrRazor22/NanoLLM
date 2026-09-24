@@ -1,4 +1,5 @@
-from typing import Any, Callable, Dict, List, Protocol
+from typing import Any, Callable, Dict, List, Protocol, Sequence
+from nanollm.engine.schema import Choice
 
 DecideFn = Callable[[str, Dict[str, Any]], Dict[str, Any]]
 
@@ -10,6 +11,18 @@ class ModelEvaluator:
     def __init__(self, name: str, decide_fn: DecideFn):
         self.name = name
         self.decide_fn = decide_fn
+
+    @classmethod
+    def from_engine(cls, name: str, engine: Any) -> "ModelEvaluator":
+        def decide(state: str, questions: Dict[str, Any]) -> Dict[str, Any]:
+            qs: List[Choice] = []
+            for qid, spec in questions.items():
+                crit = spec.get("criteria", {})
+                opts = {str(i): c for i, c in enumerate(crit)} if isinstance(crit, list) else crit
+                qs.append(Choice(qid, opts, instruction=spec.get("instructions")))
+            res = engine.decide(state, qs)
+            return {qid: res.answers[qid].choice for qid in questions}
+        return cls(name, decide)
 
     def evaluate(self, items: List[Dict[str, Any]]) -> Dict[str, Any]:
         stats: Dict[str, Dict[str, int]] = {}

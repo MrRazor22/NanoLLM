@@ -1,7 +1,7 @@
 import random
 from typing import Any, Dict, List, Tuple
 from datasets import concatenate_datasets, load_dataset
-from nanollm.data.builder import split_train_val
+from nanollm.training.policies.builder import split_train_val
 
 def _state(text: str, rng: random.Random) -> Any:
     if rng.random() < 0.25:

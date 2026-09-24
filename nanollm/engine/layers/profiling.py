@@ -2,7 +2,7 @@ from typing import Sequence
 import time
 import torch
 from nanollm.engine.engine import IDecisionEngine
-from nanollm.schema import DecisionResult, Question
+from nanollm.engine.schema import DecisionResult, Question
 
 class DecisionEngineLayer(IDecisionEngine):
     def __init__(self, inner: IDecisionEngine):

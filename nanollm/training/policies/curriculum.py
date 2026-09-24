@@ -2,7 +2,7 @@ import json, random, re
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Protocol, Tuple
 from datasets import load_dataset
-from nanollm.data.builder import split_train_val
+from nanollm.training.policies.builder import split_train_val
 
 class ICurriculum(Protocol):
     def build(self) -> Tuple[List[Dict[str, Any]], List[Dict[str, Any]]]:
