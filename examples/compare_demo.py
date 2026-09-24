@@ -86,8 +86,8 @@ def run_comparison(nano, laya_agent, state: str, instr: str, options: dict):
     print("=" * 70 + "\n")
 
 def main():
-    print("\n[INIT] Loading NanoLLM Champion (checkpoints/checkpoint_champion.pt)...", flush=True)
-    nano = DecisionEngine.from_checkpoint(str(ROOT / "checkpoints" / "checkpoint_champion.pt"))
+    print("\n[INIT] Loading NanoLLM Champion (checkpoints/checkpoint_champion_v2.pt)...", flush=True)
+    nano = DecisionEngine.from_checkpoint(str(ROOT / "checkpoints" / "checkpoint_champion_v2.pt"))
     print("[INIT] Loading Laya SOTA (convaiinnovations/laya)...", flush=True)
     laya_agent = laya.Agent("convaiinnovations/laya")
     print("[READY] Both models loaded on GPU.\n", flush=True)

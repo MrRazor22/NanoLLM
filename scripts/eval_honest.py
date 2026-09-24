@@ -52,41 +52,31 @@ def main():
         items = json.load(f)
     print(f"Loaded {len(items)} honest benchmark test items.")
 
-    # 1. NanoLLM Champion
-    print("\n--- Evaluating NanoLLM Champion ---", flush=True)
-    nano_champ = DecisionEngine.from_checkpoint(str(ROOT / "checkpoints" / "checkpoint_champion.pt"))
-    def decide_nano_champ(state, questions):
+    # 1. NanoLLM v2 (With 5k Real Tools)
+    print("\n--- Evaluating NanoLLM v2 (With Tools) ---", flush=True)
+    nano_v2 = DecisionEngine.from_checkpoint(str(ROOT / "checkpoints" / "checkpoint_champion_v2.pt"))
+    def decide_nano_v2(state, questions):
         qs = []
         for qid, spec in questions.items():
             t, ins, crit = spec["type"], spec["instructions"], spec["criteria"]
-            if t == "choice":
-                qs.append(Choice(qid, crit, instruction=ins))
-            elif t == "noul":
-                qs.append(Choice(qid, crit, instruction=ins))
-            elif t == "score":
-                opts = {str(i): c for i, c in enumerate(crit)} if isinstance(crit, list) else crit
-                qs.append(Choice(qid, opts, instruction=ins))
-        res = nano_champ.decide(state, qs)
+            opts = {str(i): c for i, c in enumerate(crit)} if (t == "score" and isinstance(crit, list)) else crit
+            qs.append(Choice(qid, opts, instruction=ins))
+        res = nano_v2.decide(state, qs)
         return {qid: res.answers[qid].choice for qid in questions}
-    res_nano_champ = evaluate_model("NanoLLM Champion", decide_nano_champ, items)
+    res_v2 = evaluate_model("NanoLLM v2", decide_nano_v2, items)
 
-    # 2. NanoLLM Clean Baseline
-    print("\n--- Evaluating NanoLLM Clean Foundation ---", flush=True)
-    nano_clean = DecisionEngine.from_checkpoint(str(ROOT / "checkpoints" / "checkpoint_clean.pt"))
-    def decide_nano_clean(state, questions):
+    # 2. NanoLLM v1 (Champion)
+    print("\n--- Evaluating NanoLLM v1 ---", flush=True)
+    nano_v1 = DecisionEngine.from_checkpoint(str(ROOT / "checkpoints" / "checkpoint_champion.pt"))
+    def decide_nano_v1(state, questions):
         qs = []
         for qid, spec in questions.items():
             t, ins, crit = spec["type"], spec["instructions"], spec["criteria"]
-            if t == "choice":
-                qs.append(Choice(qid, crit, instruction=ins))
-            elif t == "noul":
-                qs.append(Choice(qid, crit, instruction=ins))
-            elif t == "score":
-                opts = {str(i): c for i, c in enumerate(crit)} if isinstance(crit, list) else crit
-                qs.append(Choice(qid, opts, instruction=ins))
-        res = nano_clean.decide(state, qs)
+            opts = {str(i): c for i, c in enumerate(crit)} if (t == "score" and isinstance(crit, list)) else crit
+            qs.append(Choice(qid, opts, instruction=ins))
+        res = nano_v1.decide(state, qs)
         return {qid: res.answers[qid].choice for qid in questions}
-    res_nano_clean = evaluate_model("NanoLLM Clean", decide_nano_clean, items)
+    res_v1 = evaluate_model("NanoLLM v1", decide_nano_v1, items)
 
     # 3. Laya Official SOTA
     print("\n--- Evaluating Laya Official SOTA ---", flush=True)
@@ -97,20 +87,16 @@ def main():
         for qid, spec in questions.items():
             ans = out["answers"][qid]
             t = spec["type"]
-            if t == "choice":
-                preds[qid] = ans["choice"]
-            elif t == "noul":
-                preds[qid] = "true" if ans["noul"] >= 0.5 else "false"
-            elif t == "score":
-                preds[qid] = max(ans["probabilities"], key=ans["probabilities"].get)
+            if t == "choice": preds[qid] = ans["choice"]
+            elif t == "noul": preds[qid] = "true" if ans["noul"] >= 0.5 else "false"
+            elif t == "score": preds[qid] = max(ans["probabilities"], key=ans["probabilities"].get)
         return preds
     res_laya = evaluate_model("Laya SOTA", decide_laya, items)
 
     # Print Side-by-Side Comparison Table
     print("\n" + "=" * 80)
-    print(f"{'Category / Metric':30s} | {'NanoLLM Champ':14s} | {'NanoLLM Clean':14s} | {'Laya SOTA':14s}")
+    print(f"{'Category / Metric':30s} | {'NanoLLM v2 (Tools)':18s} | {'NanoLLM v1':12s} | {'Laya SOTA':12s}")
     print("-" * 80)
-    cats = list(items[0]["category"] for items in [items]) # get order
     cat_keys = ["agent_tool_routing", "safety_guardrails", "triage_incident", "negative_constraints"]
     cat_labels = {
         "agent_tool_routing": "Agent Tool Routing (30)",
@@ -119,15 +105,15 @@ def main():
         "negative_constraints": "Negative Constraints (30)"
     }
     for c in cat_keys:
-        nc = res_nano_champ["by_cat"].get(c, 0.0) * 100
-        nl = res_nano_clean["by_cat"].get(c, 0.0) * 100
+        v2 = res_v2["by_cat"].get(c, 0.0) * 100
+        v1 = res_v1["by_cat"].get(c, 0.0) * 100
         ly = res_laya["by_cat"].get(c, 0.0) * 100
-        print(f"{cat_labels[c]:30s} | {nc:12.1f}% | {nl:12.1f}% | {ly:12.1f}%")
+        print(f"{cat_labels[c]:30s} | {v2:16.1f}% | {v1:10.1f}% | {ly:10.1f}%")
     print("-" * 80)
-    print(f"{'OVERALL ACCURACY':30s} | {res_nano_champ['overall_acc']*100:12.1f}% | {res_nano_clean['overall_acc']*100:12.1f}% | {res_laya['overall_acc']*100:12.1f}%")
-    print(f"{'Total Score':30s} | {res_nano_champ['total_correct']:5d}/{res_nano_champ['total_questions']:3d}      | {res_nano_clean['total_correct']:5d}/{res_nano_clean['total_questions']:3d}      | {res_laya['total_correct']:5d}/{res_laya['total_questions']:3d}")
-    print(f"{'P50 Latency (CUDA)':30s} | {res_nano_champ['p50_ms']:10.1f} ms | {res_nano_clean['p50_ms']:10.1f} ms | {res_laya['p50_ms']:10.1f} ms")
-    print(f"{'P90 Latency (CUDA)':30s} | {res_nano_champ['p90_ms']:10.1f} ms | {res_nano_clean['p90_ms']:10.1f} ms | {res_laya['p90_ms']:10.1f} ms")
+    print(f"{'OVERALL ACCURACY':30s} | {res_v2['overall_acc']*100:16.1f}% | {res_v1['overall_acc']*100:10.1f}% | {res_laya['overall_acc']*100:10.1f}%")
+    print(f"{'Total Score':30s} | {res_v2['total_correct']:5d}/{res_v2['total_questions']:3d}          | {res_v1['total_correct']:5d}/{res_v1['total_questions']:3d} | {res_laya['total_correct']:5d}/{res_laya['total_questions']:3d}")
+    print(f"{'P50 Latency (CUDA)':30s} | {res_v2['p50_ms']:14.1f} ms | {res_v1['p50_ms']:8.1f} ms | {res_laya['p50_ms']:8.1f} ms")
+    print(f"{'P90 Latency (CUDA)':30s} | {res_v2['p90_ms']:14.1f} ms | {res_v1['p90_ms']:8.1f} ms | {res_laya['p90_ms']:8.1f} ms")
     print("=" * 80 + "\n")
 
 if __name__ == "__main__":

@@ -46,6 +46,39 @@ def build_choice_set(path: str, sub: Any, split: str, tcol: str, lcol: str, qnam
         if len(records) >= limit: break
     return records
 
+def build_glaive_tools(rng: random.Random, limit: int = 5000) -> List[Dict]:
+    import re
+    ds = load_dataset("glaiveai/glaive-function-calling-v2", split="train", streaming=True)
+    raw, tool_registry = [], {}
+    for row in ds:
+        system, chat = row["system"], row["chat"]
+        fn_match = re.search(r'<functioncall>\s*\{\s*"name":\s*"([^"]+)"', chat)
+        user_match = re.search(r'USER:\s*(.*?)(?=\n\s*(?:ASSISTANT:|<\|endoftext\|>|$))', chat, re.DOTALL)
+        if not (fn_match and user_match): continue
+        fn_name, user_query = fn_match.group(1), user_match.group(1).strip()
+        tools = dict(re.findall(r'\{\s*"name":\s*"([^"]+)",\s*"description":\s*"([^"]+)"', system))
+        if fn_name not in tools: continue
+        tool_registry.update(tools)
+        raw.append((user_query, fn_name, tools))
+        if len(raw) >= limit * 2: break
+
+    records = []
+    all_names = list(tool_registry.keys())
+    for query, fn, sample_tools in raw:
+        candidates = dict(sample_tools)
+        if len(candidates) < 5 and len(all_names) >= 5:
+            distractors = [n for n in all_names if n != fn and n not in candidates]
+            for d in rng.sample(distractors, min(len(distractors), 5 - len(candidates))):
+                candidates[d] = tool_registry[d]
+        opt_keys = list(candidates.keys())
+        rng.shuffle(opt_keys)
+        records.append({
+            "state": query,
+            "questions": [["tool", "choice", opt_keys.index(fn), {k: candidates[k] for k in opt_keys}, "Which function or tool should be invoked to handle this request?"]]
+        })
+        if len(records) >= limit: break
+    return records
+
 def main():
     data_dir = ROOT_DIR / "data"
     data_dir.mkdir(parents=True, exist_ok=True)
@@ -55,6 +88,9 @@ def main():
     raw_td = build_typed_decisions()
     td = raw_td * 3
     print(f"  Loaded {len(raw_td)} raw typed-decisions (upsampled 3x to {len(td)})", flush=True)
+
+    tools = build_glaive_tools(rng, 5000)
+    print(f"  Loaded {len(tools)} real function-calling tool samples", flush=True)
 
     massive = build_choice_set("mteb/amazon_massive_intent", "en", "train", "text", "label_text", "action", "What is the user's intent in this utterance?", rng, 8000)
     print(f"  Loaded {len(massive)} MASSIVE intent samples", flush=True)
@@ -68,18 +104,16 @@ def main():
     ag_news = build_choice_set("fancyzhx/ag_news", None, "train", "text", "label", "label", "What is the topic of the article?", rng, 6000, opts_dict=ag_opts)
     print(f"  Loaded {len(ag_news)} AG News samples", flush=True)
 
-    # Replay buffer from foundation train set to prevent catastrophic forgetting
     foundation_path = data_dir / "train.jsonl"
     replay = []
     if foundation_path.exists():
         with open(foundation_path, "r", encoding="utf-8") as f:
             all_lines = f.readlines()
             rng.shuffle(all_lines)
-            for line in all_lines[:6000]:
-                replay.append(json.loads(line))
+            for line in all_lines[:6000]: replay.append(json.loads(line))
     print(f"  Loaded {len(replay)} foundation reasoning replay samples", flush=True)
 
-    all_samples = td + massive + ag_news + replay
+    all_samples = td + tools + massive + ag_news + replay
     rng.shuffle(all_samples)
     print(f"[ADAPT-DATA] Total Adaptation Samples: {len(all_samples)}", flush=True)
 
