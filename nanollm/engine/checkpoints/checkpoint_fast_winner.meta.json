@@ -1,7 +1,0 @@
-{
-  "checkpoint": "checkpoint_fast_winner.pt",
-  "epoch": 1,
-  "val_loss": 0.32949658813575905,
-  "train_loss": 0.37941436291796465,
-  "timestamp": "2026-09-24T11:24:52Z"
-}

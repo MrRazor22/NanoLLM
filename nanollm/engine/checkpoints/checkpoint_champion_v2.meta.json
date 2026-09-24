@@ -1,7 +1,0 @@
-{
-  "checkpoint": "checkpoints/checkpoint_champion_v2.pt",
-  "epoch": 1,
-  "val_loss": 0.34848177455808527,
-  "train_loss": 0.45779370181472034,
-  "timestamp": "2026-09-24T14:35:13Z"
-}

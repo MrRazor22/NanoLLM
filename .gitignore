@@ -1,9 +1,10 @@
-# Checkpoints and weights (>100MB exceeds GitHub limits)
+# Model weights and binaries (>100MB exceeds GitHub limits)
 *.pt
 *.bin
 *.safetensors
-artifacts/data/*.jsonl
-artifacts/checkpoints/*.pt
+
+# Training corpora (large datasets kept local; generated via curricula)
+nanollm/training/data/*.jsonl
 
 # Python cache
 __pycache__/
