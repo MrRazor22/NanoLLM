@@ -30,5 +30,3 @@ class CheckpointingLayer:
 
     def evaluate(self, loader: DataLoader) -> float:
         return self.inner.evaluate(loader)
-
-CheckpointingTrainer = CheckpointingLayer

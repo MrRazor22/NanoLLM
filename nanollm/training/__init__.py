@@ -1,4 +1,4 @@
-from nanollm.training.checkpointing_layer import CheckpointingLayer, CheckpointingTrainer
+from nanollm.training.checkpointing_layer import CheckpointingLayer
 from nanollm.training.policies import (
     BANKING_CLUSTERS,
     MASSIVE_CLUSTERS,
@@ -21,7 +21,6 @@ __all__ = [
     "BANKING_CLUSTERS",
     "CalibratedLoss",
     "CheckpointingLayer",
-    "CheckpointingTrainer",
     "DecisionSample",
     "EpochTrainer",
     "FoundationCurriculum",

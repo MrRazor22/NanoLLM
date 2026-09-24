@@ -29,5 +29,3 @@ class ProfilingEvaluatorLayer:
             report["p50_ms"] = float(np.median(latencies))
             report["p90_ms"] = float(np.percentile(latencies, 90))
         return report
-
-ProfilingEvaluator = ProfilingEvaluatorLayer
