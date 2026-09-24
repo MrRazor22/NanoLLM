@@ -1,5 +1,6 @@
 from pathlib import Path
 from typing import Any, Dict
+import argparse
 import os
 import sys
 import time
@@ -60,7 +61,10 @@ def main():
     total_steps = len(train_loader)
     print(f"[DATA] Train: {len(train_samples)} samples | Val: {len(val_samples)} samples | Batch: 32 | Steps/Epoch: {total_steps}\n", flush=True)
 
-    checkpoint_out = str(ROOT_DIR / "checkpoint.pt")
+    parser = argparse.ArgumentParser(description="Train NanoLLM Foundation Decision Engine")
+    parser.add_argument("--output", default=str(ROOT_DIR / "checkpoint.pt"), help="Output path for best checkpoint")
+    args, _ = parser.parse_known_args()
+    checkpoint_out = args.output
 
     for epoch in range(1, epochs + 1):
         model.train()
