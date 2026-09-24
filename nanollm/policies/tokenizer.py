@@ -13,14 +13,10 @@ class ITokenizer(Protocol):
     def decode(self, token_ids: List[int]) -> str: ...
 
 class ByteTokenizer(ITokenizer):
-    def __init__(self):
-        self.pad_id = 0
-        self.sep_id = 1
-        self.mask_id = 2
-
-    @property
-    def vocab_size(self) -> int:
-        return 259
+    pad_id: int = 0
+    sep_id: int = 1
+    mask_id: int = 2
+    vocab_size: int = 259
 
     def encode(self, text: str) -> List[int]:
         return [b + 3 for b in text.encode("utf-8")]

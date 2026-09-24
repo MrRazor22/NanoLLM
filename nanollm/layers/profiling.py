@@ -1,10 +1,8 @@
-from typing import Protocol, Sequence
+from typing import Sequence
 import time
 import torch
+from nanollm.core.engine import IDecisionEngine
 from nanollm.schema import DecisionResult, Question
-
-class IDecisionEngine(Protocol):
-    def decide(self, state: str, questions: Sequence[Question]) -> DecisionResult: ...
 
 class DecisionEngineLayer(IDecisionEngine):
     def __init__(self, inner: IDecisionEngine):
