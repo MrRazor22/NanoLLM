@@ -2,7 +2,6 @@ from pathlib import Path
 from typing import Optional, Protocol, Sequence, Union
 import torch
 from transformers import AutoModel
-from nanollm.engine.layers.profiling import ProfilingLayer
 from nanollm.engine.policies.assembler import ISlotAssembler, SlotAssembler
 from nanollm.engine.policies.resolver import DecisionResolver, IResolver
 from nanollm.engine.policies.substrate import DecisionSubstrate, ISubstrate, ModelConfig
@@ -42,7 +41,7 @@ class DecisionEngine(IDecisionEngine):
         checkpoint_path: Optional[Union[str, Path]] = None,
         backbone_name: str = "answerdotai/ModernBERT-base",
         device: Optional[str] = None,
-    ) -> IDecisionEngine:
+    ) -> "DecisionEngine":
         ckpt_path = Path(checkpoint_path) if checkpoint_path else DEFAULT_CHECKPOINT
         dev = torch.device(device if device else ("cuda" if torch.cuda.is_available() else "cpu"))
         tokenizer = SubwordTokenizer(backbone_name)
@@ -53,8 +52,7 @@ class DecisionEngine(IDecisionEngine):
         substrate = DecisionSubstrate(config, backbone=backbone).to(dev)
         substrate.load_state_dict(torch.load(str(ckpt_path), map_location=dev))
         substrate.eval()
-        core_engine = cls(substrate, assembler, resolver, dev)
-        return ProfilingLayer(core_engine)
+        return cls(substrate, assembler, resolver, dev)
 
     def decide(self, state: str, questions: Sequence[Question]) -> DecisionResult:
         layout = self.assembler.assemble_single(state, questions, device=self.device)
