@@ -22,7 +22,9 @@ class SlotAssembler(ISlotAssembler):
         meta = []
         for q in questions:
             ids.append(self.tokenizer.sep_id)
-            ids.extend(self.tokenizer.encode(f" {q.name}:"))
+            ins = getattr(q, "instruction", None)
+            header = f" {q.name}: {ins}" if ins else f" {q.name}:"
+            ids.extend(self.tokenizer.encode(header))
             opts = getattr(q, "options", None)
             target = getattr(q, "target", None)
             q_type = getattr(q, "q_type", "choice" if opts is not None else "noul")

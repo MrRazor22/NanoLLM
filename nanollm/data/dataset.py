@@ -8,7 +8,8 @@ class QuestionSpec:
     name: str
     q_type: str
     target: Any
-    options: Optional[List[str]] = None
+    options: Optional[Any] = None
+    instruction: Optional[str] = None
 
 @dataclass(frozen=True)
 class DecisionSample:
@@ -32,7 +33,13 @@ def load_jsonl(path: str) -> List[DecisionSample]:
             if line.strip():
                 item = json.loads(line)
                 specs = [
-                    QuestionSpec(name=q[0], q_type=q[1], target=q[2], options=q[3] if len(q) > 3 else None)
+                    QuestionSpec(
+                        name=q[0],
+                        q_type=q[1],
+                        target=q[2],
+                        options=q[3] if len(q) > 3 else None,
+                        instruction=q[4] if len(q) > 4 else None,
+                    )
                     for q in item["questions"]
                 ]
                 samples.append(DecisionSample(state=item["state"], questions=specs))

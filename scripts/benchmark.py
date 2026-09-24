@@ -15,10 +15,10 @@ BENCHMARK_TARGETS = {
         "Sports": "sports, games, athletes",
         "Business": "companies, markets, economy",
         "Sci/Tech": "science, technology, software, space"
-    }, None, 0.953),
-    "emotion": ("DAIR Emotion", "dair-ai/emotion", "test", "text", "label", ["sadness", "joy", "love", "anger", "fear", "surprise"], None, 0.600),
-    "massive": ("MASSIVE Intent", "mteb/amazon_massive_intent", "test", "text", "label_text", None, "en", 0.783),
-    "banking77": ("Banking77", "mteb/banking77", "test", "text", "label_text", None, None, 0.492),
+    }, None, 0.953, "What is the primary topic of this article?"),
+    "emotion": ("DAIR Emotion", "dair-ai/emotion", "test", "text", "label", ["sadness", "joy", "love", "anger", "fear", "surprise"], None, 0.600, "Which emotion is most strongly expressed in this text?"),
+    "massive": ("MASSIVE Intent", "mteb/amazon_massive_intent", "test", "text", "label_text", None, "en", 0.783, "What is the user's intent in this utterance?"),
+    "banking77": ("Banking77", "mteb/banking77", "test", "text", "label_text", None, None, 0.492, "Which banking intent does this message express?"),
 }
 
 def eval_typed_decisions(engine: DecisionEngine, max_n: Optional[int]) -> Dict[str, Any]:
@@ -32,11 +32,12 @@ def eval_typed_decisions(engine: DecisionEngine, max_n: Optional[int]) -> Dict[s
         questions = []
         for name, spec in q_dict.items():
             t = spec.get("type")
+            ins = spec.get("instructions")
             if t == "choice":
                 crit = spec.get("criteria", {})
-                questions.append(Choice(name, crit if isinstance(crit, dict) else list(crit)))
-            elif t == "noul": questions.append(Noul(name))
-            elif t == "score": questions.append(Score(name, 0.0, 1.0))
+                questions.append(Choice(name, crit if isinstance(crit, dict) else list(crit), instruction=ins))
+            elif t == "noul": questions.append(Noul(name, instruction=ins))
+            elif t == "score": questions.append(Score(name, 0.0, 1.0, instruction=ins))
 
         res = engine.decide(item["state"], questions)
         latencies.append(res.latency_ms)
@@ -54,7 +55,7 @@ def eval_typed_decisions(engine: DecisionEngine, max_n: Optional[int]) -> Dict[s
     return {"name": "typed-decisions", "acc": correct / max(1, total), "laya_acc": 0.766, "p50": float(np.median(latencies))}
 
 def eval_choice_dataset(engine: DecisionEngine, cfg: tuple, max_n: Optional[int]) -> Dict[str, Any]:
-    name, path, split, tcol, lcol, opts, sub, laya_tgt = cfg
+    name, path, split, tcol, lcol, opts, sub, laya_tgt, instr = cfg
     print(f"\n[BENCHMARK] Evaluating {name}...", flush=True)
     ds = load_dataset(path, sub, split=split) if sub else load_dataset(path, split=split)
     if not opts:
@@ -67,7 +68,7 @@ def eval_choice_dataset(engine: DecisionEngine, cfg: tuple, max_n: Optional[int]
     for idx, item in enumerate(ds):
         gold = item[lcol]
         target = opt_keys[gold] if isinstance(gold, int) else str(gold)
-        res = engine.decide(str(item[tcol]).strip(), [Choice("label", opts)])
+        res = engine.decide(str(item[tcol]).strip(), [Choice("label", opts, instruction=instr)])
         latencies.append(res.latency_ms)
         if res.answers["label"].choice == target: correct += 1
         if (idx + 1) % 50 == 0 or (idx + 1) == len(ds):
