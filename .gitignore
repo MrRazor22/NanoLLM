@@ -2,6 +2,8 @@
 *.pt
 *.bin
 *.safetensors
+artifacts/data/*.jsonl
+artifacts/checkpoints/*.pt
 
 # Python cache
 __pycache__/

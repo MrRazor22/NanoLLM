@@ -13,17 +13,19 @@ Every operational domain in NanoLLM is modeled as an autonomous, cohesive **Boun
 ```text
 ┌─────────────────────────────────────────────────────────────┐
 │                 External Consumers / Drivers                │
-│                 (drivers/cli.py, examples/)                 │
+│                 (cli.py, examples/)                         │
 └──────────────────────────────┬──────────────────────────────┘
                                │ orchestrates
 ┌──────────────────────────────▼──────────────────────────────┐
-│                    Operational Boundaries                   │
+│                    nanollm/ (Autonomous Domain)             │
 │                                                             │
 │  nanollm/engine/          nanollm/training/    nanollm/eval/│
 │  ├── IDecisionEngine      ├── ITrainer         ├── IEvaluator
 │  ├── schema.py            ├── checkpointing_   ├── profiling_
-│  ├── layers/              │   layer.py         │   layer.py  
-│  │   ├── profiling.py     └── policies/        └── reporter.py
+│  ├── checkpoints/         │   layer.py         │   layer.py  
+│  │   └── champion_v2.pt   ├── data/            ├── reporter.py
+│  ├── layers/              │   └── train_adapt  ├── benchmark.json
+│  │   ├── profiling.py     └── policies/        └── baseline.json
 │  │   └── hierarchical.py      ├── loss.py                   │
 │  └── policies/                ├── dataset.py                │
 │      ├── substrate.py         ├── curriculum.py             │
@@ -34,20 +36,23 @@ Every operational domain in NanoLLM is modeled as an autonomous, cohesive **Boun
 ```
 
 ### 1. Operational Boundaries (1 Boundary = 1 Primitive)
-Each subsystem owns its complete Triad:
+Each boundary in `nanollm/` is fully autonomous and owns its functional code, policies, layers, and operational assets:
 - **`nanollm/engine/` (Inference):** 
   - Primitive: `IDecisionEngine` (`DecisionEngine`)
   - Schema: `schema.py` (`Choice`, `Noul`, `Score`, `DecisionResult`)
+  - Model Weights: `checkpoints/checkpoint_champion_v2.pt` (the neural parameters)
   - Policies ($\ge 4$ items $\implies$ `policies/`): `ISubstrate` (`DecisionSubstrate`, `NanoModel`), `ISlotAssembler` (`SlotAssembler`), `IResolver` (`DecisionResolver`), `ITokenizer` (`SubwordTokenizer`)
   - Layers ($\ge 2$ items $\implies$ `layers/`): `ProfilingLayer`, `HierarchicalLayer`
 - **`nanollm/training/` (Optimization):** 
   - Primitive: `ITrainer` (`EpochTrainer`)
   - Layer (Lean $\implies$ Flat): `CheckpointingLayer`
+  - Training Corpora: `data/train_adapt.jsonl`, `data/val_adapt.jsonl`
   - Policies ($\ge 5$ items $\implies$ `policies/`): `CalibratedLoss`, `MultiQuestionCollator`, `AdaptationCurriculum`, `FoundationCurriculum`, taxonomies, builder
 - **`nanollm/evaluation/` (Verification):** 
   - Primitive: `IEvaluator` (`ModelEvaluator`)
   - Layer (Lean $\implies$ Flat): `ProfilingEvaluatorLayer`
   - Utilities: `reporter.py` (`print_benchmark_table`)
+  - Verification Assets: `benchmark.json` (180 golden questions), `baseline.json` (verified score history)
 
 ### 2. Universal ATA Taxonomy: Behavior, State, and Utilities
 Every piece of code in NanoLLM strictly belongs to one of four canonical types:

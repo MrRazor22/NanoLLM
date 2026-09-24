@@ -4,8 +4,6 @@ import torch
 from torch.utils.data import DataLoader
 from transformers import AutoModel
 
-sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
-
 from nanollm import (
     AdaptationCurriculum,
     CalibratedLoss,
@@ -29,11 +27,11 @@ def run_eval(benchmark_file: str):
     print(f"Loaded {len(items)} honest benchmark test items.")
 
     print("\n--- Evaluating NanoLLM v2 (With Tools) ---", flush=True)
-    nano_v2 = DecisionEngine.from_checkpoint("checkpoints/checkpoint_champion_v2.pt")
+    nano_v2 = DecisionEngine.from_checkpoint()
     r_v2 = ProfilingEvaluatorLayer(ModelEvaluator.from_engine("NanoLLM v2", nano_v2)).evaluate(items)
 
     print("\n--- Evaluating NanoLLM v1 ---", flush=True)
-    nano_v1 = DecisionEngine.from_checkpoint("checkpoints/checkpoint_champion.pt")
+    nano_v1 = DecisionEngine.from_checkpoint("nanollm/engine/checkpoints/checkpoint_champion.pt")
     r_v1 = ProfilingEvaluatorLayer(ModelEvaluator.from_engine("NanoLLM v1", nano_v1)).evaluate(items)
 
     r_ly = {"name": "Laya SOTA", "by_cat": {}, "overall_acc": 0.0, "total_correct": 0, "total_questions": len(items)}
@@ -83,17 +81,17 @@ def main():
     p = argparse.ArgumentParser(description="NanoLLM Unified CLI")
     sub = p.add_subparsers(dest="command", required=True)
     pe = sub.add_parser("eval", help="Run honest evaluation benchmark")
-    pe.add_argument("--benchmark", default="data/honest_benchmark.json")
+    pe.add_argument("--benchmark", default="nanollm/evaluation/benchmark.json")
     pt = sub.add_parser("train", help="Train NanoLLM model")
-    pt.add_argument("--output", default="checkpoints/checkpoint.pt")
+    pt.add_argument("--output", default="nanollm/engine/checkpoints/checkpoint.pt")
     pt.add_argument("--init", default=None)
     pt.add_argument("--epochs", type=int, default=2)
     pt.add_argument("--lr", type=float, default=2e-5)
-    pt.add_argument("--train-data", default="data/train_adapt.jsonl")
-    pt.add_argument("--val-data", default="data/val_adapt.jsonl")
+    pt.add_argument("--train-data", default="nanollm/training/data/train_adapt.jsonl")
+    pt.add_argument("--val-data", default="nanollm/training/data/val_adapt.jsonl")
     pt.add_argument("--max-samples", type=int, default=0)
     pa = sub.add_parser("adapt", help="Generate adaptation curriculum dataset")
-    pa.add_argument("--data-dir", default="data")
+    pa.add_argument("--data-dir", default="nanollm/training/data")
     args = p.parse_args()
     if args.command == "eval": run_eval(args.benchmark)
     elif args.command == "train": run_train(args)

@@ -1,4 +1,5 @@
-from typing import Optional, Protocol, Sequence
+from pathlib import Path
+from typing import Optional, Protocol, Sequence, Union
 import torch
 from transformers import AutoModel
 from nanollm.engine.layers.profiling import ProfilingLayer
@@ -7,6 +8,8 @@ from nanollm.engine.policies.resolver import DecisionResolver, IResolver
 from nanollm.engine.policies.substrate import DecisionSubstrate, ISubstrate, ModelConfig
 from nanollm.engine.policies.tokenizer import SubwordTokenizer
 from nanollm.engine.schema import DecisionResult, Question
+
+DEFAULT_CHECKPOINT = Path(__file__).resolve().parent / "checkpoints" / "checkpoint_champion_v2.pt"
 
 class IDecisionEngine(Protocol):
     def decide(self, state: str, questions: Sequence[Question]) -> DecisionResult: ...
@@ -36,10 +39,11 @@ class DecisionEngine(IDecisionEngine):
     @classmethod
     def from_checkpoint(
         cls,
-        checkpoint_path: str,
+        checkpoint_path: Optional[Union[str, Path]] = None,
         backbone_name: str = "answerdotai/ModernBERT-base",
         device: Optional[str] = None,
     ) -> IDecisionEngine:
+        ckpt_path = Path(checkpoint_path) if checkpoint_path else DEFAULT_CHECKPOINT
         dev = torch.device(device if device else ("cuda" if torch.cuda.is_available() else "cpu"))
         tokenizer = SubwordTokenizer(backbone_name)
         assembler = SlotAssembler(tokenizer)
@@ -47,7 +51,7 @@ class DecisionEngine(IDecisionEngine):
         backbone = AutoModel.from_pretrained(backbone_name)
         config = ModelConfig(vocab_size=tokenizer.vocab_size, hidden_dim=768, num_layers=22, num_heads=12)
         substrate = DecisionSubstrate(config, backbone=backbone).to(dev)
-        substrate.load_state_dict(torch.load(checkpoint_path, map_location=dev))
+        substrate.load_state_dict(torch.load(str(ckpt_path), map_location=dev))
         substrate.eval()
         core_engine = cls(substrate, assembler, resolver, dev)
         return ProfilingLayer(core_engine)
