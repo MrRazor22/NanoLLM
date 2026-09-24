@@ -1,10 +1,11 @@
 from typing import Optional, Protocol, Sequence
 import torch
 from transformers import AutoModel
-from nanollm.core.substrate import DecisionSubstrate, ISubstrate, ModelConfig
-from nanollm.policies.assembler import ISlotAssembler, SlotAssembler
-from nanollm.policies.resolver import DecisionResolver, IResolver
-from nanollm.policies.tokenizer import SubwordTokenizer
+from nanollm.engine.layers.profiling import ProfilingLayer
+from nanollm.engine.policies.assembler import ISlotAssembler, SlotAssembler
+from nanollm.engine.policies.resolver import DecisionResolver, IResolver
+from nanollm.engine.policies.tokenizer import SubwordTokenizer
+from nanollm.engine.substrate import DecisionSubstrate, ISubstrate, ModelConfig
 from nanollm.schema import DecisionResult, Question
 
 class IDecisionEngine(Protocol):
@@ -39,7 +40,6 @@ class DecisionEngine(IDecisionEngine):
         backbone_name: str = "answerdotai/ModernBERT-base",
         device: Optional[str] = None,
     ) -> IDecisionEngine:
-        from nanollm.layers.profiling import ProfilingLayer
         dev = torch.device(device if device else ("cuda" if torch.cuda.is_available() else "cpu"))
         tokenizer = SubwordTokenizer(backbone_name)
         assembler = SlotAssembler(tokenizer)

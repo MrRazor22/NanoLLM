@@ -1,5 +1,5 @@
 from typing import Dict, List, Sequence
-from nanollm.layers.profiling import DecisionEngineLayer
+from nanollm.engine.layers.profiling import DecisionEngineLayer
 from nanollm.schema import Choice, DecisionResult, Question
 
 class HierarchicalLayer(DecisionEngineLayer):

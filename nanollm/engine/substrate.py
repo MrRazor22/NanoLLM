@@ -2,7 +2,6 @@ from dataclasses import dataclass
 from typing import Optional, Protocol
 import torch
 import torch.nn as nn
-import torch.nn.functional as F
 
 class ISubstrate(Protocol):
     def forward(self, input_ids: torch.Tensor, mask: Optional[torch.Tensor] = None) -> torch.Tensor: ...

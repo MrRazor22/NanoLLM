@@ -3,9 +3,9 @@ from pathlib import Path
 from typing import Optional
 import torch
 from torch.utils.data import DataLoader
-from nanollm.core.trainer import ITrainer
+from nanollm.training.trainer import ITrainer
 
-class CheckpointingTrainer:
+class CheckpointingLayer:
     def __init__(
         self,
         inner: ITrainer,
@@ -38,3 +38,5 @@ class CheckpointingTrainer:
 
     def evaluate(self, loader: DataLoader) -> float:
         return self.inner.evaluate(loader)
+
+CheckpointingTrainer = CheckpointingLayer

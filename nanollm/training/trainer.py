@@ -1,8 +1,8 @@
 from typing import Protocol
 import torch
 from torch.utils.data import DataLoader
-from nanollm.core.substrate import NanoModel
-from nanollm.policies.loss import CalibratedLoss
+from nanollm.engine.substrate import NanoModel
+from nanollm.training.policies.loss import CalibratedLoss
 
 class ITrainer(Protocol):
     def train_epoch(self, loader: DataLoader) -> float:

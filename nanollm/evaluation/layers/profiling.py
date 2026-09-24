@@ -1,9 +1,9 @@
 import time
 from typing import Any, Dict, List
 import numpy as np
-from nanollm.core.evaluator import IEvaluator
+from nanollm.evaluation.evaluator import IEvaluator
 
-class ProfilingEvaluator:
+class ProfilingEvaluatorLayer:
     def __init__(self, inner: IEvaluator, warmup_runs: int = 5):
         self.inner = inner
         self.warmup_runs = warmup_runs
@@ -29,3 +29,5 @@ class ProfilingEvaluator:
             report["p50_ms"] = float(np.median(latencies))
             report["p90_ms"] = float(np.percentile(latencies, 90))
         return report
+
+ProfilingEvaluator = ProfilingEvaluatorLayer

@@ -1,20 +1,17 @@
-from nanollm.core.engine import DecisionEngine, IDecisionEngine
-from nanollm.core.evaluator import IEvaluator, ModelEvaluator
-from nanollm.core.substrate import DecisionSubstrate, ISubstrate, ModelConfig, NanoModel
-from nanollm.core.trainer import EpochTrainer, ITrainer
 from nanollm.data.builder import choice_question, save_jsonl, split_train_val
 from nanollm.data.curriculum import AdaptationCurriculum, ICurriculum
 from nanollm.data.dataset import DecisionSample, MultiQuestionCollator, QuestionSpec, load_jsonl
 from nanollm.data.foundation import FoundationCurriculum
 from nanollm.data.taxonomies import BANKING_CLUSTERS, MASSIVE_CLUSTERS
-from nanollm.layers.checkpointing import CheckpointingTrainer
-from nanollm.layers.evaluator import ProfilingEvaluator
-from nanollm.layers.hierarchical import HierarchicalLayer
-from nanollm.layers.profiling import DecisionEngineLayer, ProfilingLayer
-from nanollm.policies.assembler import CompiledLayout, ISlotAssembler, SlotAssembler
-from nanollm.policies.loss import CalibratedLoss
-from nanollm.policies.resolver import DecisionResolver, IResolver
-from nanollm.policies.tokenizer import ByteTokenizer, ITokenizer, SubwordTokenizer
+from nanollm.engine.engine import DecisionEngine, IDecisionEngine
+from nanollm.engine.layers.hierarchical import HierarchicalLayer
+from nanollm.engine.layers.profiling import DecisionEngineLayer, ProfilingLayer
+from nanollm.engine.policies.assembler import CompiledLayout, ISlotAssembler, SlotAssembler
+from nanollm.engine.policies.resolver import DecisionResolver, IResolver
+from nanollm.engine.policies.tokenizer import ByteTokenizer, ITokenizer, SubwordTokenizer
+from nanollm.engine.substrate import DecisionSubstrate, ISubstrate, ModelConfig, NanoModel
+from nanollm.evaluation.evaluator import IEvaluator, ModelEvaluator
+from nanollm.evaluation.layers.profiling import ProfilingEvaluator, ProfilingEvaluatorLayer
 from nanollm.schema import (
     Answer,
     Choice,
@@ -26,6 +23,9 @@ from nanollm.schema import (
     Score,
     ScoreResult,
 )
+from nanollm.training.layers.checkpointing import CheckpointingLayer, CheckpointingTrainer
+from nanollm.training.policies.loss import CalibratedLoss
+from nanollm.training.trainer import EpochTrainer, ITrainer
 
 __all__ = [
     "AdaptationCurriculum",
@@ -33,6 +33,7 @@ __all__ = [
     "BANKING_CLUSTERS",
     "ByteTokenizer",
     "CalibratedLoss",
+    "CheckpointingLayer",
     "CheckpointingTrainer",
     "Choice",
     "ChoiceResult",
@@ -62,6 +63,7 @@ __all__ = [
     "Noul",
     "NoulResult",
     "ProfilingEvaluator",
+    "ProfilingEvaluatorLayer",
     "ProfilingLayer",
     "Question",
     "QuestionSpec",

@@ -8,7 +8,9 @@ Less code is a side effect of correct logic. Not a goal unto itself—bloat come
 
 ## The Axiomatic Triad Architecture
 
-Every component in NanoLLM strictly belongs to one of four architectural tiers:
+## The Boundary-First Axiomatic Triad Architecture
+
+Every operational domain in NanoLLM is modeled as an autonomous, cohesive **Boundary Triad**:
 
 ```text
 ┌─────────────────────────────────────────────────────────────┐
@@ -17,40 +19,32 @@ Every component in NanoLLM strictly belongs to one of four architectural tiers:
 └──────────────────────────────┬──────────────────────────────┘
                                │ orchestrates
 ┌──────────────────────────────▼──────────────────────────────┐
-│                  Outer Composable Layers                    │
-│            (nanollm/layers/profiling.py - λ_F: F -> F)      │
-└──────────────────────────────┬──────────────────────────────┘
-                               │ wraps
-┌──────────────────────────────▼──────────────────────────────┐
-│                    The Core Primitives                      │
-│     IDecisionEngine (Domain)  │  ISubstrate (Neural Tensor) │
-└──────────────────────────────▲──────────────────────────────┘
-                               │ injects
-┌──────────────────────────────┴──────────────────────────────┐
-│                     Injected Policies                       │
-│     SlotAssembler  │  DecisionResolver  │  CalibratedLoss    │
+│                    Operational Boundaries                   │
+│                                                             │
+│  nanollm/engine/          nanollm/training/     nanollm/eval/│
+│  ├── IDecisionEngine      ├── ITrainer          ├── IEvaluator
+│  ├── policies/            ├── policies/         └── layers/  │
+│  │   ├── assembler.py     │   └── loss.py           └── profiling
+│  │   ├── resolver.py      └── layers/                        │
+│  │   └── tokenizer.py         └── checkpointing              │
+│  └── layers/                                                │
+│      ├── profiling.py                                        │
+│      └── hierarchical.py                                     │
 └─────────────────────────────────────────────────────────────┘
 ```
 
-### 1. The Core Primitives (`nanollm/core/`)
-- Irreducible, orthogonal contracts defining *what* the system does.
-- `IDecisionEngine`: The single domain entry point (`decide(state, questions) -> DecisionResult`).
-- `ISubstrate`: The hardware tensor compute primitive (`forward(input_ids, mask) -> scores`).
-- Kept razor-thin (<80 lines). Zero intermediate glue.
+### 1. Operational Boundaries
+Each subsystem owns its complete Triad:
+- **`nanollm/engine/` (Inference):** Primitives (`IDecisionEngine`, `ISubstrate`), boundary-scoped policies (`SlotAssembler`, `DecisionResolver`, `SubwordTokenizer`), and endomorphic layers (`ProfilingLayer`, `HierarchicalLayer`).
+- **`nanollm/training/` (Optimization):** Primitive (`ITrainer`, `EpochTrainer`), boundary-scoped policy (`CalibratedLoss`), and endomorphic layer (`CheckpointingLayer`).
+- **`nanollm/evaluation/` (Verification):** Primitive (`IEvaluator`, `ModelEvaluator`) and endomorphic layer (`ProfilingEvaluatorLayer`).
+- **`nanollm/data/` (Curricula & Ingestion):** Primitives (`AdaptationCurriculum`, `FoundationCurriculum`), formatters, and datasets.
 
-### 2. Injected Policies (`nanollm/policies/`)
-- Pure, swappable strategies configured into the primitive at initialization.
-- `ISlotAssembler`: Formats sequence layout and maps token slot coordinates. Single source of truth for both training and inference.
-- `IResolver`: Maps raw scalar logits at slot coordinates into typed, calibrated decision results (`Choice`, `Noul`, `Score`).
-- `ITokenizer`: Text-to-token encoding and decoding (`SubwordTokenizer`, `ByteTokenizer`).
-- `CalibratedLoss`: Multi-task objective function combining Cross-Entropy, BCE, and Brier score penalty.
+### 2. Universal Layer & Policy Rules
+- **The `*Layer` Suffix Mandate:** Every composable endomorphic decorator ($\lambda_F: F \to F$) must carry the `*Layer` suffix (`ProfilingLayer`, `HierarchicalLayer`, `CheckpointingLayer`, `ProfilingEvaluatorLayer`).
+- **Boundary-Scoped Policies:** Policies live strictly in their boundary's `policies/` namespace (`nanollm.engine.policies`, `nanollm.training.policies`). Never mix unrelated policies together.
 
-### 3. Composable Layers (`nanollm/layers/`)
-- Endomorphic wrappers ($\lambda_F: F \to F$) that decorate the primitive from the outside without contract mutation.
-- `ProfilingLayer`: Decorates `IDecisionEngine` with CUDA-synchronized latency timing.
-- New capabilities (caching, audit logging, telemetry) must always be added as outer layers, never monkey-patched into core primitives.
-
-### 4. Consumers & Orchestrators (`cli.py`, `examples/`)
+### 3. Consumers & Orchestrators (`cli.py`, `examples/`)
 - Standalone execution drivers (`cli.py`, `basic_decision.py`).
 - Zero business logic: CLI only parses arguments, wires primitives, decorates them with layers, and invokes them.
 

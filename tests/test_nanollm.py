@@ -13,7 +13,7 @@ from nanollm import (
     ModelConfig,
     MultiQuestionCollator,
     Noul,
-    ProfilingEvaluator,
+    ProfilingEvaluatorLayer,
     QuestionSpec,
     Score,
     SlotAssembler,
@@ -87,7 +87,7 @@ def test_evaluator_and_builder():
         {"category": "test", "state": "hello", "questions": {"q1": {}}, "gold": {"q1": {"label": "yes"}}},
         {"category": "test", "state": "world", "questions": {"q1": {}}, "gold": {"q1": {"label": "no"}}},
     ]
-    evaluator = ProfilingEvaluator(ModelEvaluator("dummy", lambda s, q: {"q1": "yes"}))
+    evaluator = ProfilingEvaluatorLayer(ModelEvaluator("dummy", lambda s, q: {"q1": "yes"}))
     rep = evaluator.evaluate(dummy_items)
     assert rep["total_questions"] == 2
     assert rep["total_correct"] == 1

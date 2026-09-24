@@ -10,7 +10,7 @@ if Path("D:/CodeBase/laya").exists():
 from nanollm import (
     AdaptationCurriculum,
     CalibratedLoss,
-    CheckpointingTrainer,
+    CheckpointingLayer,
     Choice,
     DecisionEngine,
     EpochTrainer,
@@ -18,7 +18,7 @@ from nanollm import (
     ModelEvaluator,
     MultiQuestionCollator,
     NanoModel,
-    ProfilingEvaluator,
+    ProfilingEvaluatorLayer,
     SubwordTokenizer,
     load_jsonl,
     save_jsonl,
@@ -42,11 +42,11 @@ def _eval_honest(benchmark_file: str):
 
     print("\n--- Evaluating NanoLLM v2 (With Tools) ---", flush=True)
     nano_v2 = DecisionEngine.from_checkpoint("checkpoints/checkpoint_champion_v2.pt")
-    r_v2 = ProfilingEvaluator(ModelEvaluator("NanoLLM v2", _make_nano_decide(nano_v2))).evaluate(items)
+    r_v2 = ProfilingEvaluatorLayer(ModelEvaluator("NanoLLM v2", _make_nano_decide(nano_v2))).evaluate(items)
 
     print("\n--- Evaluating NanoLLM v1 ---", flush=True)
     nano_v1 = DecisionEngine.from_checkpoint("checkpoints/checkpoint_champion.pt")
-    r_v1 = ProfilingEvaluator(ModelEvaluator("NanoLLM v1", _make_nano_decide(nano_v1))).evaluate(items)
+    r_v1 = ProfilingEvaluatorLayer(ModelEvaluator("NanoLLM v1", _make_nano_decide(nano_v1))).evaluate(items)
 
     try:
         import laya
@@ -55,7 +55,7 @@ def _eval_honest(benchmark_file: str):
         def decide_laya(s, q):
             out = laya_agent.predict(s, q)
             return {qid: out["answers"][qid]["choice"] if spec["type"] == "choice" else ("true" if out["answers"][qid]["noul"] >= 0.5 else "false") if spec["type"] == "noul" else max(out["answers"][qid]["probabilities"], key=out["answers"][qid]["probabilities"].get) for qid, spec in q.items()}
-        r_ly = ProfilingEvaluator(ModelEvaluator("Laya SOTA", decide_laya)).evaluate(items)
+        r_ly = ProfilingEvaluatorLayer(ModelEvaluator("Laya SOTA", decide_laya)).evaluate(items)
     except Exception:
         r_ly = {"by_cat": {}, "overall_acc": 0.0, "total_correct": 0, "total_questions": len(items), "p50_ms": 0.0, "p90_ms": 0.0}
 
@@ -88,7 +88,7 @@ def _train(args):
         model.load_state_dict(torch.load(args.init, map_location=device))
     opt = torch.optim.AdamW(model.parameters(), lr=args.lr)
     raw_trainer = EpochTrainer(model, opt, CalibratedLoss(), device, accum_steps=4)
-    trainer = CheckpointingTrainer(raw_trainer, args.output, val_loader)
+    trainer = CheckpointingLayer(raw_trainer, args.output, val_loader)
     for epoch in range(1, args.epochs + 1):
         t0 = time.perf_counter()
         loss = trainer.train_epoch(train_loader)
