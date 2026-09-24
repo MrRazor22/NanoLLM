@@ -54,6 +54,12 @@ Every component in NanoLLM strictly belongs to one of four architectural tiers:
 - Standalone execution drivers (`train.py`, `benchmark.py`, `evaluate.py`, `basic_decision.py`).
 - Strictly isolated from the `nanollm` library package to ensure zero dependency bloat and eliminate root clutter.
 
+### 5. Interfaces Are the System; Implementations Are Transient
+- The entire architecture is anchored strictly on razor-sharp interfaces (`typing.Protocol`).
+- The core primitive interfaces (`IDecisionEngine`, `ISubstrate`) define the fundamental domain boundary.
+- The injected policy interfaces (`ISlotAssembler`, `IResolver`, `ITokenizer`) define the swappable strategy points.
+- Concrete classes are interchangeable implementation details; the engine coordinates only through interface contracts.
+
 ---
 
 ## Retrospective: Mistakes Made & Evolutionary Breakthroughs

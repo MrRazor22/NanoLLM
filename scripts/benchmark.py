@@ -1,140 +1,105 @@
 from pathlib import Path
-from typing import Dict, List, Tuple
-import sys
-import time
-import torch
+from typing import Any, Dict, List, Optional
+import argparse, json, sys, time
+import numpy as np, torch
+from datasets import load_dataset
 
 ROOT_DIR = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT_DIR))
 
 from nanollm import Choice, DecisionEngine, Noul, Score
 
-BENCHMARK_SUITE: List[Dict] = [
-    {
-        "domain": "Medical / Clinical Triage",
-        "query": "Patient presents with sudden onset unilateral facial droop, slurred speech, and right arm weakness.",
-        "options": ["stroke_emergency", "dermatology_rash", "orthopedic_sprain", "routine_dental"],
-        "expected": "stroke_emergency",
-        "is_urgent": True,
-    },
-    {
-        "domain": "Medical / Clinical Triage",
-        "query": "Severe itchy red maculopapular rash developing across torso after taking amoxicillin dose.",
-        "options": ["drug_allergy_reaction", "bone_fracture", "concussion", "hypertension"],
-        "expected": "drug_allergy_reaction",
-        "is_urgent": True,
-    },
-    {
-        "domain": "Medical / Clinical Triage",
-        "query": "Twisted right ankle during basketball, severe localized swelling and inability to bear weight.",
-        "options": ["orthopedic_injury", "stroke_emergency", "cardiac_arrest", "food_poisoning"],
-        "expected": "orthopedic_injury",
-        "is_urgent": False,
-    },
-    {
-        "domain": "Legal & Contracts",
-        "query": "Neither party shall disclose confidential trade secrets, client lists, or algorithms to third parties.",
-        "options": ["confidentiality_nda", "governing_law", "limitation_of_liability", "severability"],
-        "expected": "confidentiality_nda",
-        "is_urgent": False,
-    },
-    {
-        "domain": "Legal & Contracts",
-        "query": "This agreement shall be governed by and construed under the laws of the State of Delaware.",
-        "options": ["governing_law_jurisdiction", "force_majeure", "indemnification", "confidentiality_nda"],
-        "expected": "governing_law_jurisdiction",
-        "is_urgent": False,
-    },
-    {
-        "domain": "Legal & Contracts",
-        "query": "Supplier shall indemnify and hold harmless the customer from any third party patent infringement claims.",
-        "options": ["indemnification_defense", "payment_terms", "term_and_termination", "severability"],
-        "expected": "indemnification_defense",
-        "is_urgent": True,
-    },
-    {
-        "domain": "Developer & Git",
-        "query": "Need to save my current uncommitted working directory edits temporarily so I can pull origin main.",
-        "options": ["git_stash", "git_rebase", "git_cherry_pick", "git_reset_hard"],
-        "expected": "git_stash",
-        "is_urgent": False,
-    },
-    {
-        "domain": "Developer & Git",
-        "query": "Apply commit 7a8b9c from develop branch directly onto release-1.2 branch.",
-        "options": ["git_cherry_pick", "git_commit_amend", "git_clean", "git_stash"],
-        "expected": "git_cherry_pick",
-        "is_urgent": False,
-    },
-    {
-        "domain": "Developer & Git",
-        "query": "Discard all unstaged and staged changes completely and revert back to commit HEAD.",
-        "options": ["git_reset_hard", "git_merge", "git_stash_pop", "git_branch"],
-        "expected": "git_reset_hard",
-        "is_urgent": True,
-    },
-]
+BENCHMARK_TARGETS = {
+    "ag_news": ("AG News", "fancyzhx/ag_news", "test", "text", "label", {
+        "World": "international news, politics, conflicts",
+        "Sports": "sports, games, athletes",
+        "Business": "companies, markets, economy",
+        "Sci/Tech": "science, technology, software, space"
+    }, None, 0.953),
+    "emotion": ("DAIR Emotion", "dair-ai/emotion", "test", "text", "label", ["sadness", "joy", "love", "anger", "fear", "surprise"], None, 0.600),
+    "massive": ("MASSIVE Intent", "mteb/amazon_massive_intent", "test", "text", "label_text", None, "en", 0.783),
+    "banking77": ("Banking77", "mteb/banking77", "test", "text", "label_text", None, None, 0.492),
+}
 
-def run_benchmark(engine: DecisionEngine):
-    print("\n==================================================")
-    print("      SCIENTIFIC ZERO-SHOT OOD BENCHMARK SUITE     ")
-    print("==================================================")
+def eval_typed_decisions(engine: DecisionEngine, max_n: Optional[int]) -> Dict[str, Any]:
+    print("\n[BENCHMARK] Evaluating LocalLLaMA/typed-decisions...", flush=True)
+    ds = load_dataset("LocalLLaMA/typed-decisions", "all", split="test")
+    if max_n: ds = ds.select(range(min(len(ds), max_n)))
+    correct, total, latencies = 0, 0, []
 
-    latencies = []
-    correct_choices = 0
-    correct_nouls = 0
-    brier_sum = 0.0
+    for idx, item in enumerate(ds):
+        q_dict, gold_dict = json.loads(item["questions"]), json.loads(item["gold"])
+        questions = []
+        for name, spec in q_dict.items():
+            t = spec.get("type")
+            if t == "choice":
+                crit = spec.get("criteria", {})
+                questions.append(Choice(name, crit if isinstance(crit, dict) else list(crit)))
+            elif t == "noul": questions.append(Noul(name))
+            elif t == "score": questions.append(Score(name, 0.0, 1.0))
 
-    for item in BENCHMARK_SUITE:
-        questions = [
-            Choice("category", options=item["options"]),
-            Noul("is_urgent"),
-            Score("severity", min_value=0.0, max_value=100.0),
-        ]
+        res = engine.decide(item["state"], questions)
+        latencies.append(res.latency_ms)
 
-        result = engine.decide(state=item["query"], questions=questions)
-        latencies.append(result.latency_ms)
+        for name, gold in gold_dict.items():
+            ans = res.answers.get(name)
+            if not ans: continue
+            total += 1
+            if gold.get("type") == "choice" and ans.choice == gold.get("label"): correct += 1
+            elif gold.get("type") == "noul" and ans.value == (gold.get("label") == "true" or gold.get("noul", 0) >= 0.5): correct += 1
 
-        ans_choice = result.answers["category"]
-        ans_noul = result.answers["is_urgent"]
+        if (idx + 1) % 50 == 0 or (idx + 1) == len(ds):
+            print(f"  typed-decisions [{idx + 1:4d}/{len(ds)}] Running Acc: {(correct / max(1, total)) * 100:5.1f}%", flush=True)
 
-        is_choice_ok = ans_choice.choice == item["expected"]
-        is_noul_ok = ans_noul.value == item["is_urgent"]
+    return {"name": "typed-decisions", "acc": correct / max(1, total), "laya_acc": 0.766, "p50": float(np.median(latencies))}
 
-        if is_choice_ok:
-            correct_choices += 1
-        if is_noul_ok:
-            correct_nouls += 1
+def eval_choice_dataset(engine: DecisionEngine, cfg: tuple, max_n: Optional[int]) -> Dict[str, Any]:
+    name, path, split, tcol, lcol, opts, sub, laya_tgt = cfg
+    print(f"\n[BENCHMARK] Evaluating {name}...", flush=True)
+    ds = load_dataset(path, sub, split=split) if sub else load_dataset(path, split=split)
+    if not opts:
+        train_ds = load_dataset(path, sub, split="train") if sub else load_dataset(path, split="train")
+        opts = sorted(list(set(train_ds[lcol])))
+    if max_n: ds = ds.shuffle(seed=42).select(range(min(len(ds), max_n)))
 
-        brier_sum += (ans_noul.probability - (1.0 if item["is_urgent"] else 0.0)) ** 2
+    correct, latencies = 0, []
+    opt_keys = list(opts.keys()) if isinstance(opts, dict) else opts
+    for idx, item in enumerate(ds):
+        gold = item[lcol]
+        target = opt_keys[gold] if isinstance(gold, int) else str(gold)
+        res = engine.decide(str(item[tcol]).strip(), [Choice("label", opts)])
+        latencies.append(res.latency_ms)
+        if res.answers["label"].choice == target: correct += 1
+        if (idx + 1) % 50 == 0 or (idx + 1) == len(ds):
+            print(f"  {name} [{idx + 1:4d}/{len(ds)}] Running Acc: {(correct / (idx + 1)) * 100:5.1f}%", flush=True)
 
-        status_str = "PASS" if is_choice_ok else "FAIL"
-        print(f"\n[{status_str}] [{item['domain']}]")
-        print(f"  Query:      {item['query'][:80]}...")
-        print(f"  Prediction: {ans_choice.choice} ({ans_choice.confidence * 100:.1f}%) | Expected: {item['expected']}")
-        print(f"  Urgent:     {ans_noul.value} (p={ans_noul.probability:.3f}) | Expected: {item['is_urgent']}")
-
-    latencies.sort()
-    p50 = latencies[len(latencies) // 2]
-    p95 = latencies[int(len(latencies) * 0.95)]
-    choice_acc = (correct_choices / len(BENCHMARK_SUITE)) * 100.0
-    noul_acc = (correct_nouls / len(BENCHMARK_SUITE)) * 100.0
-    brier_score = brier_sum / len(BENCHMARK_SUITE)
-
-    print("\n==================================================")
-    print("              FINAL BENCHMARK RESULTS             ")
-    print("==================================================")
-    print(f"Zero-Shot OOD Accuracy: {choice_acc:.1f}% ({correct_choices}/{len(BENCHMARK_SUITE)})")
-    print(f"Calibrated Noul Accuracy: {noul_acc:.1f}% ({correct_nouls}/{len(BENCHMARK_SUITE)})")
-    print(f"Epistemic Brier Score:   {brier_score:.4f} (0.0 = perfect)")
-    print(f"Inference Latency P50:   {p50:.2f} ms")
-    print(f"Inference Latency P95:   {p95:.2f} ms")
-    print("==================================================\n")
+    return {"name": name, "acc": correct / max(1, len(ds)), "laya_acc": laya_tgt, "p50": float(np.median(latencies))}
 
 def main():
-    checkpoint_path = sys.argv[1] if len(sys.argv) > 1 else str(ROOT_DIR / "checkpoint.pt")
-    engine = DecisionEngine.from_checkpoint(checkpoint_path)
-    run_benchmark(engine)
+    parser = argparse.ArgumentParser(description="Official NanoLLM vs Laya Scientific Benchmark Suite")
+    parser.add_argument("--checkpoint", default="checkpoint.pt")
+    parser.add_argument("--samples", type=int, default=500, help="Samples per dataset (0 = all)")
+    parser.add_argument("--task", default="all", choices=["all", "typed_decisions", "massive", "banking77", "ag_news", "emotion"])
+    args = parser.parse_args()
+
+    engine = DecisionEngine.from_checkpoint(args.checkpoint)
+    n = None if args.samples == 0 else args.samples
+    results = []
+
+    if args.task in ["all", "typed_decisions"]:
+        results.append(eval_typed_decisions(engine, n))
+
+    for k, cfg in BENCHMARK_TARGETS.items():
+        if args.task in ["all", k]:
+            results.append(eval_choice_dataset(engine, cfg, n))
+
+    print("\n" + "=" * 65)
+    print(f"{'Benchmark Dataset':25s} | {'NanoLLM':10s} | {'Laya':10s} | {'P50 (ms)':8s}")
+    print("-" * 65)
+    for r in results:
+        laya_str = f"{r['laya_acc'] * 100:.1f}%" if r["laya_acc"] else "N/A"
+        print(f"{r['name']:25s} | {r['acc'] * 100:8.1f}% | {laya_str:10s} | {r['p50']:6.1f}ms")
+    print("=" * 65 + "\n")
 
 if __name__ == "__main__":
     main()

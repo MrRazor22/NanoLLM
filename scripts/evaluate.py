@@ -24,7 +24,8 @@ def evaluate_dataset(engine: DecisionEngine, path: str):
     score_mae_sum = 0.0
 
     start_time = time.perf_counter()
-    for sample in samples:
+    print(f"\n[EVAL] Starting evaluation on {total_samples} samples from {path}...\n", flush=True)
+    for idx, sample in enumerate(samples):
         choice_q = next(q for q in sample.questions if q.q_type == "choice")
         urgent_q = next(q for q in sample.questions if q.q_type == "noul")
         score_q = next(q for q in sample.questions if q.q_type == "score")
@@ -38,7 +39,8 @@ def evaluate_dataset(engine: DecisionEngine, path: str):
 
         result = engine.decide(state=sample.state, questions=questions)
         dept_res = result.answers["department"]
-        target_label = options[choice_q.target]
+        opt_keys = list(options.keys()) if isinstance(options, dict) else options
+        target_label = opt_keys[choice_q.target]
         if dept_res.choice == target_label:
             choice_correct += 1
 
@@ -50,6 +52,17 @@ def evaluate_dataset(engine: DecisionEngine, path: str):
 
         score_res = result.answers["severity"]
         score_mae_sum += abs(score_res.score - (score_q.target * 100.0))
+
+        if (idx + 1) % 500 == 0 or (idx + 1) == total_samples:
+            elapsed = time.perf_counter() - start_time
+            avg_ms = (elapsed / (idx + 1)) * 1000.0
+            acc = (choice_correct / (idx + 1)) * 100.0
+            print(
+                f"Eval [{idx + 1:5d}/{total_samples}] "
+                f"Choice Acc: {acc:5.1f}% | Noul Acc: {(noul_correct / (idx + 1)) * 100:5.1f}% | "
+                f"Speed: {avg_ms:4.1f}ms/sample",
+                flush=True,
+            )
 
     elapsed_ms = (time.perf_counter() - start_time) * 1000.0
     avg_latency = elapsed_ms / max(1, total_samples)

@@ -13,10 +13,11 @@ class DecisionResolver(IResolver):
             if isinstance(q, Choice):
                 probs = logits.softmax(dim=-1)
                 best_i = int(probs.argmax().item())
+                opt_keys = list(q.options.keys()) if isinstance(q.options, dict) else list(q.options)
                 answers[q.name] = ChoiceResult(
-                    choice=q.options[best_i],
+                    choice=opt_keys[best_i],
                     confidence=float(probs[best_i].item()),
-                    probabilities={opt: float(probs[j].item()) for j, opt in enumerate(q.options)},
+                    probabilities={k: float(probs[j].item()) for j, k in enumerate(opt_keys)},
                 )
             elif isinstance(q, Noul):
                 p = float(torch.sigmoid(logits[0]).item())

@@ -28,10 +28,12 @@ class SlotAssembler(ISlotAssembler):
             q_type = getattr(q, "q_type", "choice" if opts is not None else "noul")
             if opts:
                 pos = []
-                for opt in opts:
+                opt_items = opts.items() if isinstance(opts, dict) else [(o, None) for o in opts]
+                for k, v in opt_items:
                     ids.append(self.tokenizer.mask_id)
                     pos.append(len(ids) - 1)
-                    ids.extend(self.tokenizer.encode(f" {opt}"))
+                    text = f" {k}: {v}" if v else f" {k}"
+                    ids.extend(self.tokenizer.encode(text))
                 meta.append((q_type, pos, int(target) if target is not None else 0))
             else:
                 ids.append(self.tokenizer.mask_id)

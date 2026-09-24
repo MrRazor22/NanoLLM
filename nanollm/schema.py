@@ -4,7 +4,7 @@ from typing import Dict, List, Union
 @dataclass(frozen=True)
 class Choice:
     name: str
-    options: List[str]
+    options: Union[List[str], Dict[str, str]]
 
 @dataclass(frozen=True)
 class Noul:
