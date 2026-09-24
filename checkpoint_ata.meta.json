@@ -1,0 +1,7 @@
+{
+  "checkpoint": "checkpoint_ata.pt",
+  "epoch": 2,
+  "val_loss": 0.4651375738217963,
+  "train_loss": 0.42332610023757233,
+  "timestamp": "2026-09-24T06:51:42Z"
+}

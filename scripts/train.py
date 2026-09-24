@@ -1,6 +1,7 @@
 from pathlib import Path
 from typing import Any, Dict
 import argparse
+import json
 import os
 import sys
 import time
@@ -24,12 +25,13 @@ def evaluate(model: NanoModel, dataloader: DataLoader, loss_fn: CalibratedLoss, 
     model.eval()
     total_loss = 0.0
     with torch.no_grad():
-        for batch in dataloader:
-            input_ids = batch["input_ids"].to(device)
-            mask = batch["mask"].to(device)
-            scores = model(input_ids, mask)
-            loss = loss_fn(scores, batch["meta"], device)
-            total_loss += loss.item()
+        with torch.amp.autocast("cuda", enabled=device.type == "cuda"):
+            for batch in dataloader:
+                input_ids = batch["input_ids"].to(device)
+                mask = batch["mask"].to(device)
+                scores = model(input_ids, mask)
+                loss = loss_fn(scores, batch["meta"], device)
+                total_loss += loss.item()
     return total_loss / max(1, len(dataloader))
 
 def main():
@@ -46,8 +48,9 @@ def main():
     train_samples = load_jsonl(train_path)
     val_samples = load_jsonl(val_path)
 
-    train_loader = DataLoader(train_samples, batch_size=32, shuffle=True, collate_fn=collator)
-    val_loader = DataLoader(val_samples, batch_size=32, shuffle=False, collate_fn=collator)
+    micro_batch, accum_steps = 8, 4
+    train_loader = DataLoader(train_samples, batch_size=micro_batch, shuffle=True, collate_fn=collator)
+    val_loader = DataLoader(val_samples, batch_size=micro_batch, shuffle=False, collate_fn=collator)
 
     backbone = AutoModel.from_pretrained(backbone_name)
     config = ModelConfig(vocab_size=tokenizer.vocab_size, hidden_dim=768, num_layers=22, num_heads=12)
@@ -56,36 +59,39 @@ def main():
     optimizer = torch.optim.AdamW(model.parameters(), lr=2e-5)
     scaler = torch.amp.GradScaler("cuda", enabled=device.type == "cuda")
 
-    epochs = 3
-    best_val_loss = float("inf")
-    total_steps = len(train_loader)
-    print(f"[DATA] Train: {len(train_samples)} samples | Val: {len(val_samples)} samples | Batch: 32 | Steps/Epoch: {total_steps}\n", flush=True)
-
     parser = argparse.ArgumentParser(description="Train NanoLLM Foundation Decision Engine")
     parser.add_argument("--output", default=str(ROOT_DIR / "checkpoint.pt"), help="Output path for best checkpoint")
+    parser.add_argument("--epochs", type=int, default=2, help="Number of training epochs")
     args, _ = parser.parse_known_args()
     checkpoint_out = args.output
+    epochs = args.epochs
+    best_val_loss = float("inf")
+    total_steps = len(train_loader)
+    print(f"[DATA] Train: {len(train_samples)} samples | Val: {len(val_samples)} samples | MicroBatch: {micro_batch} | Accum: {accum_steps} | Steps/Epoch: {total_steps}\n", flush=True)
 
     for epoch in range(1, epochs + 1):
         model.train()
         train_loss = 0.0
         start_time = time.perf_counter()
+        optimizer.zero_grad()
 
         for step, batch in enumerate(train_loader):
-            optimizer.zero_grad()
             input_ids = batch["input_ids"].to(device)
             mask = batch["mask"].to(device)
 
             with torch.amp.autocast("cuda", enabled=device.type == "cuda"):
                 scores = model(input_ids, mask)
-                loss = loss_fn(scores, batch["meta"], device)
+                loss = loss_fn(scores, batch["meta"], device) / accum_steps
 
             scaler.scale(loss).backward()
-            scaler.step(optimizer)
-            scaler.update()
 
-            train_loss += loss.item()
-            if (step + 1) % 50 == 0 or (step + 1) == total_steps:
+            if (step + 1) % accum_steps == 0 or (step + 1) == total_steps:
+                scaler.step(optimizer)
+                scaler.update()
+                optimizer.zero_grad()
+
+            train_loss += loss.item() * accum_steps
+            if (step + 1) % 100 == 0 or (step + 1) == total_steps:
                 elapsed = time.perf_counter() - start_time
                 avg_step_ms = (elapsed / (step + 1)) * 1000.0
                 curr_loss = train_loss / (step + 1)
@@ -95,6 +101,7 @@ def main():
                     flush=True
                 )
 
+
         val_loss = evaluate(model, val_loader, loss_fn, device)
         epoch_sec = time.perf_counter() - start_time
         print(f"\n---> Epoch {epoch} Complete | Train Loss: {train_loss / total_steps:.4f} | Val Loss: {val_loss:.4f} | Time: {epoch_sec:.1f}s", flush=True)
@@ -102,6 +109,9 @@ def main():
         if val_loss < best_val_loss:
             best_val_loss = val_loss
             torch.save(model.state_dict(), checkpoint_out)
+            meta_path = Path(checkpoint_out).with_suffix(".meta.json")
+            with open(meta_path, "w", encoding="utf-8") as f:
+                json.dump({"checkpoint": str(checkpoint_out), "epoch": epoch, "val_loss": val_loss, "train_loss": train_loss / total_steps, "timestamp": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())}, f, indent=2)
             print(f"     [CHECKPOINT] Saved best model to {checkpoint_out} (val_loss: {val_loss:.4f})\n", flush=True)
 
     print(f"[DONE] Training finished. Best Val Loss: {best_val_loss:.4f}", flush=True)

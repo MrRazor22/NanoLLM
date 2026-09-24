@@ -31,7 +31,7 @@ class CalibratedLoss(nn.Module):
                     total_loss = total_loss + (1.0 - self.brier_weight) * bce + self.brier_weight * brier
                 elif q_type == "score":
                     t = torch.tensor(target, dtype=torch.float, device=device)
-                    total_loss = total_loss + (torch.sigmoid(logits[0]) - t) ** 2
+                    total_loss = total_loss + 4.0 * (torch.sigmoid(logits[0]) - t) ** 2
                 count += 1
 
         return total_loss / max(1, count)

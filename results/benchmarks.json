@@ -1,0 +1,76 @@
+[
+  {
+    "timestamp": "2026-09-24T06:55:39Z",
+    "checkpoint": "checkpoint_ata.pt",
+    "samples": 500,
+    "results": [
+      {
+        "name": "typed-decisions",
+        "acc": 0.286,
+        "laya_acc": 0.766,
+        "p50": 31.651149969547987
+      },
+      {
+        "name": "AG News",
+        "acc": 0.674,
+        "laya_acc": 0.953,
+        "p50": 28.995900036534294
+      },
+      {
+        "name": "DAIR Emotion",
+        "acc": 0.564,
+        "laya_acc": 0.6,
+        "p50": 28.202050016261637
+      },
+      {
+        "name": "MASSIVE Intent",
+        "acc": 0.33,
+        "laya_acc": 0.783,
+        "p50": 62.24379999912344
+      },
+      {
+        "name": "Banking77",
+        "acc": 0.424,
+        "laya_acc": 0.492,
+        "p50": 62.539850012399256
+      }
+    ]
+  },
+  {
+    "timestamp": "2026-09-24T06:58:22Z",
+    "checkpoint": "checkpoint.pt",
+    "samples": 500,
+    "results": [
+      {
+        "name": "typed-decisions",
+        "acc": 0.303,
+        "laya_acc": 0.766,
+        "p50": 30.859500024234876
+      },
+      {
+        "name": "AG News",
+        "acc": 0.76,
+        "laya_acc": 0.953,
+        "p50": 28.717649984173477
+      },
+      {
+        "name": "DAIR Emotion",
+        "acc": 0.344,
+        "laya_acc": 0.6,
+        "p50": 26.90899997833185
+      },
+      {
+        "name": "MASSIVE Intent",
+        "acc": 0.46,
+        "laya_acc": 0.783,
+        "p50": 58.34194997441955
+      },
+      {
+        "name": "Banking77",
+        "acc": 0.47,
+        "laya_acc": 0.492,
+        "p50": 59.437650023028255
+      }
+    ]
+  }
+]

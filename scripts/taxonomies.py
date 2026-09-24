@@ -44,3 +44,25 @@ BANKING_CLUSTERS = {
         "Refund_not_showing_up", "disposable_card_limits", "request_refund"
     ]
 }
+
+MASSIVE_CLUSTERS = {
+    "alarm": ["alarm_query", "alarm_remove", "alarm_set"],
+    "audio": ["audio_volume_down", "audio_volume_mute", "audio_volume_other", "audio_volume_up"],
+    "calendar": ["calendar_query", "calendar_remove", "calendar_set"],
+    "cooking": ["cooking_query", "cooking_recipe"],
+    "datetime": ["datetime_convert", "datetime_query"],
+    "email": ["email_addcontact", "email_query", "email_querycontact", "email_sendemail"],
+    "general": ["general_greet", "general_joke", "general_quirky"],
+    "iot": ["iot_cleaning", "iot_coffee", "iot_hue_lightchange", "iot_hue_lightdim", "iot_hue_lightoff", "iot_hue_lighton", "iot_hue_lightup", "iot_wemo_off", "iot_wemo_on"],
+    "lists": ["lists_createoradd", "lists_query", "lists_remove"],
+    "music": ["music_dislikeness", "music_likeness", "music_query", "music_settings"],
+    "news": ["news_query"],
+    "play": ["play_audiobook", "play_game", "play_music", "play_podcasts", "play_radio"],
+    "qa": ["qa_currency", "qa_definition", "qa_factoid", "qa_maths", "qa_stock"],
+    "recommendation": ["recommendation_events", "recommendation_locations", "recommendation_movies"],
+    "social": ["social_post", "social_query"],
+    "takeaway": ["takeaway_order", "takeaway_query"],
+    "transport": ["transport_query", "transport_taxi", "transport_ticket", "transport_traffic"],
+    "weather": ["weather_query"]
+}
+

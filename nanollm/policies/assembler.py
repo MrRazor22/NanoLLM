@@ -17,8 +17,20 @@ class SlotAssembler(ISlotAssembler):
     def __init__(self, tokenizer: ITokenizer):
         self.tokenizer = tokenizer
 
+    @staticmethod
+    def _format_state(state: Any) -> str:
+        if isinstance(state, dict): return " | ".join(f"{k}: {v}" for k, v in state.items())
+        if isinstance(state, str) and state.startswith("{") and state.endswith("}"):
+            try:
+                import json
+                d = json.loads(state)
+                if isinstance(d, dict): return " | ".join(f"{k}: {v}" for k, v in d.items())
+            except Exception: pass
+        return str(state)
+
     def _render_sample(self, state: str, questions: Sequence[Any]) -> Tuple[List[int], List[Tuple[str, List[int], Any]]]:
-        ids = self.tokenizer.encode(state)
+        ids = self.tokenizer.encode(self._format_state(state))
+
         meta = []
         for q in questions:
             ids.append(self.tokenizer.sep_id)
