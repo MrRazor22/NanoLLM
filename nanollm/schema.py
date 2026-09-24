@@ -6,6 +6,7 @@ class Choice:
     name: str
     options: Union[List[str], Dict[str, str]]
     instruction: Optional[str] = None
+    clusters: Optional[Dict[str, Dict[str, str]]] = None
 
 @dataclass(frozen=True)
 class Noul:

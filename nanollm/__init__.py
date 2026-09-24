@@ -1,6 +1,7 @@
 from nanollm.core.engine import DecisionEngine, IDecisionEngine
 from nanollm.core.substrate import DecisionSubstrate, ISubstrate, ModelConfig, NanoModel
 from nanollm.data.dataset import DecisionSample, MultiQuestionCollator, QuestionSpec, load_jsonl
+from nanollm.layers.hierarchical import HierarchicalLayer
 from nanollm.layers.profiling import DecisionEngineLayer, ProfilingLayer
 from nanollm.policies.assembler import CompiledLayout, ISlotAssembler, SlotAssembler
 from nanollm.policies.loss import CalibratedLoss
@@ -31,6 +32,7 @@ __all__ = [
     "DecisionResult",
     "DecisionSample",
     "DecisionSubstrate",
+    "HierarchicalLayer",
     "IDecisionEngine",
     "IResolver",
     "ISlotAssembler",

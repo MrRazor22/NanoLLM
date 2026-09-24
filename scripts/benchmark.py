@@ -7,7 +7,8 @@ from datasets import load_dataset
 ROOT_DIR = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT_DIR))
 
-from nanollm import Choice, DecisionEngine, Noul, Score
+from nanollm import Choice, DecisionEngine, HierarchicalLayer, Noul, Score
+from scripts.taxonomies import BANKING_CLUSTERS
 
 BENCHMARK_TARGETS = {
     "ag_news": ("AG News", "fancyzhx/ag_news", "test", "text", "label", {
@@ -15,10 +16,10 @@ BENCHMARK_TARGETS = {
         "Sports": "sports, games, athletes",
         "Business": "companies, markets, economy",
         "Sci/Tech": "science, technology, software, space"
-    }, None, 0.953, "What is the primary topic of this article?"),
+    }, None, 0.953, None),
     "emotion": ("DAIR Emotion", "dair-ai/emotion", "test", "text", "label", ["sadness", "joy", "love", "anger", "fear", "surprise"], None, 0.600, "Which emotion is most strongly expressed in this text?"),
     "massive": ("MASSIVE Intent", "mteb/amazon_massive_intent", "test", "text", "label_text", None, "en", 0.783, "What is the user's intent in this utterance?"),
-    "banking77": ("Banking77", "mteb/banking77", "test", "text", "label_text", None, None, 0.492, "Which banking intent does this message express?"),
+    "banking77": ("Banking77", "mteb/banking77", "test", "text", "label_text", None, None, 0.492, "Which banking intent does this message express?", BANKING_CLUSTERS),
 }
 
 def eval_typed_decisions(engine: DecisionEngine, max_n: Optional[int]) -> Dict[str, Any]:
@@ -54,8 +55,9 @@ def eval_typed_decisions(engine: DecisionEngine, max_n: Optional[int]) -> Dict[s
 
     return {"name": "typed-decisions", "acc": correct / max(1, total), "laya_acc": 0.766, "p50": float(np.median(latencies))}
 
-def eval_choice_dataset(engine: DecisionEngine, cfg: tuple, max_n: Optional[int]) -> Dict[str, Any]:
-    name, path, split, tcol, lcol, opts, sub, laya_tgt, instr = cfg
+def eval_choice_dataset(engine: Any, cfg: tuple, max_n: Optional[int]) -> Dict[str, Any]:
+    name, path, split, tcol, lcol, opts, sub, laya_tgt, instr = cfg[:9]
+    clusters = cfg[9] if len(cfg) > 9 else None
     print(f"\n[BENCHMARK] Evaluating {name}...", flush=True)
     ds = load_dataset(path, sub, split=split) if sub else load_dataset(path, split=split)
     if not opts:
@@ -68,7 +70,7 @@ def eval_choice_dataset(engine: DecisionEngine, cfg: tuple, max_n: Optional[int]
     for idx, item in enumerate(ds):
         gold = item[lcol]
         target = opt_keys[gold] if isinstance(gold, int) else str(gold)
-        res = engine.decide(str(item[tcol]).strip(), [Choice("label", opts, instruction=instr)])
+        res = engine.decide(str(item[tcol]).strip(), [Choice("label", opts, instruction=instr, clusters=clusters)])
         latencies.append(res.latency_ms)
         if res.answers["label"].choice == target: correct += 1
         if (idx + 1) % 50 == 0 or (idx + 1) == len(ds):
@@ -83,7 +85,7 @@ def main():
     parser.add_argument("--task", default="all", choices=["all", "typed_decisions", "massive", "banking77", "ag_news", "emotion"])
     args = parser.parse_args()
 
-    engine = DecisionEngine.from_checkpoint(args.checkpoint)
+    engine = HierarchicalLayer(DecisionEngine.from_checkpoint(args.checkpoint))
     n = None if args.samples == 0 else args.samples
     results = []
 
