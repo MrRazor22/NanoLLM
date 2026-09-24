@@ -87,7 +87,7 @@ def eval_choice_dataset(engine: Any, cfg: tuple, max_n: Optional[int]) -> Dict[s
 
 def main():
     parser = argparse.ArgumentParser(description="Official NanoLLM vs Laya Scientific Benchmark Suite")
-    parser.add_argument("--checkpoint", default="checkpoint.pt")
+    parser.add_argument("--checkpoint", default="checkpoints/checkpoint_champion.pt")
     parser.add_argument("--samples", type=int, default=500, help="Samples per dataset (0 = all)")
     parser.add_argument("--task", default="all", choices=["all", "typed_decisions", "massive", "banking77", "ag_news", "emotion"])
     parser.add_argument("--hierarchical", action="store_true", help="Wrap engine in HierarchicalLayer")

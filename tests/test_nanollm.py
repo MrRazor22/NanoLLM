@@ -2,11 +2,16 @@ import torch
 from nanollm import (
     ByteTokenizer,
     CalibratedLoss,
+    Choice,
+    DecisionResolver,
     DecisionSample,
+    DecisionSubstrate,
     ModelConfig,
     MultiQuestionCollator,
-    NanoModel,
+    Noul,
     QuestionSpec,
+    Score,
+    SlotAssembler,
 )
 
 def test_tokenizer():
@@ -16,34 +21,52 @@ def test_tokenizer():
     assert tokenizer.decode(tokens) == text
     assert len(tokens) == len(text.encode("utf-8"))
 
-def test_collator():
+def test_assembler_single_and_batch():
     tokenizer = ByteTokenizer()
-    collator = MultiQuestionCollator(tokenizer)
+    assembler = SlotAssembler(tokenizer)
+    qs = [
+        Choice("dept", ["billing", "tech"]),
+        Noul("urgent"),
+        Score("sev", 0.0, 10.0),
+    ]
+    layout = assembler.assemble_single("Server is down", qs)
+    assert layout.input_ids.shape[0] == 1
+    assert layout.mask.shape == layout.input_ids.shape
+    assert len(layout.slots) == 3
+
+    collator = MultiQuestionCollator(assembler)
     samples = [
-        DecisionSample(state="Short", questions=[QuestionSpec("q1", "noul", 1.0)]),
-        DecisionSample(state="Much longer sentence", questions=[QuestionSpec("q1", "noul", 0.0)])
+        DecisionSample("Short", [QuestionSpec("q1", "noul", 1.0)]),
+        DecisionSample("Much longer sentence", [QuestionSpec("q1", "noul", 0.0)]),
     ]
     batch = collator(samples)
     assert batch["input_ids"].shape[0] == 2
     assert batch["input_ids"].shape == batch["mask"].shape
-    assert batch["question_positions"].shape == (2, 1)
+    assert len(batch["meta"]) == 2
 
-def test_model_and_loss():
-    config = ModelConfig(vocab_size=260, hidden_dim=64, num_layers=2, num_heads=2, proj_dim=32)
-    model = NanoModel(config)
+def test_substrate_and_loss():
+    config = ModelConfig(vocab_size=260, hidden_dim=64, num_layers=2, num_heads=2)
+    model = DecisionSubstrate(config)
     input_ids = torch.randint(0, 260, (2, 16))
-    q_pos = torch.tensor([[4], [8]])
-    outputs = model(input_ids, q_pos)
-
-    assert outputs["q_choice"].shape == (2, 1, 32)
-    assert outputs["noul"].shape == (2, 1)
-    assert outputs["score"].shape == (2, 1)
+    mask = torch.ones((2, 16))
+    scores = model(input_ids, mask)
+    assert scores.shape == (2, 16)
 
     loss_fn = CalibratedLoss()
-    targets = torch.tensor([[0.0], [0.0]])
-    opt_vectors = torch.randn(4, 32)
-    opt_slices = [[0, 2], [2, 4]]
-    loss = loss_fn(outputs, targets, ["choice"], opt_vectors=opt_vectors, opt_slices=opt_slices)
+    meta = [
+        [("choice", [2, 5], 0), ("noul", [8], 1.0)],
+        [("choice", [3, 7], 1), ("noul", [10], 0.0)],
+    ]
+    loss = loss_fn(scores, meta, torch.device("cpu"))
     assert loss.item() > 0.0
     loss.backward()
     assert model.tok_emb.weight.grad is not None
+
+def test_resolver():
+    resolver = DecisionResolver()
+    qs = [Choice("dept", ["billing", "tech"]), Noul("urgent")]
+    slots = [[0, 1], [2]]
+    scores = torch.tensor([2.0, 0.5, 1.2])
+    answers = resolver.resolve(qs, slots, scores)
+    assert answers["dept"].choice == "billing"
+    assert answers["urgent"].value is True

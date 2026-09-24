@@ -82,7 +82,7 @@ Every component in NanoLLM strictly belongs to one of four architectural tiers:
 
 ### 4. The Flat File Trap (Mistake 4)
 - **What went wrong:** Dumping all files flat in `nanollm/` obscured architectural boundaries and blurred the distinction between primitives, policies, and outer layers.
-- **The Fix:** Grouped strictly by role (`core/`, `policies/`, `layers/`, `data/`, `scripts/`, `examples/`). Every file is now under 80 lines and immediately reveals its exact responsibility.
+- **The Fix:** Grouped strictly by role (`core/`, `policies/`, `layers/`, `checkpoints/`, `data/`, `scripts/`, `examples/`, `tests/`). Every file is now under 85 lines and immediately reveals its exact responsibility.
 
 ---
 

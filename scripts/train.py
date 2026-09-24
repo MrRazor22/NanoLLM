@@ -43,7 +43,7 @@ def main():
     collator = MultiQuestionCollator(tokenizer)
 
     parser = argparse.ArgumentParser(description="Train NanoLLM Foundation Decision Engine")
-    parser.add_argument("--output", default=str(ROOT_DIR / "checkpoint.pt"), help="Output path for best checkpoint")
+    parser.add_argument("--output", default=str(ROOT_DIR / "checkpoints" / "checkpoint.pt"), help="Output path for best checkpoint")
     parser.add_argument("--init", default=None, help="Path to initial checkpoint to warm-start from")
     parser.add_argument("--epochs", type=int, default=2, help="Number of training epochs")
     parser.add_argument("--lr", type=float, default=2e-5, help="Learning rate")
@@ -116,6 +116,7 @@ def main():
 
         if val_loss < best_val_loss:
             best_val_loss = val_loss
+            Path(checkpoint_out).parent.mkdir(parents=True, exist_ok=True)
             torch.save(model.state_dict(), checkpoint_out)
             meta_path = Path(checkpoint_out).with_suffix(".meta.json")
             with open(meta_path, "w", encoding="utf-8") as f:

@@ -54,7 +54,7 @@ def main():
 
     # 1. NanoLLM Champion
     print("\n--- Evaluating NanoLLM Champion ---", flush=True)
-    nano_champ = DecisionEngine.from_checkpoint(str(ROOT / "checkpoint_champion.pt"))
+    nano_champ = DecisionEngine.from_checkpoint(str(ROOT / "checkpoints" / "checkpoint_champion.pt"))
     def decide_nano_champ(state, questions):
         qs = []
         for qid, spec in questions.items():
@@ -72,7 +72,7 @@ def main():
 
     # 2. NanoLLM Clean Baseline
     print("\n--- Evaluating NanoLLM Clean Foundation ---", flush=True)
-    nano_clean = DecisionEngine.from_checkpoint(str(ROOT / "checkpoint_clean.pt"))
+    nano_clean = DecisionEngine.from_checkpoint(str(ROOT / "checkpoints" / "checkpoint_clean.pt"))
     def decide_nano_clean(state, questions):
         qs = []
         for qid, spec in questions.items():
