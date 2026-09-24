@@ -4,9 +4,9 @@ import torch
 from transformers import AutoModel
 from nanollm.engine.policies.assembler import ISlotAssembler, SlotAssembler
 from nanollm.engine.policies.resolver import DecisionResolver, IResolver
-from nanollm.engine.policies.substrate import DecisionSubstrate, ISubstrate, ModelConfig
 from nanollm.engine.policies.tokenizer import SubwordTokenizer
 from nanollm.engine.schema import DecisionResult, Question
+from nanollm.model import ModelConfig, NanoModel
 
 DEFAULT_CHECKPOINT = Path(__file__).resolve().parent / "checkpoints" / "checkpoint_champion_v2.pt"
 
@@ -16,12 +16,12 @@ class IDecisionEngine(Protocol):
 class DecisionEngine(IDecisionEngine):
     def __init__(
         self,
-        substrate: ISubstrate,
+        model: NanoModel,
         assembler: ISlotAssembler,
         resolver: IResolver,
         device: torch.device,
     ):
-        self.substrate = substrate
+        self.model = model
         self.assembler = assembler
         self.resolver = resolver
         self.device = device
@@ -32,7 +32,7 @@ class DecisionEngine(IDecisionEngine):
             dummy = torch.zeros((1, 8), dtype=torch.long, device=self.device)
             with torch.no_grad():
                 with torch.amp.autocast("cuda"):
-                    self.substrate(dummy)
+                    self.model(dummy)
             torch.cuda.synchronize()
 
     @classmethod
@@ -49,15 +49,15 @@ class DecisionEngine(IDecisionEngine):
         resolver = DecisionResolver()
         backbone = AutoModel.from_pretrained(backbone_name)
         config = ModelConfig(vocab_size=tokenizer.vocab_size, hidden_dim=768, num_layers=22, num_heads=12)
-        substrate = DecisionSubstrate(config, backbone=backbone).to(dev)
-        substrate.load_state_dict(torch.load(str(ckpt_path), map_location=dev))
-        substrate.eval()
-        return cls(substrate, assembler, resolver, dev)
+        model = NanoModel(config, backbone=backbone).to(dev)
+        model.load_state_dict(torch.load(str(ckpt_path), map_location=dev))
+        model.eval()
+        return cls(model, assembler, resolver, dev)
 
     def decide(self, state: str, questions: Sequence[Question]) -> DecisionResult:
         layout = self.assembler.assemble_single(state, questions, device=self.device)
         with torch.no_grad():
             with torch.amp.autocast("cuda", enabled=self.device.type == "cuda"):
-                scores = self.substrate(layout.input_ids, layout.mask)
+                scores = self.model(layout.input_ids, layout.mask)
         answers = self.resolver.resolve(questions, layout.slots, scores[0])
         return DecisionResult(answers=answers)

@@ -1,10 +1,7 @@
 from dataclasses import dataclass
-from typing import Optional, Protocol
+from typing import Optional
 import torch
 import torch.nn as nn
-
-class ISubstrate(Protocol):
-    def forward(self, input_ids: torch.Tensor, mask: Optional[torch.Tensor] = None) -> torch.Tensor: ...
 
 @dataclass(frozen=True)
 class ModelConfig:
@@ -14,7 +11,7 @@ class ModelConfig:
     num_heads: int = 12
     max_seq_len: int = 8192
 
-class DecisionSubstrate(nn.Module):
+class NanoModel(nn.Module):
     def __init__(self, config: Optional[ModelConfig] = None, backbone: Optional[nn.Module] = None):
         super().__init__()
         self.config = config or ModelConfig()
@@ -30,5 +27,3 @@ class DecisionSubstrate(nn.Module):
         else:
             hidden = self.tok_emb(input_ids)
         return self.head(hidden).squeeze(-1)
-
-NanoModel = DecisionSubstrate

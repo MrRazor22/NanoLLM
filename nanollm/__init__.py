@@ -1,6 +1,4 @@
 from nanollm.model import (
-    DecisionSubstrate,
-    ISubstrate,
     ModelConfig,
     NanoModel,
 )
@@ -73,7 +71,6 @@ __all__ = [
     "DecisionResolver",
     "DecisionResult",
     "DecisionSample",
-    "DecisionSubstrate",
     "EpochTrainer",
     "FoundationCurriculum",
     "HierarchicalLayer",
@@ -82,7 +79,6 @@ __all__ = [
     "IEvaluator",
     "IResolver",
     "ISlotAssembler",
-    "ISubstrate",
     "ITokenizer",
     "ITrainer",
     "MASSIVE_CLUSTERS",

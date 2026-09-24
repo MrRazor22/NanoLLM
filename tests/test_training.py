@@ -3,7 +3,8 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 import torch
-from nanollm.engine import ByteTokenizer, DecisionSubstrate, ModelConfig, SlotAssembler
+from nanollm.model import ModelConfig, NanoModel
+from nanollm.engine import ByteTokenizer, SlotAssembler
 from nanollm.training import (
     CalibratedLoss,
     DecisionSample,
@@ -27,7 +28,7 @@ def test_collator_and_dataset():
 
 def test_loss():
     config = ModelConfig(vocab_size=260, hidden_dim=64, num_layers=2, num_heads=2)
-    model = DecisionSubstrate(config)
+    model = NanoModel(config)
     input_ids = torch.randint(0, 260, (2, 16))
     mask = torch.ones((2, 16))
     scores = model(input_ids, mask)
