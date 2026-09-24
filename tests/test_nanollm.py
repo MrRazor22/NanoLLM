@@ -1,3 +1,7 @@
+import sys
+from pathlib import Path
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+
 import torch
 from nanollm import (
     ByteTokenizer,
@@ -9,9 +13,11 @@ from nanollm import (
     ModelConfig,
     MultiQuestionCollator,
     Noul,
+    ProfilingEvaluator,
     QuestionSpec,
     Score,
     SlotAssembler,
+    split_train_val,
 )
 
 def test_tokenizer():
@@ -70,3 +76,29 @@ def test_resolver():
     answers = resolver.resolve(qs, slots, scores)
     assert answers["dept"].choice == "billing"
     assert answers["urgent"].value is True
+
+def test_evaluator_and_builder():
+    train, val = split_train_val([{"i": i} for i in range(20)], val_ratio=0.1)
+    assert len(train) + len(val) == 20
+    assert len(val) == 10  # min val is 10
+
+    from nanollm import ModelEvaluator
+    dummy_items = [
+        {"category": "test", "state": "hello", "questions": {"q1": {}}, "gold": {"q1": {"label": "yes"}}},
+        {"category": "test", "state": "world", "questions": {"q1": {}}, "gold": {"q1": {"label": "no"}}},
+    ]
+    evaluator = ProfilingEvaluator(ModelEvaluator("dummy", lambda s, q: {"q1": "yes"}))
+    rep = evaluator.evaluate(dummy_items)
+    assert rep["total_questions"] == 2
+    assert rep["total_correct"] == 1
+    assert rep["overall_acc"] == 0.5
+    assert "p50_ms" in rep
+
+if __name__ == "__main__":
+    test_tokenizer()
+    test_assembler_single_and_batch()
+    test_substrate_and_loss()
+    test_resolver()
+    test_evaluator_and_builder()
+    print("ALL TESTS PASSED!")
+

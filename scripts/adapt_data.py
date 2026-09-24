@@ -1,9 +1,13 @@
+import sys
 from pathlib import Path
 from typing import Any, Dict, List
 import json, random
 from datasets import load_dataset
 
 ROOT_DIR = Path(__file__).resolve().parent.parent
+sys.path.insert(0, str(ROOT_DIR))
+
+from nanollm import save_jsonl, split_train_val
 
 def build_typed_decisions() -> List[Dict]:
     ds = load_dataset("LocalLLaMA/typed-decisions", "all", split="train")
@@ -117,13 +121,10 @@ def main():
     rng.shuffle(all_samples)
     print(f"[ADAPT-DATA] Total Adaptation Samples: {len(all_samples)}", flush=True)
 
-    n_val = int(0.08 * len(all_samples))
-    splits = [("train_adapt.jsonl", all_samples[n_val:]), ("val_adapt.jsonl", all_samples[:n_val])]
-    for name, data in splits:
-        path = data_dir / name
-        with open(path, "w", encoding="utf-8") as f:
-            for item in data: f.write(json.dumps(item) + "\n")
-        print(f"  Wrote {len(data)} samples to {path}")
+    train_data, val_data = split_train_val(all_samples, 0.08, rng)
+    save_jsonl(str(data_dir / "train_adapt.jsonl"), train_data)
+    save_jsonl(str(data_dir / "val_adapt.jsonl"), val_data)
+    print(f"  Wrote {len(train_data)} train and {len(val_data)} val samples.")
 
 if __name__ == "__main__":
     main()

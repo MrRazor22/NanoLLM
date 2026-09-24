@@ -1,9 +1,13 @@
+import sys
 from pathlib import Path
 from typing import Any, Dict, List
 import json, random
 from datasets import load_dataset, concatenate_datasets
 
 ROOT_DIR = Path(__file__).resolve().parent.parent
+sys.path.insert(0, str(ROOT_DIR))
+
+from nanollm import save_jsonl
 
 def _state(text: str, rng: random.Random) -> Any:
     if rng.random() < 0.25:
@@ -108,10 +112,8 @@ def main():
     n_val, n_test = int(0.08 * len(samples)), int(0.08 * len(samples))
     splits = [("train.jsonl", samples[n_val + n_test:]), ("val.jsonl", samples[:n_val]), ("test.jsonl", samples[n_val:n_val + n_test])]
     for name, data in splits:
-        path = data_dir / name
-        with open(path, "w", encoding="utf-8") as f:
-            for item in data: f.write(json.dumps(item) + "\n")
-        print(f"Wrote {len(data)} samples to {path}")
+        save_jsonl(str(data_dir / name), data)
+        print(f"Wrote {len(data)} samples to {data_dir / name}")
 
 if __name__ == "__main__":
     main()

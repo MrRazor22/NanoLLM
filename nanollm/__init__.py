@@ -1,6 +1,10 @@
 from nanollm.core.engine import DecisionEngine, IDecisionEngine
+from nanollm.core.evaluator import IEvaluator, ModelEvaluator
 from nanollm.core.substrate import DecisionSubstrate, ISubstrate, ModelConfig, NanoModel
+from nanollm.core.trainer import EpochTrainer, ITrainer
+from nanollm.data.builder import choice_question, save_jsonl, split_train_val
 from nanollm.data.dataset import DecisionSample, MultiQuestionCollator, QuestionSpec, load_jsonl
+from nanollm.layers.evaluator import ProfilingEvaluator
 from nanollm.layers.hierarchical import HierarchicalLayer
 from nanollm.layers.profiling import DecisionEngineLayer, ProfilingLayer
 from nanollm.policies.assembler import CompiledLayout, ISlotAssembler, SlotAssembler
@@ -32,17 +36,22 @@ __all__ = [
     "DecisionResult",
     "DecisionSample",
     "DecisionSubstrate",
+    "EpochTrainer",
     "HierarchicalLayer",
     "IDecisionEngine",
+    "IEvaluator",
     "IResolver",
     "ISlotAssembler",
     "ISubstrate",
     "ITokenizer",
+    "ITrainer",
     "ModelConfig",
+    "ModelEvaluator",
     "MultiQuestionCollator",
     "NanoModel",
     "Noul",
     "NoulResult",
+    "ProfilingEvaluator",
     "ProfilingLayer",
     "Question",
     "QuestionSpec",
@@ -50,5 +59,8 @@ __all__ = [
     "ScoreResult",
     "SlotAssembler",
     "SubwordTokenizer",
+    "choice_question",
     "load_jsonl",
+    "save_jsonl",
+    "split_train_val",
 ]
