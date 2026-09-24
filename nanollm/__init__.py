@@ -1,3 +1,9 @@
+from nanollm.model import (
+    DecisionSubstrate,
+    ISubstrate,
+    ModelConfig,
+    NanoModel,
+)
 from nanollm.engine import (
     Answer,
     ByteTokenizer,
@@ -8,15 +14,11 @@ from nanollm.engine import (
     DecisionEngineLayer,
     DecisionResolver,
     DecisionResult,
-    DecisionSubstrate,
     HierarchicalLayer,
     IDecisionEngine,
     IResolver,
     ISlotAssembler,
-    ISubstrate,
     ITokenizer,
-    ModelConfig,
-    NanoModel,
     Noul,
     NoulResult,
     ProfilingLayer,
