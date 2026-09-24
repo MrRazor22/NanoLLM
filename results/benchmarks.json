@@ -72,5 +72,301 @@
         "p50": 59.437650023028255
       }
     ]
+  },
+  {
+    "timestamp": "2026-09-24T09:30:18Z",
+    "checkpoint": "checkpoint_foundation.pt",
+    "samples": 500,
+    "results": [
+      {
+        "name": "typed-decisions",
+        "acc": 0.3425,
+        "laya_acc": 0.766,
+        "p50": 33.77909999107942
+      },
+      {
+        "name": "AG News",
+        "acc": 0.74,
+        "laya_acc": 0.953,
+        "p50": 33.48719998029992
+      },
+      {
+        "name": "DAIR Emotion",
+        "acc": 0.112,
+        "laya_acc": 0.6,
+        "p50": 28.922149998834357
+      },
+      {
+        "name": "MASSIVE Intent",
+        "acc": 0.556,
+        "laya_acc": 0.783,
+        "p50": 35.186749999411404
+      },
+      {
+        "name": "Banking77",
+        "acc": 0.534,
+        "laya_acc": 0.492,
+        "p50": 36.65650001494214
+      }
+    ]
+  },
+  {
+    "timestamp": "2026-09-24T10:05:44Z",
+    "checkpoint": "checkpoint_ata.pt",
+    "samples": 500,
+    "results": [
+      {
+        "name": "typed-decisions",
+        "acc": 0.278,
+        "laya_acc": 0.766,
+        "p50": 35.2652000146918
+      },
+      {
+        "name": "AG News",
+        "acc": 0.652,
+        "laya_acc": 0.953,
+        "p50": 31.493049988057464
+      },
+      {
+        "name": "DAIR Emotion",
+        "acc": 0.564,
+        "laya_acc": 0.6,
+        "p50": 29.15735001442954
+      },
+      {
+        "name": "MASSIVE Intent",
+        "acc": 0.276,
+        "laya_acc": 0.783,
+        "p50": 35.494749987265095
+      },
+      {
+        "name": "Banking77",
+        "acc": 0.288,
+        "laya_acc": 0.492,
+        "p50": 37.31505002360791
+      }
+    ]
+  },
+  {
+    "timestamp": "2026-09-24T10:46:11Z",
+    "checkpoint": "checkpoint_clean.pt",
+    "samples": 500,
+    "results": [
+      {
+        "name": "typed-decisions",
+        "acc": 0.362,
+        "laya_acc": 0.766,
+        "p50": 37.394149985630065
+      },
+      {
+        "name": "AG News",
+        "acc": 0.734,
+        "laya_acc": 0.953,
+        "p50": 36.3787499954924
+      },
+      {
+        "name": "DAIR Emotion",
+        "acc": 0.604,
+        "laya_acc": 0.6,
+        "p50": 31.935199978761375
+      },
+      {
+        "name": "MASSIVE Intent",
+        "acc": 0.492,
+        "laya_acc": 0.783,
+        "p50": 38.06204997817986
+      },
+      {
+        "name": "Banking77",
+        "acc": 0.53,
+        "laya_acc": 0.492,
+        "p50": 39.85395000199787
+      }
+    ]
+  },
+  {
+    "timestamp": "2026-09-24T11:01:51Z",
+    "checkpoint": "checkpoint_probe.pt",
+    "samples": 50,
+    "results": [
+      {
+        "name": "typed-decisions",
+        "acc": 0.34,
+        "laya_acc": 0.766,
+        "p50": 37.75245000724681
+      },
+      {
+        "name": "AG News",
+        "acc": 0.76,
+        "laya_acc": 0.953,
+        "p50": 32.29045000625774
+      },
+      {
+        "name": "DAIR Emotion",
+        "acc": 0.56,
+        "laya_acc": 0.6,
+        "p50": 31.279549992177635
+      },
+      {
+        "name": "MASSIVE Intent",
+        "acc": 0.76,
+        "laya_acc": 0.783,
+        "p50": 37.729599978774786
+      },
+      {
+        "name": "Banking77",
+        "acc": 0.56,
+        "laya_acc": 0.492,
+        "p50": 39.31160000502132
+      }
+    ]
+  },
+  {
+    "timestamp": "2026-09-24T11:16:06Z",
+    "checkpoint": "checkpoint_laya_beater.pt",
+    "samples": 500,
+    "results": [
+      {
+        "name": "typed-decisions",
+        "acc": 0.6365,
+        "laya_acc": 0.766,
+        "p50": 39.775249955710024
+      },
+      {
+        "name": "AG News",
+        "acc": 0.872,
+        "laya_acc": 0.953,
+        "p50": 36.30625002551824
+      },
+      {
+        "name": "DAIR Emotion",
+        "acc": 0.596,
+        "laya_acc": 0.6,
+        "p50": 34.55000001122244
+      },
+      {
+        "name": "MASSIVE Intent",
+        "acc": 0.742,
+        "laya_acc": 0.783,
+        "p50": 40.982100035762414
+      },
+      {
+        "name": "Banking77",
+        "acc": 0.544,
+        "laya_acc": 0.492,
+        "p50": 41.75045000738464
+      }
+    ]
+  },
+  {
+    "timestamp": "2026-09-24T11:20:11Z",
+    "checkpoint": "checkpoint_probe2.pt",
+    "samples": 100,
+    "results": [
+      {
+        "name": "typed-decisions",
+        "acc": 0.598,
+        "laya_acc": 0.766,
+        "p50": 38.12974999891594
+      },
+      {
+        "name": "AG News",
+        "acc": 0.81,
+        "laya_acc": 0.953,
+        "p50": 33.09255000203848
+      },
+      {
+        "name": "DAIR Emotion",
+        "acc": 0.58,
+        "laya_acc": 0.6,
+        "p50": 33.74864999204874
+      },
+      {
+        "name": "MASSIVE Intent",
+        "acc": 0.8,
+        "laya_acc": 0.783,
+        "p50": 40.67714998382144
+      },
+      {
+        "name": "Banking77",
+        "acc": 0.55,
+        "laya_acc": 0.492,
+        "p50": 42.346500005805865
+      }
+    ]
+  },
+  {
+    "timestamp": "2026-09-24T11:28:28Z",
+    "checkpoint": "checkpoint_fast_winner.pt",
+    "samples": 500,
+    "results": [
+      {
+        "name": "typed-decisions",
+        "acc": 0.68,
+        "laya_acc": 0.766,
+        "p50": 37.65390001353808
+      },
+      {
+        "name": "AG News",
+        "acc": 0.886,
+        "laya_acc": 0.953,
+        "p50": 35.607249999884516
+      },
+      {
+        "name": "DAIR Emotion",
+        "acc": 0.584,
+        "laya_acc": 0.6,
+        "p50": 32.86284999921918
+      },
+      {
+        "name": "MASSIVE Intent",
+        "acc": 0.72,
+        "laya_acc": 0.783,
+        "p50": 39.88445000140928
+      },
+      {
+        "name": "Banking77",
+        "acc": 0.562,
+        "laya_acc": 0.492,
+        "p50": 40.22954998072237
+      }
+    ]
+  },
+  {
+    "timestamp": "2026-09-24T11:46:58Z",
+    "checkpoint": "checkpoint_champion.pt",
+    "samples": 500,
+    "results": [
+      {
+        "name": "typed-decisions",
+        "acc": 0.75,
+        "laya_acc": 0.766,
+        "p50": 42.37924999324605
+      },
+      {
+        "name": "AG News",
+        "acc": 0.9,
+        "laya_acc": 0.953,
+        "p50": 37.3836999933701
+      },
+      {
+        "name": "DAIR Emotion",
+        "acc": 0.582,
+        "laya_acc": 0.6,
+        "p50": 32.67970000160858
+      },
+      {
+        "name": "MASSIVE Intent",
+        "acc": 0.796,
+        "laya_acc": 0.783,
+        "p50": 36.92709997994825
+      },
+      {
+        "name": "Banking77",
+        "acc": 0.564,
+        "laya_acc": 0.492,
+        "p50": 38.64319997956045
+      }
+    ]
   }
 ]

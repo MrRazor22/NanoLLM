@@ -42,11 +42,21 @@ def main():
     tokenizer = SubwordTokenizer(backbone_name)
     collator = MultiQuestionCollator(tokenizer)
 
-    train_path = str(ROOT_DIR / "data" / "train.jsonl")
-    val_path = str(ROOT_DIR / "data" / "val.jsonl")
+    parser = argparse.ArgumentParser(description="Train NanoLLM Foundation Decision Engine")
+    parser.add_argument("--output", default=str(ROOT_DIR / "checkpoint.pt"), help="Output path for best checkpoint")
+    parser.add_argument("--init", default=None, help="Path to initial checkpoint to warm-start from")
+    parser.add_argument("--epochs", type=int, default=2, help="Number of training epochs")
+    parser.add_argument("--lr", type=float, default=2e-5, help="Learning rate")
+    parser.add_argument("--train-data", default=str(ROOT_DIR / "data" / "train.jsonl"), help="Path to train data")
+    parser.add_argument("--val-data", default=str(ROOT_DIR / "data" / "val.jsonl"), help="Path to val data")
+    parser.add_argument("--max-samples", type=int, default=0, help="Cap train samples for fast smoke test (0 = all)")
+    args, _ = parser.parse_known_args()
 
-    train_samples = load_jsonl(train_path)
-    val_samples = load_jsonl(val_path)
+    train_samples = load_jsonl(args.train_data)
+    val_samples = load_jsonl(args.val_data)
+    if args.max_samples > 0:
+        train_samples = train_samples[:args.max_samples]
+        val_samples = val_samples[:min(len(val_samples), max(100, args.max_samples // 5))]
 
     micro_batch, accum_steps = 8, 4
     train_loader = DataLoader(train_samples, batch_size=micro_batch, shuffle=True, collate_fn=collator)
@@ -55,14 +65,12 @@ def main():
     backbone = AutoModel.from_pretrained(backbone_name)
     config = ModelConfig(vocab_size=tokenizer.vocab_size, hidden_dim=768, num_layers=22, num_heads=12)
     model = NanoModel(config, backbone=backbone).to(device)
+    if args.init and Path(args.init).exists():
+        model.load_state_dict(torch.load(args.init, map_location=device))
+        print(f"[INIT] Warm-started weights from {args.init}", flush=True)
     loss_fn = CalibratedLoss()
-    optimizer = torch.optim.AdamW(model.parameters(), lr=2e-5)
+    optimizer = torch.optim.AdamW(model.parameters(), lr=args.lr)
     scaler = torch.amp.GradScaler("cuda", enabled=device.type == "cuda")
-
-    parser = argparse.ArgumentParser(description="Train NanoLLM Foundation Decision Engine")
-    parser.add_argument("--output", default=str(ROOT_DIR / "checkpoint.pt"), help="Output path for best checkpoint")
-    parser.add_argument("--epochs", type=int, default=2, help="Number of training epochs")
-    args, _ = parser.parse_known_args()
     checkpoint_out = args.output
     epochs = args.epochs
     best_val_loss = float("inf")

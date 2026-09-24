@@ -1,0 +1,7 @@
+{
+  "checkpoint": "checkpoint_probe2.pt",
+  "epoch": 1,
+  "val_loss": 0.3630431396421045,
+  "train_loss": 0.4079881514981389,
+  "timestamp": "2026-09-24T11:18:59Z"
+}

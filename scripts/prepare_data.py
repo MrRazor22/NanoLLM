@@ -1,42 +1,14 @@
 from pathlib import Path
-from typing import Dict, List
+from typing import Any, Dict, List
 import json, random
 from datasets import load_dataset, concatenate_datasets
 
 ROOT_DIR = Path(__file__).resolve().parent.parent
 
-CLINC_PROMPTS = [
-    "What is the user's intent?",
-    "Classify the primary goal of the request.",
-    "Which intent category applies to the input?",
-    "Determine the action requested by the user.",
-]
-HELLA_PROMPTS = [
-    "Which next action or event logically follows?",
-    "What is the most plausible continuation?",
-    "Predict the next logical outcome.",
-    "Select the event consistent with the situation.",
-]
-ANLI_PROMPTS = [
-    "Determine the logical relationship to: '{hyp}'",
-    "Does the context entail, contradict, or remain neutral toward: '{hyp}'?",
-    "Assess whether this claim is supported, neutral, or contradicted: '{hyp}'",
-]
-WINO_PROMPTS = [
-    "Which candidate correctly fills the blank or resolves the reference?",
-    "Determine the correct entity referenced in the sentence.",
-    "Which option is contextually and causally coherent?",
-]
-BOOLQ_PROMPTS = [
-    "Is this condition or statement supported: '{cond}'?",
-    "Based on the reference text, is it true that '{cond}'?",
-    "Verify if the following holds true: '{cond}'",
-]
-STSB_PROMPTS = [
-    "Rate the degree of semantic agreement or similarity from 0.0 to 1.0.",
-    "Assess how closely the meaning matches on a 0 to 1 scale.",
-    "Score the semantic alignment between these statements.",
-]
+def _state(text: str, rng: random.Random) -> Any:
+    if rng.random() < 0.25:
+        return {"content": text, "source": "context", "status": "active"}
+    return text
 
 def build_clinc(rng: random.Random, limit: int = 12000) -> List[Dict]:
     ds = load_dataset("clinc/clinc_oos", "plus", split="train")
@@ -45,75 +17,82 @@ def build_clinc(rng: random.Random, limit: int = 12000) -> List[Dict]:
     for row in ds:
         text, label = str(row["text"]).strip(), names[int(row["intent"])]
         if not text: continue
-        k_opts = rng.randint(2, 8)
-        opts = [label] + rng.sample([n for n in names if n != label], k_opts - 1)
-        rng.shuffle(opts)
-        records.append({"state": text, "questions": [["intent", "choice", opts.index(label), opts, rng.choice(CLINC_PROMPTS)]]})
+        k = rng.randint(2, min(40, len(names)))
+        sampled = [label] + rng.sample([n for n in names if n != label], k - 1)
+        rng.shuffle(sampled)
+        if rng.random() < 0.35:
+            opts = {name: f"request related to {name.replace('_', ' ')}" for name in sampled}
+            keys = list(opts.keys())
+            idx = keys.index(label)
+        else:
+            opts, idx = sampled, sampled.index(label)
+        records.append({"state": _state(text, rng), "questions": [["intent", "choice", idx, opts, "Determine the primary intent of this input."]]})
         if len(records) >= limit: break
     return records
 
 def build_hellaswag(rng: random.Random, limit: int = 12000) -> List[Dict]:
-    ds = load_dataset("Rowan/hellaswag", split="train")
-    records = []
+    ds, records = load_dataset("Rowan/hellaswag", split="train"), []
     for row in ds:
-        ctx, endings = str(row["ctx"]).strip(), [str(e).strip() for e in row["endings"]]
+        ctx, ends = str(row["ctx"]).strip(), [str(e).strip() for e in row["endings"]]
         lbl = str(row["label"]).strip()
-        if not (lbl.isdigit() and 0 <= int(lbl) < len(endings)) or not ctx: continue
-        correct = endings[int(lbl)]
-        rng.shuffle(endings)
-        records.append({"state": ctx, "questions": [["next_action", "choice", endings.index(correct), endings, rng.choice(HELLA_PROMPTS)]]})
+        if not (lbl.isdigit() and 0 <= int(lbl) < len(ends)) or not ctx: continue
+        correct = ends[int(lbl)]
+        rng.shuffle(ends)
+        records.append({"state": _state(ctx, rng), "questions": [["next_action", "choice", ends.index(correct), ends, "Which event or action logically follows?"]]})
         if len(records) >= limit: break
     return records
 
 def build_anli(rng: random.Random, limit: int = 12000) -> List[Dict]:
-    ds1 = load_dataset("facebook/anli", split="train_r1")
-    ds2 = load_dataset("facebook/anli", split="train_r2")
-    ds = concatenate_datasets([ds1, ds2])
+    ds = concatenate_datasets([load_dataset("facebook/anli", split="train_r1"), load_dataset("facebook/anli", split="train_r2")])
     base_opts, records = ["entailment", "neutral", "contradiction"], []
+    criteria = {
+        "entailment": "the claim is definitely true given the premise",
+        "neutral": "the claim might be true or false given the premise",
+        "contradiction": "the claim is definitely false given the premise"
+    }
     for row in ds:
-        premise, hyp = str(row["premise"]).strip(), str(row["hypothesis"]).strip()
-        lbl = int(row["label"])
-        if not (premise and hyp and 0 <= lbl <= 2): continue
-        correct, opts = base_opts[lbl], list(base_opts)
-        rng.shuffle(opts)
-        q = rng.choice(ANLI_PROMPTS).format(hyp=hyp)
-        records.append({"state": premise, "questions": [["nli_relation", "choice", opts.index(correct), opts, q]]})
+        prem, hyp, lbl = str(row["premise"]).strip(), str(row["hypothesis"]).strip(), int(row["label"])
+        if not (prem and hyp and 0 <= lbl <= 2): continue
+        correct = base_opts[lbl]
+        opts = dict(criteria) if rng.random() < 0.4 else list(base_opts)
+        keys = list(opts.keys()) if isinstance(opts, dict) else opts
+        rng.shuffle(keys)
+        if isinstance(opts, dict): opts = {k: criteria[k] for k in keys}
+        else: opts = keys
+        idx = list(opts.keys()).index(correct) if isinstance(opts, dict) else opts.index(correct)
+        records.append({"state": _state(prem, rng), "questions": [["nli", "choice", idx, opts, f"Determine the logical relationship to: '{hyp}'"]]})
         if len(records) >= limit: break
     return records
 
 def build_winogrande(rng: random.Random, limit: int = 10000) -> List[Dict]:
-    ds = load_dataset("allenai/winogrande", "winogrande_xl", split="train")
-    records = []
+    ds, records = load_dataset("allenai/winogrande", "winogrande_xl", split="train"), []
     for row in ds:
-        sent, o1, o2 = str(row["sentence"]).strip(), str(row["option1"]).strip(), str(row["option2"]).strip()
-        ans = str(row["answer"]).strip()
+        sent, o1, o2, ans = str(row["sentence"]).strip(), str(row["option1"]).strip(), str(row["option2"]).strip(), str(row["answer"]).strip()
         if ans not in ("1", "2") or not (sent and o1 and o2): continue
         correct, opts = (o1 if ans == "1" else o2), [o1, o2]
         rng.shuffle(opts)
-        records.append({"state": sent, "questions": [["coreference", "choice", opts.index(correct), opts, rng.choice(WINO_PROMPTS)]]})
+        records.append({"state": _state(sent, rng), "questions": [["coref", "choice", opts.index(correct), opts, "Which candidate resolves the reference?"]]})
         if len(records) >= limit: break
     return records
 
-def build_boolq(rng: random.Random, limit: int = 9400) -> List[Dict]:
-    ds = load_dataset("google/boolq", split="train")
-    records = []
+def build_boolq(rng: random.Random, limit: int = 9000) -> List[Dict]:
+    ds, records = load_dataset("google/boolq", split="train"), []
+    opts = {"false": "no, condition does not hold", "true": "yes, condition holds"}
     for row in ds:
-        passage, cond = str(row["passage"]).strip(), str(row["question"]).strip()
-        if not (passage and cond): continue
-        ans = float(1.0 if row["answer"] else 0.0)
-        q = rng.choice(BOOLQ_PROMPTS).format(cond=cond)
-        records.append({"state": passage[:1200], "questions": [["is_true", "noul", ans, None, q]]})
+        p, q = str(row["passage"]).strip(), str(row["question"]).strip()
+        if not (p and q): continue
+        idx = 1 if row["answer"] else 0
+        records.append({"state": _state(p[:1200], rng), "questions": [["is_true", "choice", idx, opts, f"Is this supported: '{q}'?"]]})
         if len(records) >= limit: break
     return records
 
 def build_stsb(rng: random.Random, limit: int = 5700) -> List[Dict]:
-    ds = load_dataset("nyu-mll/glue", "stsb", split="train")
-    records = []
+    ds, records = load_dataset("nyu-mll/glue", "stsb", split="train"), []
     for row in ds:
         s1, s2 = str(row["sentence1"]).strip(), str(row["sentence2"]).strip()
         if not (s1 and s2): continue
         score = float(row["label"]) / 5.0
-        records.append({"state": f"Statement 1: {s1}\nStatement 2: {s2}", "questions": [["similarity", "score", score, None, rng.choice(STSB_PROMPTS)]]})
+        records.append({"state": f"Statement 1: {s1}\nStatement 2: {s2}", "questions": [["similarity", "score", score, None, "Rate semantic similarity from 0.0 to 1.0."]]})
         if len(records) >= limit: break
     return records
 
@@ -121,21 +100,13 @@ def main():
     data_dir = ROOT_DIR / "data"
     data_dir.mkdir(parents=True, exist_ok=True)
     rng = random.Random(42)
-
-    print("[DATA] Loading 6 foundation reasoning datasets (0% benchmark overlap)...", flush=True)
-    all_samples = (
-        build_clinc(rng, 12000) +
-        build_hellaswag(rng, 12000) +
-        build_anli(rng, 12000) +
-        build_winogrande(rng, 10000) +
-        build_boolq(rng, 9400) +
-        build_stsb(rng, 5700)
-    )
-    rng.shuffle(all_samples)
-    print(f"[DATA] Total Samples: {len(all_samples)}", flush=True)
-
-    n_val, n_test = int(0.08 * len(all_samples)), int(0.08 * len(all_samples))
-    splits = [("train.jsonl", all_samples[n_val + n_test:]), ("val.jsonl", all_samples[:n_val]), ("test.jsonl", all_samples[n_val:n_val + n_test])]
+    print("[DATA] Generating foundation multi-task reasoning dataset (0% benchmark overlap)...", flush=True)
+    samples = (build_clinc(rng, 12000) + build_hellaswag(rng, 12000) + build_anli(rng, 12000) +
+               build_winogrande(rng, 10000) + build_boolq(rng, 9000) + build_stsb(rng, 5700))
+    rng.shuffle(samples)
+    print(f"[DATA] Total Samples: {len(samples)}", flush=True)
+    n_val, n_test = int(0.08 * len(samples)), int(0.08 * len(samples))
+    splits = [("train.jsonl", samples[n_val + n_test:]), ("val.jsonl", samples[:n_val]), ("test.jsonl", samples[n_val:n_val + n_test])]
     for name, data in splits:
         path = data_dir / name
         with open(path, "w", encoding="utf-8") as f:

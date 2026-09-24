@@ -1,0 +1,7 @@
+{
+  "checkpoint": "checkpoint_laya_beater.pt",
+  "epoch": 1,
+  "val_loss": 0.40508566213824415,
+  "train_loss": 0.5024826370463863,
+  "timestamp": "2026-09-24T11:13:31Z"
+}

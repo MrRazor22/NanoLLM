@@ -16,10 +16,10 @@ BENCHMARK_TARGETS = {
         "Sports": "sports, games, athletes",
         "Business": "companies, markets, economy",
         "Sci/Tech": "science, technology, software, space"
-    }, None, 0.953, None),
+    }, None, 0.953, "What is the topic of the article?"),
     "emotion": ("DAIR Emotion", "dair-ai/emotion", "test", "text", "label", ["sadness", "joy", "love", "anger", "fear", "surprise"], None, 0.600, "Which emotion is most strongly expressed in this text?"),
-    "massive": ("MASSIVE Intent", "mteb/amazon_massive_intent", "test", "text", "label_text", None, "en", 0.783, "What is the user's intent in this utterance?", MASSIVE_CLUSTERS),
-    "banking77": ("Banking77", "mteb/banking77", "test", "text", "label_text", None, None, 0.492, "Which banking intent does this message express?", BANKING_CLUSTERS),
+    "massive": ("MASSIVE Intent", "mteb/amazon_massive_intent", "test", "text", "label_text", None, "en", 0.783, "What is the user's intent in this utterance?", None),
+    "banking77": ("Banking77", "mteb/banking77", "test", "text", "label_text", None, None, 0.492, "Which banking intent does this message express?", None),
 }
 
 
@@ -37,7 +37,8 @@ def eval_typed_decisions(engine: DecisionEngine, max_n: Optional[int]) -> Dict[s
             if t == "choice":
                 questions.append(Choice(name, crit if isinstance(crit, dict) else list(crit), instruction=ins))
             elif t == "noul":
-                questions.append(Noul(name, instruction=ins))
+                crit_dict = crit if isinstance(crit, dict) and crit else {"false": "no, condition does not hold", "true": "yes, condition holds"}
+                questions.append(Choice(name, crit_dict, instruction=ins))
             elif t == "score":
                 opts = {str(i): c for i, c in enumerate(crit)} if isinstance(crit, list) else crit
                 questions.append(Choice(name, opts, instruction=ins))
@@ -50,7 +51,9 @@ def eval_typed_decisions(engine: DecisionEngine, max_n: Optional[int]) -> Dict[s
             if not ans: continue
             total += 1
             if gold.get("type") in ("choice", "score") and ans.choice == gold.get("label"): correct += 1
-            elif gold.get("type") == "noul" and ans.value == (gold.get("label") == "true" or gold.get("noul", 0) >= 0.5): correct += 1
+            elif gold.get("type") == "noul":
+                target = "true" if (gold.get("label") == "true" or gold.get("noul", 0) >= 0.5) else "false"
+                if ans.choice == target: correct += 1
 
 
         if (idx + 1) % 100 == 0 or (idx + 1) == len(ds):
@@ -87,9 +90,11 @@ def main():
     parser.add_argument("--checkpoint", default="checkpoint.pt")
     parser.add_argument("--samples", type=int, default=500, help="Samples per dataset (0 = all)")
     parser.add_argument("--task", default="all", choices=["all", "typed_decisions", "massive", "banking77", "ag_news", "emotion"])
+    parser.add_argument("--hierarchical", action="store_true", help="Wrap engine in HierarchicalLayer")
     args = parser.parse_args()
 
-    engine = HierarchicalLayer(DecisionEngine.from_checkpoint(args.checkpoint))
+    raw_engine = DecisionEngine.from_checkpoint(args.checkpoint)
+    engine = HierarchicalLayer(raw_engine) if args.hierarchical else raw_engine
     n = None if args.samples == 0 else args.samples
     results = []
 

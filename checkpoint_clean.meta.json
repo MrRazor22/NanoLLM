@@ -1,0 +1,7 @@
+{
+  "checkpoint": "checkpoint_clean.pt",
+  "epoch": 2,
+  "val_loss": 0.5267906030563291,
+  "train_loss": 0.4358590378333672,
+  "timestamp": "2026-09-24T10:42:55Z"
+}
