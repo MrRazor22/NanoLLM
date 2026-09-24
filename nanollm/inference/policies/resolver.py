@@ -1,6 +1,6 @@
 from typing import Any, Dict, List, Protocol, Sequence
 import torch
-from nanollm.engine.schema import Answer, Choice, ChoiceResult, Noul, NoulResult, Score, ScoreResult
+from nanollm.inference.schema import Answer, Choice, ChoiceResult, Noul, NoulResult, Score, ScoreResult
 
 class IResolver(Protocol):
     def resolve(self, questions: Sequence[Any], slots: List[List[int]], sample_scores: torch.Tensor) -> Dict[str, Answer]: ...

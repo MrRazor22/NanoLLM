@@ -1,5 +1,5 @@
 from typing import Any, Callable, Dict, List, Protocol, Sequence
-from nanollm.engine.schema import Choice
+from nanollm.inference.schema import Choice
 
 DecideFn = Callable[[str, Dict[str, Any]], Dict[str, Any]]
 

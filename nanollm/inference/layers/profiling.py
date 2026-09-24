@@ -1,8 +1,8 @@
 from typing import Sequence
 import time
 import torch
-from nanollm.engine.engine import IDecisionEngine
-from nanollm.engine.schema import DecisionResult, Question
+from nanollm.inference.engine import IDecisionEngine
+from nanollm.inference.schema import DecisionResult, Question
 
 class DecisionEngineLayer(IDecisionEngine):
     def __init__(self, inner: IDecisionEngine):

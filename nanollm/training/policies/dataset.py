@@ -1,7 +1,7 @@
 from dataclasses import dataclass
 from typing import Any, Dict, List, Optional, Sequence
 import json
-from nanollm.engine.policies.assembler import SlotAssembler
+from nanollm.inference.policies.assembler import SlotAssembler
 
 @dataclass(frozen=True)
 class QuestionSpec:

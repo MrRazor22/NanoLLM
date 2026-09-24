@@ -2,13 +2,13 @@ from pathlib import Path
 from typing import Optional, Protocol, Sequence, Union
 import torch
 from transformers import AutoModel
-from nanollm.engine.policies.assembler import ISlotAssembler, SlotAssembler
-from nanollm.engine.policies.resolver import DecisionResolver, IResolver
-from nanollm.engine.policies.tokenizer import SubwordTokenizer
-from nanollm.engine.schema import DecisionResult, Question
+from nanollm.inference.policies.assembler import ISlotAssembler, SlotAssembler
+from nanollm.inference.policies.resolver import DecisionResolver, IResolver
+from nanollm.inference.policies.tokenizer import SubwordTokenizer
+from nanollm.inference.schema import DecisionResult, Question
 from nanollm.model import ModelConfig, NanoModel
 
-DEFAULT_CHECKPOINT = Path(__file__).resolve().parent / "checkpoints" / "checkpoint_champion_v2.pt"
+DEFAULT_CHECKPOINT = Path(__file__).resolve().parent.parent / "model" / "checkpoints" / "checkpoint_champion_v2.pt"
 
 class IDecisionEngine(Protocol):
     def decide(self, state: str, questions: Sequence[Question]) -> DecisionResult: ...

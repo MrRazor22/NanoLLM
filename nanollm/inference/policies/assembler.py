@@ -1,7 +1,7 @@
 from dataclasses import dataclass
 from typing import Any, Dict, List, Optional, Protocol, Sequence, Tuple
 import torch
-from nanollm.engine.policies.tokenizer import ITokenizer
+from nanollm.inference.policies.tokenizer import ITokenizer
 
 @dataclass(frozen=True)
 class CompiledLayout:

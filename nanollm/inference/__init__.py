@@ -1,10 +1,10 @@
-from nanollm.engine.engine import DecisionEngine, IDecisionEngine
-from nanollm.engine.layers.hierarchical import HierarchicalLayer
-from nanollm.engine.layers.profiling import DecisionEngineLayer, ProfilingLayer
-from nanollm.engine.policies.assembler import CompiledLayout, ISlotAssembler, SlotAssembler
-from nanollm.engine.policies.resolver import DecisionResolver, IResolver
-from nanollm.engine.policies.tokenizer import ByteTokenizer, ITokenizer, SubwordTokenizer
-from nanollm.engine.schema import (
+from nanollm.inference.engine import DecisionEngine, IDecisionEngine
+from nanollm.inference.layers.hierarchical import HierarchicalLayer
+from nanollm.inference.layers.profiling import DecisionEngineLayer, ProfilingLayer
+from nanollm.inference.policies.assembler import CompiledLayout, ISlotAssembler, SlotAssembler
+from nanollm.inference.policies.resolver import DecisionResolver, IResolver
+from nanollm.inference.policies.tokenizer import ByteTokenizer, ITokenizer, SubwordTokenizer
+from nanollm.inference.schema import (
     Answer,
     Choice,
     ChoiceResult,

@@ -2,7 +2,7 @@ from nanollm.model import (
     ModelConfig,
     NanoModel,
 )
-from nanollm.engine import (
+from nanollm.inference import (
     Answer,
     Choice,
     ChoiceResult,

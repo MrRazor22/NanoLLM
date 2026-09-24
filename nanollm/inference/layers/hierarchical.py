@@ -1,6 +1,6 @@
 from typing import Dict, List, Sequence
-from nanollm.engine.layers.profiling import DecisionEngineLayer
-from nanollm.engine.schema import Choice, DecisionResult, Question
+from nanollm.inference.layers.profiling import DecisionEngineLayer
+from nanollm.inference.schema import Choice, DecisionResult, Question
 
 class HierarchicalLayer(DecisionEngineLayer):
     def decide(self, state: str, questions: Sequence[Question]) -> DecisionResult:
