@@ -12,8 +12,8 @@ Every operational domain in NanoLLM is modeled as an autonomous, cohesive **Boun
 
 ```text
 ┌─────────────────────────────────────────────────────────────┐
-│                 External Consumers / Drivers                │
-│                 (cli.py, examples/)                         │
+│                 External Consumers                          │
+│                 (examples/)                                 │
 └──────────────────────────────┬──────────────────────────────┘
                                │ orchestrates
 ┌──────────────────────────────▼──────────────────────────────┐
@@ -64,9 +64,9 @@ Every piece of code in NanoLLM strictly belongs to one of four canonical types:
 3. **Pure Functions / Extension Methods (Stateless Utilities):** Zero side-effect transforms (`save_jsonl`, `load_jsonl`, `choice_question`).
 4. **Composition Root / Driver (Zero-Logic Wiring):** Declarative wiring entrypoint in `drivers/` ($\le 50-80$ lines).
 
-### 3. Consumers & Drivers (`drivers/cli.py`, `examples/`)
-- Standalone execution drivers reside in `drivers/`, keeping repository root pristine.
-- Zero business or presentation logic: the driver purely parses CLI args, wires primitives, decorates them with layers, and invokes them.
+### 3. Consumers & Applications (`examples/`)
+- Pure consumer applications reside in `examples/`, demonstrating clean end-to-end usage of `nanollm`.
+- Zero procedural scripts or driver bloat at repository root. Boundaries are consumed directly via Python interfaces.
 
 ### 4. Interfaces Are the System; Implementations Are Transient
 - The entire architecture is anchored strictly on razor-sharp interfaces (`typing.Protocol`).
