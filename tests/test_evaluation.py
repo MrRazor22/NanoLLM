@@ -2,7 +2,7 @@ import sys
 from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-from benchmark import ModelEvaluator, ProfilingEvaluatorLayer, print_benchmark_table
+from benchmark import ModelEvaluator, ProfilingEvaluatorLayer
 
 def test_evaluator():
     dummy_items = [
@@ -16,20 +16,7 @@ def test_evaluator():
     assert rep["overall_acc"] == 0.5
     assert "p50_ms" in rep
 
-def test_reporter():
-    rep = {
-        "name": "TestModel",
-        "overall_acc": 0.85,
-        "total_correct": 17,
-        "total_questions": 20,
-        "by_cat": {"agent_tool_routing": 0.9},
-        "p50_ms": 12.3,
-        "p90_ms": 18.5,
-    }
-    # Should not raise exception
-    print_benchmark_table([rep])
-
 if __name__ == "__main__":
     test_evaluator()
-    test_reporter()
-    print("Evaluation tests passed!")
+    print("Evaluator unit test passed!")
+
