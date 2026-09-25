@@ -45,12 +45,18 @@ def main() -> None:
         train_data = train_data[:args.max_samples]
         val_data = val_data[:max(50, args.max_samples // 5)]
 
-    train_idx = sorted(range(len(train_data)), key=lambda i: len(train_data[i].state))
-    train_batches = [train_idx[i:i + args.batch_size] for i in range(0, len(train_idx), args.batch_size)]
-    random.Random(42).shuffle(train_batches)
+    def index_data(dataset):
+        lens = []
+        for s in dataset:
+            rendered = collator.assembler.render_sample(s.state, s.questions)
+            collator._cache[id(s)] = rendered
+            lens.append(len(rendered[0]))
+        indices = sorted(range(len(dataset)), key=lambda i: lens[i])
+        return [indices[i:i + args.batch_size] for i in range(0, len(indices), args.batch_size)]
 
-    val_idx = sorted(range(len(val_data)), key=lambda i: len(val_data[i].state))
-    val_batches = [val_idx[i:i + args.batch_size] for i in range(0, len(val_idx), args.batch_size)]
+    train_batches = index_data(train_data)
+    random.Random(42).shuffle(train_batches)
+    val_batches = index_data(val_data)
 
     pin = device.type == "cuda"
     train_loader = DataLoader(train_data, batch_sampler=train_batches, collate_fn=collator, pin_memory=pin)
