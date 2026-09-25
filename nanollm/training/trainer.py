@@ -1,4 +1,5 @@
 from typing import Any, Protocol
+import time
 import torch
 from torch.utils.data import DataLoader
 from nanollm.model import NanoModel
@@ -27,17 +28,20 @@ class EpochTrainer(ITrainer):
         loss_fn: CalibratedLoss,
         device: torch.device,
         accum_steps: int = 4,
+        log_interval: int = 300,
     ):
         self.model = model
         self.optimizer = optimizer
         self.loss_fn = loss_fn
         self.device = device
         self.accum_steps = accum_steps
+        self.log_interval = log_interval
         self.scaler = torch.amp.GradScaler("cuda", enabled=device.type == "cuda")
 
     def train_epoch(self, loader: DataLoader) -> float:
         self.model.train()
         total_loss, total_steps = 0.0, len(loader)
+        start_time = time.perf_counter()
         self.optimizer.zero_grad()
         for step, batch in enumerate(loader):
             ids, mask = batch["input_ids"].to(self.device), batch["mask"].to(self.device)
@@ -50,6 +54,14 @@ class EpochTrainer(ITrainer):
                 self.scaler.step(self.optimizer)
                 self.scaler.update()
                 self.optimizer.zero_grad()
+            if self.log_interval > 0 and ((step + 1) % self.log_interval == 0 or (step + 1) == total_steps):
+                elapsed = time.perf_counter() - start_time
+                avg_step_ms = (elapsed / (step + 1)) * 1000.0
+                curr_loss = total_loss / (step + 1)
+                print(
+                    f"Step [{step+1:5d}/{total_steps}] Loss: {curr_loss:.4f} | Speed: {avg_step_ms:.1f}ms/step",
+                    flush=True
+                )
         return total_loss / max(1, total_steps)
 
     def evaluate(self, loader: DataLoader) -> float:
