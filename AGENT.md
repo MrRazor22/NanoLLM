@@ -26,7 +26,7 @@ d:/CodeBase/NanoLLM/
     ├── profiling_layer.py     # ProfilingEvaluatorLayer
     ├── reporter.py            # Head-to-head scorecard printer (Delta vs Best)
     ├── __main__.py            # python -m benchmark runner
-    └── data/                  # laya_benchmark.json (2,400 cases), benchmark.json (120 cases)
+    └── data/                  # laya_benchmark.json (2,400 cases), benchmark.json (400 cases)
 ```
 
 ---
@@ -45,9 +45,17 @@ d:/CodeBase/NanoLLM/
   ```bash
   python -m benchmark
   ```
-* **Run Benchmark (120-case Custom Agentic Suite vs Live Laya):**
+* **Run Benchmark (400-case Publication-Grade Agentic Suite vs Live Laya):**
   ```bash
   python -m benchmark --agentic
+  ```
+* **Run Benchmark (2,000-decision Typed Decisions Showdown vs Verdict 2.0 & Laya):**
+  ```bash
+  python -m benchmark --typed-decisions
+  ```
+* **Run Benchmark (Abstention & Safety Suite vs Verdict 2.0):**
+  ```bash
+  python -m benchmark --abstention
   ```
 
 ---
