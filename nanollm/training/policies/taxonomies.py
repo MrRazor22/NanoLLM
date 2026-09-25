@@ -65,3 +65,43 @@ MASSIVE_CLUSTERS = {
     "transport": ["transport_query", "transport_taxi", "transport_ticket", "transport_traffic"],
     "weather": ["weather_query"]
 }
+
+AG_NEWS_TOPICS = {
+    "World": "international news, politics, conflicts",
+    "Sports": "sports, games, athletes",
+    "Business": "companies, markets, economy",
+    "Sci/Tech": "science, technology, software, space",
+}
+
+SPAM_CRITERIA = {
+    "false": "legitimate email communication",
+    "true": "unsolicited spam or promotional email",
+}
+
+PHISHING_CRITERIA = {
+    "false": "legitimate safe email",
+    "true": "phishing, scam, or fraudulent email",
+}
+
+SUPPORT_QUEUES = {
+    "Technical Support": "technical problems, bugs, outages, integrations",
+    "Product Support": "help using a product or feature",
+    "Customer Service": "general account or service questions",
+    "IT Support": "internal IT, devices, access, networks",
+    "Billing and Payments": "invoices, charges, refunds, payment methods",
+    "Returns and Exchanges": "returning or exchanging an item",
+    "Service Outages and Maintenance": "downtime, outages, scheduled maintenance",
+    "Sales and Pre-Sales": "pricing, quotes, buying",
+    "Human Resources": "employment, payroll, leave, hiring",
+    "General Inquiry": "anything else",
+}
+
+EMOTION_CRITERIA = {
+    "sadness": "sadness, sorrow, grief",
+    "joy": "joy, happiness, delight",
+    "love": "love, affection, warmth",
+    "anger": "anger, annoyance, frustration",
+    "fear": "fear, anxiety, terror",
+    "surprise": "surprise, shock, astonishment",
+}
+

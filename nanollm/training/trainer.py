@@ -1,8 +1,10 @@
-from typing import Any, Protocol
+from typing import Any, Optional, Protocol, Tuple
 import time
 import torch
 from torch.utils.data import DataLoader
 from nanollm.model import NanoModel
+from nanollm.training.policies.curriculum import ICurriculum
+from nanollm.training.policies.dataset import to_decision_sample
 from nanollm.training.policies.loss import CalibratedLoss
 
 class ITrainer(Protocol):
@@ -27,6 +29,7 @@ class EpochTrainer(ITrainer):
         optimizer: torch.optim.Optimizer,
         loss_fn: CalibratedLoss,
         device: torch.device,
+        curriculum: Optional[ICurriculum] = None,
         accum_steps: int = 4,
         log_interval: int = 300,
     ):
@@ -34,9 +37,20 @@ class EpochTrainer(ITrainer):
         self.optimizer = optimizer
         self.loss_fn = loss_fn
         self.device = device
+        self.curriculum = curriculum
         self.accum_steps = accum_steps
         self.log_interval = log_interval
         self.scaler = torch.amp.GradScaler("cuda", enabled=device.type == "cuda")
+
+    def build_dataloaders(self, collator: Any, batch_size: int = 8) -> Tuple[DataLoader, DataLoader]:
+        if self.curriculum is None:
+            raise ValueError("No curriculum policy injected into EpochTrainer")
+        train_raw, val_raw = self.curriculum.build()
+        train_samples = [to_decision_sample(r) for r in train_raw]
+        val_samples = [to_decision_sample(r) for r in val_raw]
+        train_loader = DataLoader(train_samples, batch_size=batch_size, shuffle=True, collate_fn=collator)
+        val_loader = DataLoader(val_samples, batch_size=batch_size, shuffle=False, collate_fn=collator)
+        return train_loader, val_loader
 
     def train_epoch(self, loader: DataLoader) -> float:
         self.model.train()

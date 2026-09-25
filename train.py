@@ -25,6 +25,7 @@ def main() -> None:
     parser.add_argument("--train-data", type=str, default=str(DEFAULT_TRAIN))
     parser.add_argument("--val-data", type=str, default=str(DEFAULT_VAL))
     parser.add_argument("--output", type=str, default=str(DEFAULT_OUTPUT))
+    parser.add_argument("--init-checkpoint", type=str, default=None, help="Initial checkpoint to start adaptation from")
     parser.add_argument("--epochs", type=int, default=2)
     parser.add_argument("--batch-size", type=int, default=8)
     parser.add_argument("--lr", type=float, default=2e-5)
@@ -48,6 +49,9 @@ def main() -> None:
     backbone = AutoModel.from_pretrained("answerdotai/ModernBERT-base")
     config = ModelConfig(vocab_size=tokenizer.vocab_size, hidden_dim=768, num_layers=22, num_heads=12)
     model = NanoModel(config, backbone=backbone).to(device)
+    if args.init_checkpoint:
+        model.load_state_dict(torch.load(args.init_checkpoint, map_location=device))
+        print(f"Loaded initial weights from {args.init_checkpoint}")
 
     optimizer = torch.optim.AdamW(model.parameters(), lr=args.lr)
     loss_fn = CalibratedLoss()

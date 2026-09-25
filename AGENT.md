@@ -73,3 +73,10 @@ d:/CodeBase/NanoLLM/
 
 5. **Strict Evidence Grounding:**
    * Unit tests in `tests/` verify mechanics only; no toy mocks dumping fake tables. All performance scorecards are produced by live evaluations on real datasets.
+
+6. **Data Richness & Anti-Contamination Invariant:**
+   * Any dataset prepared or curated must be genuinely rich, semantically deep, and structurally complete—never poor, shallow, or degraded toy data.
+   * Domain adaptation performance is strictly bounded by data quality: high-signal, rich multi-domain distributions drive real capability, while evaluation splits remain strictly isolated to prevent test leakage.
+
+
+
