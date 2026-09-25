@@ -10,6 +10,7 @@ class CompiledLayout:
     slots: List[List[int]]
 
 class ISlotAssembler(Protocol):
+    def render_sample(self, state: str, questions: Sequence[Any]) -> Tuple[List[int], List[Tuple[str, List[int], Any]]]: ...
     def assemble_single(self, state: str, questions: Sequence[Any], device: Optional[torch.device] = None) -> CompiledLayout: ...
     def assemble_batch(self, batch: Sequence[Any]) -> Dict[str, Any]: ...
 
@@ -28,7 +29,7 @@ class SlotAssembler(ISlotAssembler):
             except Exception: pass
         return str(state)
 
-    def _render_sample(self, state: str, questions: Sequence[Any]) -> Tuple[List[int], List[Tuple[str, List[int], Any]]]:
+    def render_sample(self, state: str, questions: Sequence[Any]) -> Tuple[List[int], List[Tuple[str, List[int], Any]]]:
         state_ids = self.tokenizer.encode(self._format_state(state))
         ids = state_ids[:384] if len(state_ids) > 384 else list(state_ids)
 
@@ -55,8 +56,10 @@ class SlotAssembler(ISlotAssembler):
                 meta.append((q_type, [len(ids) - 1], float(target) if target is not None else 0.0))
         return ids, meta
 
+    _render_sample = render_sample
+
     def assemble_single(self, state: str, questions: Sequence[Any], device: Optional[torch.device] = None) -> CompiledLayout:
-        ids, meta = self._render_sample(state, questions)
+        ids, meta = self.render_sample(state, questions)
         dev = device if device is not None else torch.device("cpu")
         input_ids = torch.tensor([ids], dtype=torch.long, device=dev)
         mask = torch.ones((1, len(ids)), dtype=torch.float, device=dev)
@@ -66,8 +69,11 @@ class SlotAssembler(ISlotAssembler):
     def assemble_batch(self, batch: Sequence[Any]) -> Dict[str, Any]:
         all_ids: List[List[int]] = []
         batch_meta: List[List[Any]] = []
-        for sample in batch:
-            ids, meta = self._render_sample(sample.state, sample.questions)
+        for item in batch:
+            if isinstance(item, tuple) and len(item) == 2 and isinstance(item[0], list):
+                ids, meta = item
+            else:
+                ids, meta = self.render_sample(item.state, item.questions)
             all_ids.append(ids)
             batch_meta.append(meta)
 

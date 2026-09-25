@@ -1,6 +1,6 @@
 from dataclasses import dataclass
-from typing import Any, Dict, List, Optional, Sequence
 import json
+from typing import Any, Dict, List, Optional, Sequence, Tuple
 from nanollm.inference.policies.assembler import SlotAssembler
 
 @dataclass(frozen=True)
@@ -22,9 +22,20 @@ class MultiQuestionCollator:
             self.assembler = tokenizer_or_assembler
         else:
             self.assembler = SlotAssembler(tokenizer_or_assembler)
+        self._cache: Dict[int, Tuple[List[int], List[Any]]] = {}
 
-    def __call__(self, batch: Sequence[DecisionSample]) -> Dict[str, Any]:
-        return self.assembler.assemble_batch(batch)
+    def __call__(self, batch: Sequence[Any]) -> Dict[str, Any]:
+        items = []
+        for s in batch:
+            k = id(s)
+            cached = self._cache.get(k)
+            if cached is None:
+                cached = self._cache[k] = (
+                    s if isinstance(s, tuple) and len(s) == 2 and isinstance(s[0], list)
+                    else self.assembler.render_sample(s.state, s.questions)
+                )
+            items.append(cached)
+        return self.assembler.assemble_batch(items)
 
 def to_decision_sample(item: Dict[str, Any]) -> DecisionSample:
     specs = [

@@ -1,4 +1,5 @@
 import argparse
+import random
 import time
 from pathlib import Path
 import torch
@@ -44,8 +45,16 @@ def main() -> None:
         train_data = train_data[:args.max_samples]
         val_data = val_data[:max(50, args.max_samples // 5)]
 
-    train_loader = DataLoader(train_data, batch_size=args.batch_size, shuffle=True, collate_fn=collator)
-    val_loader = DataLoader(val_data, batch_size=args.batch_size, shuffle=False, collate_fn=collator)
+    train_idx = sorted(range(len(train_data)), key=lambda i: len(train_data[i].state))
+    train_batches = [train_idx[i:i + args.batch_size] for i in range(0, len(train_idx), args.batch_size)]
+    random.Random(42).shuffle(train_batches)
+
+    val_idx = sorted(range(len(val_data)), key=lambda i: len(val_data[i].state))
+    val_batches = [val_idx[i:i + args.batch_size] for i in range(0, len(val_idx), args.batch_size)]
+
+    pin = device.type == "cuda"
+    train_loader = DataLoader(train_data, batch_sampler=train_batches, collate_fn=collator, pin_memory=pin)
+    val_loader = DataLoader(val_data, batch_sampler=val_batches, collate_fn=collator, pin_memory=pin)
 
     backbone = AutoModel.from_pretrained("answerdotai/ModernBERT-base")
     config = ModelConfig(vocab_size=tokenizer.vocab_size, hidden_dim=768, num_layers=22, num_heads=12)
