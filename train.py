@@ -29,6 +29,7 @@ def main() -> None:
     parser.add_argument("--init-checkpoint", type=str, default=None, help="Initial checkpoint to start adaptation from")
     parser.add_argument("--epochs", type=int, default=2)
     parser.add_argument("--batch-size", type=int, default=16)
+    parser.add_argument("--max-tokens", type=int, default=4000, help="Max tokens per batch for dynamic batching (0 to use batch-size)")
     parser.add_argument("--lr", type=float, default=2e-5)
     parser.add_argument("--max-samples", type=int, default=0)
     parser.add_argument("--accum-steps", type=int, default=2)
@@ -55,6 +56,15 @@ def main() -> None:
             collator._cache[id(s)] = rendered
             lens.append(len(rendered[0]))
         indices = sorted(range(len(dataset)), key=lambda i: lens[i])
+        if args.max_tokens > 0:
+            batches, cur_b, cur_toks = [], [], 0
+            for i in indices:
+                if cur_toks + lens[i] > args.max_tokens and cur_b:
+                    batches.append(cur_b); cur_b, cur_toks = [], 0
+                cur_b.append(i); cur_toks += lens[i]
+            if cur_b:
+                batches.append(cur_b)
+            return batches
         return [indices[i:i + args.batch_size] for i in range(0, len(indices), args.batch_size)]
 
     train_batches = index_data(train_data)
