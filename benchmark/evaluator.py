@@ -20,13 +20,7 @@ class ModelEvaluator:
         def decide(state: str, questions: Dict[str, Any]) -> Dict[str, Any]:
             qs: List[Choice] = []
             for qid, spec in questions.items():
-                crit = spec.get("criteria", {})
-                if isinstance(crit, list):
-                    opts = {str(i): c for i, c in enumerate(crit)}
-                elif isinstance(crit, dict):
-                    opts = {k: v if v else k for k, v in crit.items()}
-                else:
-                    opts = {"false": "No", "true": "Yes"}
+                opts = spec.get("options") or spec.get("criteria", {})
                 qs.append(Choice(qid, opts, instruction=spec.get("instructions")))
             res = engine.decide(state, qs)
             return {
@@ -153,16 +147,30 @@ def load_benchmark_items(track: str = "typed_decisions", limit: Optional[int] = 
         from datasets import load_dataset
         ds = load_dataset("LocalLLaMA/typed-decisions", "all", split="test")
         n = len(ds) if limit is None else min(len(ds), limit)
-        return [
-            {
-                "id": ds[i].get("id", f"case_{i}"),
-                "category": ds[i].get("workflow", "general"),
-                "state": str(ds[i]["state"]),
-                "questions": json.loads(ds[i]["questions"]) if isinstance(ds[i]["questions"], str) else ds[i]["questions"],
-                "gold": json.loads(ds[i]["gold"]) if isinstance(ds[i]["gold"], str) else ds[i]["gold"],
-            }
-            for i in range(n)
-        ]
+        items = []
+        for i in range(n):
+            row = ds[i]
+            q_defs = json.loads(row["questions"]) if isinstance(row["questions"], str) else row["questions"]
+            norm_qs = {}
+            for qid, spec in q_defs.items():
+                t, ins, crit = spec.get("type"), spec.get("instructions"), spec.get("criteria")
+                if t == "choice":
+                    opts = crit if isinstance(crit, dict) else {str(j): c for j, c in enumerate(crit or [])}
+                elif t == "noul":
+                    opts = crit if isinstance(crit, dict) and crit else {"false": "no, condition does not hold", "true": "yes, condition holds"}
+                elif t == "score":
+                    opts = {str(j): c for j, c in enumerate(crit)} if isinstance(crit, list) else (crit or {})
+                else:
+                    opts = crit or {"false": "no", "true": "yes"}
+                norm_qs[qid] = {"instructions": ins, "options": opts}
+            items.append({
+                "id": row.get("id", f"case_{i}"),
+                "category": row.get("workflow", "general"),
+                "state": str(row["state"]),
+                "questions": norm_qs,
+                "gold": json.loads(row["gold"]) if isinstance(row["gold"], str) else row["gold"],
+            })
+        return items
     elif track == "abstention":
         items = []
         for fn in ("slice_missing_option.jsonl", "slice_distant_oos.jsonl"):

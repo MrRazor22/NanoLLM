@@ -87,3 +87,5 @@ def print_scorecard(report: Dict[str, Any], track: str = "benchmark") -> None:
             thresh = row.get("threshold", 0.0)
             print(f"  Coverage: {cov:5.1f}% -> Retained Acc: {ret:5.2f}% | Selective Risk: {risk:5.2f}% (min conf: {thresh:.3f})")
     print(sep + "\n")
+
+print_benchmark_table = print_scorecard
