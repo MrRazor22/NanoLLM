@@ -1,5 +1,5 @@
 from pathlib import Path
-from typing import Optional, Protocol, Sequence, Union
+from typing import Any, Optional, Protocol, Sequence, Union
 import torch
 from transformers import AutoModel
 from nanollm.inference.policies.assembler import ISlotAssembler, SlotAssembler
@@ -12,8 +12,19 @@ DEFAULT_CHECKPOINT = Path(__file__).resolve().parent.parent / "model" / "checkpo
 
 class IDecisionEngine(Protocol):
     def decide(self, state: str, questions: Sequence[Question]) -> DecisionResult: ...
+    def add(self, layer: Any, **kwargs: Any) -> "IDecisionEngine": ...
+    def __or__(self, layer: Any) -> "IDecisionEngine": ...
 
 class DecisionEngine(IDecisionEngine):
+    def add(self, layer: Any, **kwargs: Any) -> "IDecisionEngine":
+        if isinstance(layer, type):
+            return layer(self, **kwargs)
+        if hasattr(layer, "attach"):
+            return layer.attach(self)
+        return layer(self, **kwargs)
+
+    def __or__(self, layer: Any) -> "IDecisionEngine":
+        return self.add(layer)
     def __init__(
         self,
         model: NanoModel,

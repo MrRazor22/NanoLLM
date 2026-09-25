@@ -4,6 +4,8 @@ from nanollm.inference.schema import Choice, DecisionResult, Question
 
 class HierarchicalLayer(DecisionEngineLayer):
     def decide(self, state: str, questions: Sequence[Question]) -> DecisionResult:
+        if self.inner is None:
+            raise RuntimeError("HierarchicalLayer is not attached to an inner engine.")
         has_clusters = any(isinstance(q, Choice) and q.clusters for q in questions)
         if not has_clusters:
             return self.inner.decide(state, questions)

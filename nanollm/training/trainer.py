@@ -1,16 +1,25 @@
-from typing import Protocol
+from typing import Any, Protocol
 import torch
 from torch.utils.data import DataLoader
 from nanollm.model import NanoModel
 from nanollm.training.policies.loss import CalibratedLoss
 
 class ITrainer(Protocol):
-    def train_epoch(self, loader: DataLoader) -> float:
-        ...
-    def evaluate(self, loader: DataLoader) -> float:
-        ...
+    def train_epoch(self, loader: DataLoader) -> float: ...
+    def evaluate(self, loader: DataLoader) -> float: ...
+    def add(self, layer: Any, **kwargs: Any) -> "ITrainer": ...
+    def __or__(self, layer: Any) -> "ITrainer": ...
 
-class EpochTrainer:
+class EpochTrainer(ITrainer):
+    def add(self, layer: Any, **kwargs: Any) -> "ITrainer":
+        if isinstance(layer, type):
+            return layer(self, **kwargs)
+        if hasattr(layer, "attach"):
+            return layer.attach(self)
+        return layer(self, **kwargs)
+
+    def __or__(self, layer: Any) -> "ITrainer":
+        return self.add(layer)
     def __init__(
         self,
         model: NanoModel,

@@ -18,12 +18,7 @@ from nanollm.inference import (
     Score,
     ScoreResult,
 )
-from nanollm.evaluation import (
-    IEvaluator,
-    ModelEvaluator,
-    ProfilingEvaluatorLayer,
-    print_benchmark_table,
-)
+
 from nanollm.training import (
     AdaptationCurriculum,
     CalibratedLoss,
@@ -55,11 +50,7 @@ __all__ = [
     "Question",
     "Score",
     "ScoreResult",
-    # Evaluation
-    "IEvaluator",
-    "ModelEvaluator",
-    "ProfilingEvaluatorLayer",
-    "print_benchmark_table",
+
     # Training
     "AdaptationCurriculum",
     "CalibratedLoss",

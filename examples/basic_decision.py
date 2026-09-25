@@ -6,7 +6,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 from nanollm import Choice, DecisionEngine, Noul, ProfilingLayer, Score
 
 def main():
-    engine = ProfilingLayer(DecisionEngine.from_checkpoint())
+    engine = DecisionEngine.from_checkpoint() | ProfilingLayer
     
     state = "Our primary Postgres database CPU reached 99% and connection pool is exhausted."
     questions = [

@@ -24,6 +24,16 @@ class ModelEvaluator:
             return {qid: res.answers[qid].choice for qid in questions}
         return cls(name, decide)
 
+    def add(self, layer: Any, **kwargs: Any) -> Any:
+        if isinstance(layer, type):
+            return layer(self, **kwargs)
+        if hasattr(layer, "attach"):
+            return layer.attach(self)
+        return layer(self, **kwargs)
+
+    def __or__(self, layer: Any) -> Any:
+        return self.add(layer)
+
     def evaluate(self, items: List[Dict[str, Any]]) -> Dict[str, Any]:
         stats: Dict[str, Dict[str, int]] = {}
         for item in items:
