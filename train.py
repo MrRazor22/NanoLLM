@@ -38,6 +38,7 @@ def main() -> None:
 
     if torch.cuda.is_available():
         torch.set_float32_matmul_precision("high")
+        torch.backends.cudnn.benchmark = True
 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     tokenizer = SubwordTokenizer("answerdotai/ModernBERT-base")
@@ -82,7 +83,7 @@ def main() -> None:
         model.load_state_dict(torch.load(args.init_checkpoint, map_location=device))
         print(f"Loaded initial weights from {args.init_checkpoint}")
 
-    optimizer = torch.optim.AdamW(model.parameters(), lr=args.lr)
+    optimizer = torch.optim.AdamW(model.parameters(), lr=args.lr, fused=pin)
     loss_fn = CalibratedLoss()
 
     trainer = EpochTrainer(

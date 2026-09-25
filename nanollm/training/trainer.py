@@ -54,9 +54,9 @@ class EpochTrainer(ITrainer):
 
     def train_epoch(self, loader: DataLoader) -> float:
         self.model.train()
-        total_loss, total_steps = 0.0, len(loader)
+        total_loss, total_steps = torch.tensor(0.0, device=self.device), len(loader)
         start_time = time.perf_counter()
-        self.optimizer.zero_grad()
+        self.optimizer.zero_grad(set_to_none=True)
         for step, batch in enumerate(loader):
             ids = batch["input_ids"].to(self.device, non_blocking=True)
             mask = batch["mask"].to(self.device, non_blocking=True)
@@ -64,7 +64,7 @@ class EpochTrainer(ITrainer):
                 scores = self.model(ids, mask)
                 loss = self.loss_fn(scores, batch["meta"], self.device) / self.accum_steps
             self.scaler.scale(loss).backward()
-            total_loss += loss.item() * self.accum_steps
+            total_loss += loss.detach() * self.accum_steps
             if (step + 1) % self.accum_steps == 0 or (step + 1) == total_steps:
                 self.scaler.step(self.optimizer)
                 self.scaler.update()
@@ -73,21 +73,20 @@ class EpochTrainer(ITrainer):
             if (step + 1) % log_int == 0 or (step + 1) == total_steps:
                 elapsed = time.perf_counter() - start_time
                 avg_step_ms = (elapsed / (step + 1)) * 1000.0
-                curr_loss = total_loss / (step + 1)
+                curr_loss = (total_loss / (step + 1)).item()
                 print(
                     f"Step [{step+1:5d}/{total_steps}] Loss: {curr_loss:.4f} | Speed: {avg_step_ms:.1f}ms/step",
                     flush=True
                 )
-        return total_loss / max(1, total_steps)
+        return (total_loss / max(1, total_steps)).item()
 
     def evaluate(self, loader: DataLoader) -> float:
         self.model.eval()
-        total_loss = 0.0
+        total_loss = torch.tensor(0.0, device=self.device)
         with torch.no_grad(), torch.amp.autocast("cuda", enabled=self.device.type == "cuda"):
             for batch in loader:
                 ids = batch["input_ids"].to(self.device, non_blocking=True)
                 mask = batch["mask"].to(self.device, non_blocking=True)
                 scores = self.model(ids, mask)
-                loss = self.loss_fn(scores, batch["meta"], self.device)
-                total_loss += loss.item()
-        return total_loss / max(1, len(loader))
+                total_loss += self.loss_fn(scores, batch["meta"], self.device)
+        return (total_loss / max(1, len(loader))).item()
