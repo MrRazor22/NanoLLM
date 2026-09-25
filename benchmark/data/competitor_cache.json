@@ -1,0 +1,82 @@
+{
+  "agentic": {
+    "Verdict 2.0 (151M)": {
+      "overall": null,
+      "slices": {
+        "agent_tool_routing": null,
+        "negative_constraints": null,
+        "safety_guardrails": null,
+        "triage_incident": null
+      }
+    },
+    "Laya (421M)": {
+      "overall": 0.528,
+      "slices": {
+        "agent_tool_routing": 0.48,
+        "negative_constraints": 0.42,
+        "safety_guardrails": 0.76,
+        "triage_incident": 0.45
+      }
+    }
+  },
+  "abstention": {
+    "Verdict 2.0 (151M)": {
+      "overall": 0.868,
+      "slices": {
+        "slice_missing_option": 0.755,
+        "slice_distant_oos": 0.98
+      }
+    },
+    "Laya (421M)": {
+      "overall": 0.195,
+      "slices": {
+        "slice_missing_option": 0.2,
+        "slice_distant_oos": 0.19
+      }
+    }
+  },
+  "typed_decisions": {
+    "Verdict 2.0 (151M)": {
+      "overall": 0.771,
+      "slices": {
+        "agent_trace_observability": 0.732,
+        "customer_service": 0.784,
+        "invoice_processing": 0.812,
+        "security_incidents": 0.756
+      }
+    },
+    "Laya (421M)": {
+      "overall": 0.766,
+      "slices": {
+        "agent_trace_observability": 0.73,
+        "customer_service": 0.764,
+        "invoice_processing": 0.804,
+        "security_incidents": 0.766
+      }
+    }
+  },
+  "laya": {
+    "Verdict 2.0 (151M)": {
+      "overall": 0.753,
+      "slices": {
+        "jev.ag_news": 0.91,
+        "jev.emotion": 0.48,
+        "jev.banking77_full": 0.87,
+        "app.support_triage": null,
+        "app.email_spam": null,
+        "app.phishing": null
+      }
+    },
+    "Laya (421M)": {
+      "overall": 0.773,
+      "slices": {
+        "jev.ag_news": 0.95,
+        "jev.emotion": 0.595,
+        "jev.banking77_full": 0.425,
+        "app.support_triage": 0.775,
+        "app.email_spam": 0.933,
+        "app.phishing": 0.958
+      }
+    }
+  }
+}

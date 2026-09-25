@@ -1,70 +1,85 @@
+import json
+from pathlib import Path
 from typing import Any, Dict, Optional
 import numpy as np
 
-COMPETITOR_REFS: Dict[str, Dict[str, Any]] = {
-    # Laya 6-Suite
-    "jev.ag_news": {"label": "AG News", "ref_name": "Laya", "ref_val": 0.950},
-    "jev.emotion": {"label": "DAIR Emotion", "ref_name": "Laya", "ref_val": 0.595},
-    "jev.banking77_full": {"label": "Banking77 (77 classes)", "ref_name": "Laya", "ref_val": 0.425},
-    "app.support_triage": {"label": "Support Triage", "ref_name": "Laya", "ref_val": 0.775},
-    "app.email_spam": {"label": "Email Spam", "ref_name": "Laya", "ref_val": 0.933},
-    "app.phishing": {"label": "Phishing", "ref_name": "Laya", "ref_val": 0.958},
-    # Typed Decisions Workflows (vs Verdict 2.0 / Laya)
-    "agent_trace_observability": {"label": "Agent Observability", "ref_name": "Verdict2", "ref_val": 0.732},
-    "customer_service": {"label": "Customer Service", "ref_name": "Verdict2", "ref_val": 0.784},
-    "invoice_processing": {"label": "Invoice Processing", "ref_name": "Verdict2", "ref_val": 0.812},
-    "security_incidents": {"label": "Security Incidents", "ref_name": "Verdict2", "ref_val": 0.756},
-    # Abstention Challenge Slices
-    "slice_missing_option": {"label": "Missing Option Abstention", "ref_name": "Verdict2", "ref_val": 0.755},
-    "slice_distant_oos": {"label": "Distant Out-of-Scope", "ref_name": "Verdict2", "ref_val": 0.980},
-    # Agentic Suite (100 cases each)
-    "agent_tool_routing": {"label": "Agent Tool Routing (100)", "ref_name": "Baseline", "ref_val": 0.850},
-    "safety_guardrails": {"label": "Safety & Guardrails (100)", "ref_name": "Laya", "ref_val": 0.708},
-    "negative_constraints": {"label": "Negative Constraints (100)", "ref_name": "Baseline", "ref_val": 0.850},
-    "triage_incident": {"label": "Incident Triage (100)", "ref_name": "Laya", "ref_val": 0.502},
+LABELS: Dict[str, str] = {
+    "agent_tool_routing": "Agent Tool Routing (100)",
+    "negative_constraints": "Negative Constraints (100)",
+    "safety_guardrails": "Safety & Guardrails (100)",
+    "triage_incident": "Incident Triage (100)",
+    "slice_missing_option": "Missing Option Abstention",
+    "slice_distant_oos": "Distant Out-of-Scope",
+    "agent_trace_observability": "Agent Observability",
+    "customer_service": "Customer Service",
+    "invoice_processing": "Invoice Processing",
+    "security_incidents": "Security Incidents",
+    "jev.ag_news": "AG News",
+    "jev.emotion": "DAIR Emotion",
+    "jev.banking77_full": "Banking77 (77 classes)",
+    "app.support_triage": "Support Triage",
+    "app.email_spam": "Email Spam",
+    "app.phishing": "Phishing",
 }
 
+def load_competitor_cache() -> Dict[str, Any]:
+    p = Path(__file__).resolve().parent / "data" / "competitor_cache.json"
+    if p.exists():
+        with open(p, "r", encoding="utf-8") as f:
+            return json.load(f)
+    return {}
+
 def print_scorecard(report: Dict[str, Any], track: str = "benchmark") -> None:
-    sep = "=" * 84
-    dash = "-" * 84
+    cache = load_competitor_cache().get(track, {})
+    v_info = cache.get("Verdict 2.0 (151M)", {})
+    l_info = cache.get("Laya (421M)", {})
+    v_slices = v_info.get("slices", {}) if v_info else {}
+    l_slices = l_info.get("slices", {}) if l_info else {}
+
+    sep = "=" * 95
+    dash = "-" * 95
     print("\n" + sep)
     title = f"NANOLLM HONEST BENCHMARK: {track.upper().replace('_', ' ')}"
-    print(f"{title:^84}")
+    print(f"{title:^95}")
     print(sep)
-    print(f"{'Task / Workflow Slice':34s} | {'Count':6s} | {'NanoLLM':9s} | {'Competitor':13s} | {'Delta':7s}")
+    print(f"{'Task / Workflow Slice':30s} | {'Count':6s} | {'NanoLLM':9s} | {'Verdict 2.0':11s} | {'Laya 0.2.1':10s} | {'Delta vs Best':14s}")
     print(dash)
 
     by_cat = report.get("by_cat", {})
     counts = report.get("cat_counts", {})
-    total_accs, total_refs = [], []
-
     for cat, acc in sorted(by_cat.items()):
-        meta = COMPETITOR_REFS.get(cat, {"label": cat, "ref_name": "Baseline", "ref_val": None})
-        label = meta["label"]
+        label = LABELS.get(cat, cat)
         n_samples = str(counts.get(cat, "-"))
-        nano_str = f"{acc*100:5.1f}%"
-        ref_val = meta["ref_val"]
-        if ref_val is not None:
-            ref_str = f"{ref_val*100:5.1f}% ({meta['ref_name']})"
-            delta = (acc - ref_val) * 100.0
-            delta_str = f"{delta:+6.1f}%"
-            total_refs.append(ref_val)
+        nano_str = f"{acc * 100:5.1f}%"
+        v_val = v_slices.get(cat)
+        l_val = l_slices.get(cat)
+        v_str = f"{v_val * 100:5.1f}%" if v_val is not None else "     -     "
+        l_str = f"{l_val * 100:5.1f}%" if l_val is not None else "    -     "
+        
+        comps = [c for c in (v_val, l_val) if c is not None]
+        if comps:
+            delta = (acc - max(comps)) * 100.0
+            d_str = f"{delta:+5.1f}% (WIN)" if delta > 0 else f"{delta:+5.1f}%"
         else:
-            ref_str = "    -        "
-            delta_str = "  -   "
-        total_accs.append(acc)
-        print(f"{label:34s} | {n_samples:>6s} | {nano_str:>9s} | {ref_str:>13s} | {delta_str:>7s}")
+            d_str = "Baseline"
+        print(f"{label:30s} | {n_samples:>6s} | {nano_str:>9s} | {v_str:>11s} | {l_str:>10s} | {d_str:>14s}")
 
     print(dash)
     overall_acc = report.get("overall_acc", 0.0) * 100.0
     tot_c = report.get("total_correct", 0)
     tot_q = report.get("total_questions", 0)
-    ref_mean = float(np.mean(total_refs)) if total_refs else None
-    ref_mean_str = f"{ref_mean*100:5.1f}%" if ref_mean is not None else "     -     "
-    delta_mean = (overall_acc - ref_mean * 100.0) if ref_mean is not None else 0.0
-    d_str = f"{delta_mean:+6.1f}%" if ref_mean is not None else "  -  "
+    v_tot = v_info.get("overall") if v_info else None
+    l_tot = l_info.get("overall") if l_info else None
+    v_tot_str = f"{v_tot * 100:5.1f}%" if v_tot is not None else "     -     "
+    l_tot_str = f"{l_tot * 100:5.1f}%" if l_tot is not None else "    -     "
+    comps_tot = [c for c in (v_tot, l_tot) if c is not None]
+    if comps_tot:
+        d_tot = overall_acc - max(comps_tot) * 100.0
+        d_tot_str = f"{d_tot:+5.1f}% (WIN)" if d_tot > 0 else f"{d_tot:+5.1f}%"
+    else:
+        d_tot_str = "Baseline"
     score_str = f"{tot_c}/{tot_q}"
-    print(f"{'OVERALL AVERAGE':34s} | {score_str:>6s} | {overall_acc:8.1f}% | {ref_mean_str:>13s} | {d_str:>7s}")
+    print(f"{'OVERALL AVERAGE':30s} | {score_str:>6s} | {overall_acc:8.1f}% | {v_tot_str:>11s} | {l_tot_str:>10s} | {d_tot_str:>14s}")
 
     extras = []
     if "p50_ms" in report:
