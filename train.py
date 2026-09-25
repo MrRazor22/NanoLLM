@@ -28,12 +28,15 @@ def main() -> None:
     parser.add_argument("--output", type=str, default=str(DEFAULT_OUTPUT))
     parser.add_argument("--init-checkpoint", type=str, default=None, help="Initial checkpoint to start adaptation from")
     parser.add_argument("--epochs", type=int, default=2)
-    parser.add_argument("--batch-size", type=int, default=8)
+    parser.add_argument("--batch-size", type=int, default=16)
     parser.add_argument("--lr", type=float, default=2e-5)
     parser.add_argument("--max-samples", type=int, default=0)
-    parser.add_argument("--accum-steps", type=int, default=4)
+    parser.add_argument("--accum-steps", type=int, default=2)
     parser.add_argument("--log-interval", type=int, default=0)
     args = parser.parse_args()
+
+    if torch.cuda.is_available():
+        torch.set_float32_matmul_precision("high")
 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     tokenizer = SubwordTokenizer("answerdotai/ModernBERT-base")

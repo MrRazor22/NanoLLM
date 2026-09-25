@@ -58,7 +58,8 @@ class EpochTrainer(ITrainer):
         start_time = time.perf_counter()
         self.optimizer.zero_grad()
         for step, batch in enumerate(loader):
-            ids, mask = batch["input_ids"].to(self.device), batch["mask"].to(self.device)
+            ids = batch["input_ids"].to(self.device, non_blocking=True)
+            mask = batch["mask"].to(self.device, non_blocking=True)
             with torch.amp.autocast("cuda", enabled=self.device.type == "cuda"):
                 scores = self.model(ids, mask)
                 loss = self.loss_fn(scores, batch["meta"], self.device) / self.accum_steps
@@ -67,7 +68,7 @@ class EpochTrainer(ITrainer):
             if (step + 1) % self.accum_steps == 0 or (step + 1) == total_steps:
                 self.scaler.step(self.optimizer)
                 self.scaler.update()
-                self.optimizer.zero_grad()
+                self.optimizer.zero_grad(set_to_none=True)
             log_int = self.log_interval if self.log_interval > 0 else min(100, max(1, total_steps // 10))
             if (step + 1) % log_int == 0 or (step + 1) == total_steps:
                 elapsed = time.perf_counter() - start_time
@@ -84,7 +85,8 @@ class EpochTrainer(ITrainer):
         total_loss = 0.0
         with torch.no_grad(), torch.amp.autocast("cuda", enabled=self.device.type == "cuda"):
             for batch in loader:
-                ids, mask = batch["input_ids"].to(self.device), batch["mask"].to(self.device)
+                ids = batch["input_ids"].to(self.device, non_blocking=True)
+                mask = batch["mask"].to(self.device, non_blocking=True)
                 scores = self.model(ids, mask)
                 loss = self.loss_fn(scores, batch["meta"], self.device)
                 total_loss += loss.item()
