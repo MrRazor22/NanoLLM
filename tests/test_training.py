@@ -48,8 +48,25 @@ def test_builder_split():
     assert len(train) + len(val) == 20
     assert len(val) == 10
 
+def test_checkpointing_pipe():
+    from nanollm.training import CheckpointingLayer
+
+    class MockTrainer:
+        def add(self, layer, **kwargs):
+            if isinstance(layer, type): return layer(self, **kwargs)
+            if hasattr(layer, "attach"): return layer.attach(self)
+            return layer(self, **kwargs)
+        def __or__(self, layer): return self.add(layer)
+        def train_epoch(self, loader): return 0.5
+        def evaluate(self, loader): return 0.4
+
+    trainer = MockTrainer() | CheckpointingLayer(output_path="dummy.pt")
+    assert isinstance(trainer, CheckpointingLayer)
+    assert trainer.inner is not None
+
 if __name__ == "__main__":
     test_collator_and_dataset()
     test_loss()
     test_builder_split()
+    test_checkpointing_pipe()
     print("Training tests passed!")

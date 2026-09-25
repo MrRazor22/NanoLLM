@@ -46,9 +46,27 @@ def test_resolver():
     assert answers["dept"].choice == "billing"
     assert answers["urgent"].value is True
 
+def test_layer_pipe():
+    from nanollm.inference import DecisionResult, ProfilingLayer
+
+    class MockEngine:
+        def add(self, layer, **kwargs):
+            if isinstance(layer, type): return layer(self, **kwargs)
+            if hasattr(layer, "attach"): return layer.attach(self)
+            return layer(self, **kwargs)
+        def __or__(self, layer): return self.add(layer)
+        def decide(self, state, questions):
+            return DecisionResult(answers={})
+
+    engine = MockEngine() | ProfilingLayer
+    assert isinstance(engine, ProfilingLayer)
+    res = engine.decide("test", [])
+    assert res.latency_ms is not None
+
 if __name__ == "__main__":
     test_tokenizer()
     test_assembler()
     test_model()
     test_resolver()
+    test_layer_pipe()
     print("Engine tests passed!")
