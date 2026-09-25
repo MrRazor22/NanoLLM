@@ -31,7 +31,7 @@ class EpochTrainer(ITrainer):
         device: torch.device,
         curriculum: Optional[ICurriculum] = None,
         accum_steps: int = 4,
-        log_interval: int = 300,
+        log_interval: int = 0,
     ):
         self.model = model
         self.optimizer = optimizer
@@ -68,7 +68,8 @@ class EpochTrainer(ITrainer):
                 self.scaler.step(self.optimizer)
                 self.scaler.update()
                 self.optimizer.zero_grad()
-            if self.log_interval > 0 and ((step + 1) % self.log_interval == 0 or (step + 1) == total_steps):
+            log_int = self.log_interval if self.log_interval > 0 else min(100, max(1, total_steps // 10))
+            if (step + 1) % log_int == 0 or (step + 1) == total_steps:
                 elapsed = time.perf_counter() - start_time
                 avg_step_ms = (elapsed / (step + 1)) * 1000.0
                 curr_loss = total_loss / (step + 1)

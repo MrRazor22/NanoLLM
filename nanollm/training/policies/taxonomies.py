@@ -67,10 +67,10 @@ MASSIVE_CLUSTERS = {
 }
 
 AG_NEWS_TOPICS = {
-    "World": "international news, politics, conflicts",
-    "Sports": "sports, games, athletes",
-    "Business": "companies, markets, economy",
-    "Sci/Tech": "science, technology, software, space",
+    "world": "world news and international politics",
+    "sports": "sports",
+    "business": "business and economy",
+    "sci_tech": "science and technology",
 }
 
 SPAM_CRITERIA = {

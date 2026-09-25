@@ -30,7 +30,8 @@ def main() -> None:
     parser.add_argument("--batch-size", type=int, default=8)
     parser.add_argument("--lr", type=float, default=2e-5)
     parser.add_argument("--max-samples", type=int, default=0)
-    parser.add_argument("--log-interval", type=int, default=300)
+    parser.add_argument("--accum-steps", type=int, default=4)
+    parser.add_argument("--log-interval", type=int, default=0)
     args = parser.parse_args()
 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -57,7 +58,7 @@ def main() -> None:
     loss_fn = CalibratedLoss()
 
     trainer = EpochTrainer(
-        model, optimizer, loss_fn, device, accum_steps=4, log_interval=args.log_interval
+        model, optimizer, loss_fn, device, accum_steps=args.accum_steps, log_interval=args.log_interval
     ) | CheckpointingLayer(output_path=args.output, val_loader=val_loader)
 
     print(f"Starting training on {device} ({len(train_data)} train samples, {len(val_data)} val samples)...")

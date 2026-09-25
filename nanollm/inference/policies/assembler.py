@@ -29,7 +29,8 @@ class SlotAssembler(ISlotAssembler):
         return str(state)
 
     def _render_sample(self, state: str, questions: Sequence[Any]) -> Tuple[List[int], List[Tuple[str, List[int], Any]]]:
-        ids = self.tokenizer.encode(self._format_state(state))
+        state_ids = self.tokenizer.encode(self._format_state(state))
+        ids = state_ids[:384] if len(state_ids) > 384 else list(state_ids)
 
         meta = []
         for q in questions:

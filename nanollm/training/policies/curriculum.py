@@ -23,13 +23,16 @@ class AdaptationCurriculum:
 
     def _build_choice_set(
         self, path: str, sub: Any, split: str, formatter: Any, label_extractor: Any,
-        qname: str, instr: str, limit: int, opts_dict: Any = None
+        qname: str, instr: str, limit: int, opts_dict: Any = None,
+        filter_fn: Optional[Any] = None, per_class_limit: int = 0
     ) -> List[Dict]:
         ds = load_dataset(path, sub, split=split) if sub else load_dataset(path, split=split)
         labels = opts_dict if opts_dict else sorted(list(set(ds[label_extractor])))
         opt_keys = list(labels.keys()) if isinstance(labels, dict) else labels
-        records = []
+        records, counts = [], {}
         for row in ds:
+            if filter_fn and not filter_fn(row):
+                continue
             text = formatter(row).strip() if callable(formatter) else str(row.get(formatter, "")).strip()
             if not text or (self.blacklist and text.lower() in self.blacklist):
                 continue
@@ -37,8 +40,12 @@ class AdaptationCurriculum:
             lbl_str = opt_keys[raw] if isinstance(raw, int) and isinstance(labels, dict) else (labels[raw] if isinstance(raw, int) else str(raw))
             if lbl_str not in opt_keys:
                 continue
+            if per_class_limit > 0:
+                if counts.get(lbl_str, 0) >= per_class_limit:
+                    continue
+                counts[lbl_str] = counts.get(lbl_str, 0) + 1
             records.append({"state": text, "questions": [[qname, "choice", opt_keys.index(lbl_str), labels, instr]]})
-            if len(records) >= limit:
+            if limit > 0 and len(records) >= limit:
                 break
         return records
 
@@ -46,10 +53,10 @@ class AdaptationCurriculum:
         td = parse_typed_decisions(load_dataset("LocalLLaMA/typed-decisions", "all", split="train")) * 3
         tools = extract_glaive_tools(load_dataset("glaiveai/glaive-function-calling-v2", split="train", streaming=True), 5000, self.rng)
         massive = self._build_choice_set("mteb/amazon_massive_intent", "en", "train", "text", "label_text", "action", "What is the user's intent in this utterance?", 6000)
-        ag_news = self._build_choice_set("fancyzhx/ag_news", None, "train", "text", "label", "label", "What is the topic of the article?", 4000, opts_dict=AG_NEWS_TOPICS)
+        ag_news = self._build_choice_set("fancyzhx/ag_news", None, "train", "text", "label", "label", "What is the topic of the article?", 4000, opts_dict=AG_NEWS_TOPICS, per_class_limit=1000)
         spam = self._build_choice_set("SetFit/enron_spam", None, "train", lambda r: f"Subject: {r.get('subject', '')}\n\nMessage: {(r.get('message') or '')[:2000]}", lambda r: "true" if int(r.get("label", 0)) == 1 else "false", "is_spam", "Is this email unsolicited spam or bulk marketing?", 3000, opts_dict=SPAM_CRITERIA)
         phish = self._build_choice_set("zefang-liu/phishing-email-dataset", None, "train", lambda r: f"Email:\n{(r.get('Email Text') or '')[:2000]}", lambda r: "true" if r.get("Email Type") == "Phishing Email" else "false", "is_phishing", "Is this email a phishing or scam attempt?", 3000, opts_dict=PHISHING_CRITERIA)
-        support = self._build_choice_set("Tobi-Bueck/customer-support-tickets", None, "train", lambda r: f"Subject: {r.get('subject', '')}\n\nBody: {(r.get('body') or '')[:2000]}", "queue", "queue", "Which support queue should handle this ticket?", 3000, opts_dict=SUPPORT_QUEUES)
+        support = self._build_choice_set("Tobi-Bueck/customer-support-tickets", None, "train", lambda r: f"Subject: {r.get('subject', '')}\n\nBody: {(r.get('body') or '')[:2000]}", "queue", "queue", "Which support queue should handle this ticket?", 3500, opts_dict=SUPPORT_QUEUES, filter_fn=lambda r: r.get("language") == "en" and r.get("body"), per_class_limit=350)
         emotion = self._build_choice_set("dair-ai/emotion", "split", "train", "text", "label", "emotion", "Which emotion is most strongly expressed in text?", 3000, opts_dict=EMOTION_CRITERIA)
 
         foundation_path = self.data_dir / "train.jsonl"
