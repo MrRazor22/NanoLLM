@@ -1,6 +1,6 @@
 import json
 from typing import Any, Dict, List
-from benchmark.dataset import DATA_DIR, IDataSource
+from benchmark.dataset.dataset import ADAPTED_DIR, IDataSource
 
 class AgenticSource(IDataSource):
     name = "agentic"
@@ -13,9 +13,7 @@ class AgenticSource(IDataSource):
     }
 
     def extract(self) -> List[Dict[str, Any]]:
-        raw_path = DATA_DIR / "agentic.json"
-        if not raw_path.exists():
-            raw_path = DATA_DIR / "benchmark.json"
+        raw_path = ADAPTED_DIR / "agentic.json"
         with open(raw_path, "r", encoding="utf-8") as f:
             return json.load(f)
 

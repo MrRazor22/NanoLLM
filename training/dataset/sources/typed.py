@@ -1,7 +1,8 @@
 import json
+from pathlib import Path
 from typing import Any, Dict, List
 from datasets import load_dataset
-from training.dataset.dataset import IDataSource
+from training.dataset.dataset import ADAPTED_DIR, RAW_DIR, IDataSource
 
 class TypedDecisionsSource(IDataSource):
     name = "typed_decisions"
@@ -9,10 +10,36 @@ class TypedDecisionsSource(IDataSource):
         self.repeat = repeat
 
     def extract(self) -> List[Dict[str, Any]]:
-        ds = load_dataset("LocalLLaMA/typed-decisions", "all", split="train")
+        adapted_path = ADAPTED_DIR / f"{self.name}.jsonl"
+        if adapted_path.exists():
+            records = []
+            with open(adapted_path, "r", encoding="utf-8") as f:
+                for line in f:
+                    if line.strip():
+                        records.append(json.loads(line))
+            return records
+
+        raw_path = RAW_DIR / f"{self.name}.jsonl"
+        if raw_path.exists():
+            rows = []
+            with open(raw_path, "r", encoding="utf-8") as f:
+                for line in f:
+                    if line.strip():
+                        rows.append(json.loads(line))
+            ds = rows
+        else:
+            ds = load_dataset("LocalLLaMA/typed-decisions", "all", split="train")
+            RAW_DIR.mkdir(parents=True, exist_ok=True)
+            with open(raw_path, "w", encoding="utf-8") as f:
+                for row in ds:
+                    f.write(json.dumps(row, default=str) + "\n")
+
         records = []
         for row in ds:
-            q_dict, g_dict = json.loads(row["questions"]), json.loads(row["gold"])
+            q_defs = row["questions"]
+            g_defs = row["gold"]
+            q_dict = json.loads(q_defs) if isinstance(q_defs, str) else q_defs
+            g_dict = json.loads(g_defs) if isinstance(g_defs, str) else g_defs
             qs = []
             for qid, q_data in q_dict.items():
                 if q_data["type"] == "choice":
@@ -28,6 +55,12 @@ class TypedDecisionsSource(IDataSource):
                     "questions": {q["id"]: {"type": "choice", "instructions": q["instructions"], "criteria": q["options"]} for q in qs},
                     "gold": {q["id"]: {"type": "choice", "label": q["gold"]} for q in qs},
                 })
-        return records * self.repeat
+        final_records = records * self.repeat
+
+        ADAPTED_DIR.mkdir(parents=True, exist_ok=True)
+        with open(adapted_path, "w", encoding="utf-8") as f:
+            for r in final_records:
+                f.write(json.dumps(r) + "\n")
+        return final_records
 
 __all__ = ["TypedDecisionsSource"]

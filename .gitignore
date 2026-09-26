@@ -5,8 +5,8 @@
 checkpoints/
 
 # Training corpora (large datasets kept local; generated via curricula)
-training/dataset/data/*.jsonl
-nanollm/training/dataset/data/*.jsonl
+training/dataset/data/**/*.jsonl
+nanollm/training/dataset/data/**/*.jsonl
 
 # Ephemeral caches and temp data
 *.cache

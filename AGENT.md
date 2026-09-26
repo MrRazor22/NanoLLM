@@ -19,7 +19,14 @@ d:/CodeBase/NanoLLM/
 │   │   └── schema.py          # Choice, Noul, Score, DecisionResult
 │   └── training/              # EpochTrainer primitive
 │       ├── checkpointing_layer.py
-│       └── data/              # train.jsonl, val.jsonl
+│       └── dataset/
+│           ├── dataset.py     # TrainingDataset primitive
+│           ├── build.py       # Dataset curriculum adapter & builder
+│           ├── sources/       # Pluggable dataset source adapters (Glaive, Generic, Typed)
+│           └── data/
+│               ├── raw/       # Raw unadapted corpora & source drops (*.jsonl)
+│               ├── adapted/   # 11 individual adapted source files (*.jsonl)
+│               └── splits/    # Production multi-task splits (train.jsonl, val.jsonl)
 └── benchmark/                 # Independent verification boundary (outside nanollm)
     ├── evaluator.py           # ModelEvaluator primitive
     ├── profiling_layer.py     # ProfilingEvaluatorLayer (λ)
@@ -28,8 +35,10 @@ d:/CodeBase/NanoLLM/
     ├── __main__.py            # python -m benchmark runner
     └── dataset/               # Benchmark dataset boundary (mirrors training/dataset)
         ├── dataset.py         # BenchmarkDataset primitive & IDataSource contract
-        ├── data/              # Evaluation data files (agentic.json, abstention.json, laya.json)
-        └── sources/           # Suite source extraction policies (Agentic, Laya, etc.)
+        ├── sources/           # Suite source extraction adapters (Agentic, Laya, etc.)
+        └── data/
+            ├── raw/           # Raw unadapted evaluation slices (slice_*.jsonl)
+            └── adapted/       # Standardized evaluation tracks (agentic.json, abstention.json, laya.json)
 ```
 
 ---
@@ -40,9 +49,13 @@ d:/CodeBase/NanoLLM/
   ```bash
   python cli.py "Database CPU reached 99% and connection pool is exhausted"
   ```
+* **Build / Adapt Training Dataset (from raw & sources):**
+  ```bash
+  python -m training.dataset.build
+  ```
 * **Run Training (1-Epoch Adaptation):**
   ```bash
-  python train.py --epochs 1 --lr 2e-5
+  python -m training --epochs 1 --lr 2e-5
   ```
 * **Run Benchmark (Full 2,400-case Laya / Jev Head-to-Head):**
   ```bash

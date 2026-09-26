@@ -7,8 +7,8 @@ from training.dataset import TrainingDataset
 
 ROOT = Path(__file__).resolve().parent.parent
 DEFAULT_DATA_DIR = Path(__file__).resolve().parent / "dataset" / "data"
-DEFAULT_TRAIN = DEFAULT_DATA_DIR / "train.jsonl"
-DEFAULT_VAL = DEFAULT_DATA_DIR / "val.jsonl"
+DEFAULT_TRAIN = DEFAULT_DATA_DIR / "splits" / "train.jsonl"
+DEFAULT_VAL = DEFAULT_DATA_DIR / "splits" / "val.jsonl"
 DEFAULT_OUTPUT = ROOT / "checkpoints" / "checkpoint_trained.pt"
 DEFAULT_METRICS = ROOT / "checkpoints" / "metrics.json"
 DEFAULT_CACHE_DIR = ROOT / "checkpoints" / "cache"

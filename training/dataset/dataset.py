@@ -8,6 +8,11 @@ from training.dataset.collator import IBatchCollator, MultiQuestionCollator
 from training.dataset.schema import DecisionSample
 from training.dataset.transforms import load_jsonl
 
+DATA_DIR = Path(__file__).resolve().parent / "data"
+RAW_DIR = DATA_DIR / "raw"
+ADAPTED_DIR = DATA_DIR / "adapted"
+SPLITS_DIR = DATA_DIR / "splits"
+
 class IDataSource(Protocol):
     """Universal strategy contract for dataset extraction."""
     name: str
@@ -141,4 +146,4 @@ class TrainingDataset(Dataset, ITrainingDataset):
         )
         return train_loader, val_loader
 
-__all__ = ["IDataSource", "ITrainingDataset", "TrainingDataset"]
+__all__ = ["IDataSource", "ITrainingDataset", "TrainingDataset", "DATA_DIR", "RAW_DIR", "ADAPTED_DIR", "SPLITS_DIR"]

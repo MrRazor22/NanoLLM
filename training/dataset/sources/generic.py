@@ -1,6 +1,8 @@
+import json
+from pathlib import Path
 from typing import Any, Callable, Dict, List, Optional, Set
 from datasets import load_dataset
-from training.dataset.dataset import IDataSource
+from training.dataset.dataset import ADAPTED_DIR, RAW_DIR, IDataSource
 
 class GenericChoiceSource(IDataSource):
     name = "generic_choice"
@@ -18,7 +20,10 @@ class GenericChoiceSource(IDataSource):
         filter_fn: Optional[Callable[[Dict[str, Any]], bool]] = None,
         per_class_limit: int = 0,
         blacklist: Optional[Set[str]] = None,
+        name: Optional[str] = None,
     ):
+        if name:
+            self.name = name
         self.path = path
         self.sub = sub
         self.split = split
@@ -33,8 +38,32 @@ class GenericChoiceSource(IDataSource):
         self.blacklist = blacklist or set()
 
     def extract(self) -> List[Dict[str, Any]]:
-        ds = load_dataset(self.path, self.sub, split=self.split) if self.sub else load_dataset(self.path, split=self.split)
-        feat = ds.features.get(self.label_extractor) if isinstance(self.label_extractor, str) else None
+        adapted_path = ADAPTED_DIR / f"{self.name}.jsonl"
+        if adapted_path.exists():
+            records = []
+            with open(adapted_path, "r", encoding="utf-8") as f:
+                for line in f:
+                    if line.strip():
+                        records.append(json.loads(line))
+            return records
+
+        raw_path = RAW_DIR / f"{self.name}.jsonl"
+        if raw_path.exists():
+            rows = []
+            with open(raw_path, "r", encoding="utf-8") as f:
+                for line in f:
+                    if line.strip():
+                        rows.append(json.loads(line))
+            ds = rows
+            feat = None
+        else:
+            ds = load_dataset(self.path, self.sub, split=self.split) if self.sub else load_dataset(self.path, split=self.split)
+            feat = ds.features.get(self.label_extractor) if isinstance(self.label_extractor, str) else None
+            # Cache raw download
+            RAW_DIR.mkdir(parents=True, exist_ok=True)
+            with open(raw_path, "w", encoding="utf-8") as f:
+                for row in ds:
+                    f.write(json.dumps(row, default=str) + "\n")
         if self.opts_dict:
             criteria = self.opts_dict
         elif feat and hasattr(feat, "names"):
@@ -81,6 +110,11 @@ class GenericChoiceSource(IDataSource):
                 "gold": {self.qname: {"type": "choice", "label": gold_label}},
             })
             count += 1
+
+        ADAPTED_DIR.mkdir(parents=True, exist_ok=True)
+        with open(adapted_path, "w", encoding="utf-8") as f:
+            for r in records:
+                f.write(json.dumps(r) + "\n")
         return records
 
 __all__ = ["GenericChoiceSource"]

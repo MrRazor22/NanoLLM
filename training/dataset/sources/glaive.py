@@ -1,17 +1,47 @@
+import json
+from pathlib import Path
 import random
 import re
 from typing import Any, Dict, List, Optional
 from datasets import load_dataset
-from training.dataset.dataset import IDataSource
+from training.dataset.dataset import ADAPTED_DIR, RAW_DIR, IDataSource
 
 class GlaiveToolSource(IDataSource):
-    name = "glaive_tool"
+    name = "glaive_tools"
     def __init__(self, limit: int = 5000, rng: Optional[random.Random] = None):
         self.limit = limit
         self.rng = rng or random.Random(42)
 
     def extract(self) -> List[Dict[str, Any]]:
-        streaming_ds = load_dataset("glaiveai/glaive-function-calling-v2", split="train", streaming=True)
+        adapted_path = ADAPTED_DIR / f"{self.name}.jsonl"
+        if adapted_path.exists():
+            records = []
+            with open(adapted_path, "r", encoding="utf-8") as f:
+                for line in f:
+                    if line.strip():
+                        records.append(json.loads(line))
+            return records
+
+        raw_path = RAW_DIR / f"{self.name}.jsonl"
+        if raw_path.exists():
+            rows = []
+            with open(raw_path, "r", encoding="utf-8") as f:
+                for line in f:
+                    if line.strip():
+                        rows.append(json.loads(line))
+            streaming_ds = rows
+        else:
+            streaming_ds = load_dataset("glaiveai/glaive-function-calling-v2", split="train", streaming=True)
+            RAW_DIR.mkdir(parents=True, exist_ok=True)
+            cached_rows = []
+            for row in streaming_ds:
+                cached_rows.append(row)
+                if len(cached_rows) >= self.limit:
+                    break
+            with open(raw_path, "w", encoding="utf-8") as f:
+                for r in cached_rows:
+                    f.write(json.dumps(r, default=str) + "\n")
+            streaming_ds = cached_rows
         raw, tool_registry = [], {}
         for row in streaming_ds:
             if len(raw) >= self.limit:
@@ -52,6 +82,11 @@ class GlaiveToolSource(IDataSource):
                 "questions": {"tool": {"type": "choice", "instructions": "Select the appropriate tool for user request.", "criteria": criteria}},
                 "gold": {"tool": {"type": "choice", "label": gold_tool}},
             })
+
+        ADAPTED_DIR.mkdir(parents=True, exist_ok=True)
+        with open(adapted_path, "w", encoding="utf-8") as f:
+            for rec in records:
+                f.write(json.dumps(rec) + "\n")
         return records
 
 __all__ = ["GlaiveToolSource"]

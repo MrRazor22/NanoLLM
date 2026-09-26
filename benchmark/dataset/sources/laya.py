@@ -2,7 +2,7 @@ import json
 from pathlib import Path
 from typing import Any, Dict, List
 from datasets import load_dataset
-from benchmark.dataset import DATA_DIR, IDataSource
+from benchmark.dataset.dataset import ADAPTED_DIR, IDataSource
 
 class LayaSource(IDataSource):
     name = "laya"
@@ -17,7 +17,7 @@ class LayaSource(IDataSource):
     }
 
     def extract(self) -> List[Dict[str, Any]]:
-        local_file = DATA_DIR / "laya.json"
+        local_file = ADAPTED_DIR / "laya.json"
         if local_file.exists():
             with open(local_file, "r", encoding="utf-8") as f:
                 return json.load(f)
@@ -121,6 +121,11 @@ class LayaSource(IDataSource):
                 "questions": {"is_phishing": {"type": "choice", "instructions": "Is this email a phishing or scam attempt?", "criteria": phish_crit}},
                 "gold": {"is_phishing": {"type": "choice", "label": is_ph}}
             })
+
+        if items:
+            ADAPTED_DIR.mkdir(parents=True, exist_ok=True)
+            with open(local_file, "w", encoding="utf-8") as f:
+                json.dump(items, f, indent=2)
 
         return items
 

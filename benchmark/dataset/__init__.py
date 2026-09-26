@@ -1,8 +1,10 @@
 from benchmark.dataset.dataset import (
+    ADAPTED_DIR,
     BenchmarkDataset,
     DATA_DIR,
     IBenchmarkDataset,
     IDataSource,
+    RAW_DIR,
 )
 from benchmark.dataset.sources import (
     AbstentionSource,
@@ -16,6 +18,8 @@ __all__ = [
     "BenchmarkDataset",
     "IBenchmarkDataset",
     "DATA_DIR",
+    "RAW_DIR",
+    "ADAPTED_DIR",
     # Policies
     "IDataSource",
     "AbstentionSource",

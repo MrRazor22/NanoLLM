@@ -3,6 +3,8 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional, Protocol
 
 DATA_DIR = Path(__file__).resolve().parent / "data"
+RAW_DIR = DATA_DIR / "raw"
+ADAPTED_DIR = DATA_DIR / "adapted"
 
 from training.dataset.dataset import IDataSource
 
@@ -14,7 +16,7 @@ class BenchmarkDataset(IBenchmarkDataset):
     """Benchmark dataset primitive managing item loading and slicing."""
     def __init__(self, source: IDataSource, data_dir: Optional[Path] = None):
         self.source = source
-        self.data_dir = data_dir or DATA_DIR
+        self.data_dir = data_dir or ADAPTED_DIR
         self.dataset_path = self.data_dir / f"{self.source.name}.json"
 
     @property
