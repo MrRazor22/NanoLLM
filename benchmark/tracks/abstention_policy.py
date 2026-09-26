@@ -1,11 +1,11 @@
 ﻿import json
 from pathlib import Path
 from typing import Any, Dict, List, Optional
-from benchmark.tracks.base import ITrackPolicy
+from benchmark.tracks.base_policy import ITrackPolicy
 
 DATA_DIR = Path(__file__).resolve().parent.parent / "data"
 
-class AbstentionTrackPolicy(ITrackPolicy):
+class AbstentionPolicy(ITrackPolicy):
     def load(self, limit: Optional[int] = None) -> List[Dict[str, Any]]:
         items = []
         for fn in ("slice_missing_option.jsonl", "slice_distant_oos.jsonl"):

@@ -1,16 +1,17 @@
 ﻿from typing import Any, Dict, List, Optional
-from benchmark.tracks.base import ITrackPolicy
-from benchmark.tracks.json_tracks import AgenticTrackPolicy, LayaTrackPolicy
-from benchmark.tracks.abstention import AbstentionTrackPolicy
-from benchmark.tracks.typed_decisions import TypedDecisionsTrackPolicy
+from benchmark.tracks.base_policy import ITrackPolicy
+from benchmark.tracks.agentic_policy import AgenticPolicy
+from benchmark.tracks.abstention_policy import AbstentionPolicy
+from benchmark.tracks.typed_decisions_policy import TypedDecisionsPolicy
+from benchmark.tracks.laya_policy import LayaPolicy
 
 _TRACKS: Dict[str, ITrackPolicy] = {
-    "agentic": AgenticTrackPolicy(),
-    "abstention": AbstentionTrackPolicy(),
-    "typed_decisions": TypedDecisionsTrackPolicy(),
-    "typed": TypedDecisionsTrackPolicy(),
-    "verdict": TypedDecisionsTrackPolicy(),
-    "laya": LayaTrackPolicy(),
+    "agentic": AgenticPolicy(),
+    "abstention": AbstentionPolicy(),
+    "typed_decisions": TypedDecisionsPolicy(),
+    "typed": TypedDecisionsPolicy(),
+    "verdict": TypedDecisionsPolicy(),
+    "laya": LayaPolicy(),
 }
 
 def load_benchmark_items(track: str = "agentic", limit: Optional[int] = None) -> List[Dict[str, Any]]:
@@ -21,9 +22,9 @@ def load_benchmark_items(track: str = "agentic", limit: Optional[int] = None) ->
 
 __all__ = [
     "ITrackPolicy",
-    "AgenticTrackPolicy",
-    "AbstentionTrackPolicy",
-    "TypedDecisionsTrackPolicy",
-    "LayaTrackPolicy",
+    "AgenticPolicy",
+    "AbstentionPolicy",
+    "TypedDecisionsPolicy",
+    "LayaPolicy",
     "load_benchmark_items",
 ]

@@ -1,8 +1,8 @@
 ﻿import json
 from typing import Any, Dict, List, Optional
-from benchmark.tracks.base import ITrackPolicy
+from benchmark.tracks.base_policy import ITrackPolicy
 
-class TypedDecisionsTrackPolicy(ITrackPolicy):
+class TypedDecisionsPolicy(ITrackPolicy):
     def load(self, limit: Optional[int] = None) -> List[Dict[str, Any]]:
         from datasets import load_dataset
         ds = load_dataset("LocalLLaMA/typed-decisions", "all", split="test")
