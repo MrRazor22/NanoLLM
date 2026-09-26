@@ -5,6 +5,7 @@
 
 # Training corpora (large datasets kept local; generated via curricula)
 nanollm/training/data/*.jsonl
+nanollm/training/data/*.cache
 
 # Python cache
 __pycache__/
@@ -16,6 +17,5 @@ __pycache__/
 .cache/
 venv/
 .venv/
-.vs/
-*.cache
-/nanollm/training/data/val_adapt.val.cache
+.vs/ 
+

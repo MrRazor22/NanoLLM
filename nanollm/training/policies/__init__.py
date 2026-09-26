@@ -3,16 +3,13 @@ from nanollm.training.policies.curriculum import AdaptationCurriculum, ICurricul
 from nanollm.training.policies.dataset import DecisionSample, MultiQuestionCollator, QuestionSpec, load_jsonl, to_decision_sample
 from nanollm.training.policies.foundation import FoundationCurriculum
 from nanollm.training.policies.loss import CalibratedLoss
-from nanollm.training.policies.taxonomies import BANKING_CLUSTERS, MASSIVE_CLUSTERS
 
 __all__ = [
     "AdaptationCurriculum",
-    "BANKING_CLUSTERS",
     "CalibratedLoss",
     "DecisionSample",
     "FoundationCurriculum",
     "ICurriculum",
-    "MASSIVE_CLUSTERS",
     "MultiQuestionCollator",
     "QuestionSpec",
     "choice_question",
