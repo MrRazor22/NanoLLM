@@ -1,4 +1,3 @@
-from benchmark.competitor import CompetitorScorecard
 from benchmark.dataset import (
     AbstentionSource,
     AgenticSource,
@@ -8,13 +7,22 @@ from benchmark.dataset import (
     LayaSource,
     TypedDecisionsSource,
 )
+from benchmark.report import (
+    ConsoleScorecardRenderer,
+    IReportRenderer,
+    IScorecard,
+    Scorecard,
+)
 
 __all__ = [
-    # Primitive & Contract
+    # Primitives & Contracts
+    "Scorecard",
+    "IScorecard",
     "BenchmarkDataset",
     "IBenchmarkDataset",
-    "CompetitorScorecard",
-    # Policies
+    # Policies & Contracts
+    "ConsoleScorecardRenderer",
+    "IReportRenderer",
     "IDataSource",
     "AbstentionSource",
     "AgenticSource",

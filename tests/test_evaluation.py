@@ -2,14 +2,15 @@ import sys
 from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-from benchmark.__main__ import evaluate_target
+from benchmark.report import IScorecard, Scorecard
 
 def test_evaluator():
     dummy_items = [
         {"category": "test", "state": "hello", "questions": {"q1": {}}, "gold": {"q1": {"label": "yes"}}},
         {"category": "test", "state": "world", "questions": {"q1": {}}, "gold": {"q1": {"label": "no"}}},
     ]
-    rep = evaluate_target(lambda s, q: {"q1": "yes"}, dummy_items)
+    scorecard: IScorecard = Scorecard()
+    rep = scorecard.evaluate_target(lambda s, q: {"q1": "yes"}, dummy_items)
     assert rep["total_questions"] == 2
     assert rep["total_correct"] == 1
     assert rep["overall_acc"] == 0.5

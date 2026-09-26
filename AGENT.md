@@ -37,8 +37,12 @@ d:/CodeBase/NanoLLM/
 │       ├── checkpointing_layer.py # CheckpointingLayer (λ)
 │       └── metrics_layer.py   # MetricsLayer (λ)
 └── benchmark/                 # Independent verification boundary (outside nanollm)
-    ├── competitor/            # Competitor baselines & scorecard printer
-    ├── __main__.py            # python -m benchmark entrypoint & direct evaluation
+    ├── report/                # Reporting boundary: evaluation orchestration & presentation
+    │   ├── scorecard.py       # Scorecard primitive (P) & IScorecard contract
+    │   ├── renderer.py        # ConsoleScorecardRenderer policy (π) & IReportRenderer contract
+    │   └── baselines.py       # JsonBaselineProvider policy (π) & IBaselineProvider contract
+    ├── baselines/             # Verified baseline numbers & competitor cache
+    ├── __main__.py            # python -m benchmark entrypoint
     └── dataset/               # Benchmark dataset boundary (fully decoupled)
         ├── benchmark_dataset.py # BenchmarkDataset primitive (P) & IDataSource contract
         ├── sources/           # Suite source extraction adapters (Agentic, Laya, etc.)

@@ -1,10 +1,9 @@
 from dataclasses import asdict
 import json
 from pathlib import Path
-from typing import Any, Callable, List, Optional, Union
-from torch.utils.data import DataLoader
+from typing import Any, Callable, Iterable, Iterator, List, Optional, Union
 from pipeline import PipelineComposable
-from nanollm.training.epoch_trainer import EpochStats, ITrainer
+from nanollm.training.epoch_trainer import Batch, EpochStats, ITrainer
 
 class MetricsLayer(PipelineComposable, ITrainer):
     """ATA Composable Layer: captures training history, persists metrics to disk, and routes telemetry to a pluggable sink."""
@@ -42,15 +41,25 @@ class MetricsLayer(PipelineComposable, ITrainer):
         with open(self.output_path, "w", encoding="utf-8") as f:
             json.dump(payload, f, indent=2)
 
-    def fit_iter(
-        self,
-        train_loader: DataLoader,
-        val_loader: Optional[DataLoader] = None,
-        epochs: int = 1,
-    ):
+    def train_epoch(self, batches: Iterable[Batch]) -> float:
         if self.inner is None:
             raise RuntimeError("MetricsLayer is not attached to an inner trainer.")
-        for stats in self.inner.fit_iter(train_loader, val_loader=val_loader, epochs=epochs):
+        return self.inner.train_epoch(batches)
+
+    def evaluate(self, batches: Iterable[Batch]) -> float:
+        if self.inner is None:
+            raise RuntimeError("MetricsLayer is not attached to an inner trainer.")
+        return self.inner.evaluate(batches)
+
+    def fit(
+        self,
+        train_batches: Iterable[Batch],
+        val_batches: Optional[Iterable[Batch]] = None,
+        epochs: int = 1,
+    ) -> Iterator[EpochStats]:
+        if self.inner is None:
+            raise RuntimeError("MetricsLayer is not attached to an inner trainer.")
+        for stats in self.inner.fit(train_batches, val_batches=val_batches, epochs=epochs):
             self.history.append(stats)
             if self.sink:
                 pfx = f"[{self.prefix}] " if self.prefix else ""
@@ -62,16 +71,5 @@ class MetricsLayer(PipelineComposable, ITrainer):
                 )
             self._persist()
             yield stats
-
-    def fit(
-        self,
-        train_loader: DataLoader,
-        val_loader: Optional[DataLoader] = None,
-        epochs: int = 1,
-    ) -> float:
-        last_loss = 0.0
-        for stats in self.fit_iter(train_loader, val_loader=val_loader, epochs=epochs):
-            last_loss = stats.train_loss
-        return last_loss
 
 __all__ = ["MetricsLayer"]

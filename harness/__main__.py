@@ -44,7 +44,7 @@ def main() -> None:
     if args.output:
         trainer = trainer | CheckpointingLayer(output_path=args.output)
 
-    train_loader, val_loader = TrainingDataset.loaders(
+    train_batches, val_batches = TrainingDataset.loaders(
         train_data=args.train_data,
         val_data=args.val_data,
         backbone=args.backbone,
@@ -53,7 +53,8 @@ def main() -> None:
         seed=args.seed,
     )
 
-    trainer.fit(train_loader, val_loader=val_loader, epochs=args.epochs)
+    for _ in trainer.fit(train_batches, val_batches=val_batches, epochs=args.epochs):
+        pass
 
 if __name__ == "__main__":
     main()
