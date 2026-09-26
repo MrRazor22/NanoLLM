@@ -1,7 +1,6 @@
 import argparse
 from pathlib import Path
 
-from nanollm.training import CheckpointingLayer, MetricsLayer
 from training.runner import TrainingRunner
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -30,15 +29,13 @@ def main() -> None:
     parser.add_argument("--seed", type=int, default=42, help="Random seed for reproducibility")
     args = parser.parse_args()
 
-    training = (
-        TrainingRunner.from_backbone(
-            backbone_name=args.backbone,
-            lr=args.lr,
-            accum_steps=args.accum_steps,
-            init_checkpoint=args.init_checkpoint,
-        )
-        | MetricsLayer(output_path=args.metrics_output, sink=print)
-        | CheckpointingLayer(output_path=args.output)
+    training = TrainingRunner.from_backbone(
+        backbone_name=args.backbone,
+        lr=args.lr,
+        accum_steps=args.accum_steps,
+        init_checkpoint=args.init_checkpoint,
+        checkpoint_output=args.output,
+        metrics_output=args.metrics_output,
     )
 
     training.fit(

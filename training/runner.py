@@ -2,7 +2,7 @@ from pathlib import Path
 from typing import Any, Optional, Union
 import torch
 
-from nanollm.training import EpochTrainer, ITrainer
+from nanollm.training import CheckpointingLayer, EpochTrainer, ITrainer, MetricsLayer
 from training.dataset import TrainingDataset
 
 class TrainingRunner:
@@ -19,22 +19,32 @@ class TrainingRunner:
         lr: float = 1.5e-5,
         accum_steps: int = 2,
         init_checkpoint: Optional[Union[str, Path]] = None,
+        checkpoint_output: Optional[Union[str, Path]] = None,
+        metrics_output: Optional[Union[str, Path]] = None,
         device: Optional[torch.device] = None,
     ) -> "TrainingRunner":
-        trainer = EpochTrainer.from_backbone(
+        trainer: ITrainer = EpochTrainer.from_backbone(
             backbone_name=backbone_name,
             lr=lr,
             accum_steps=accum_steps,
             init_checkpoint=str(init_checkpoint) if init_checkpoint else None,
             device=device,
         )
+        if metrics_output:
+            trainer = trainer | MetricsLayer(output_path=metrics_output, sink=print)
+        if checkpoint_output:
+            trainer = trainer | CheckpointingLayer(output_path=checkpoint_output)
+
         return cls(trainer, backbone=backbone_name)
 
-    def add(self, layer: Any, **kwargs: Any) -> "TrainingRunner":
-        self.trainer = self.trainer.add(layer, **kwargs) if hasattr(self.trainer, "add") else layer(self.trainer, **kwargs)
-        return self
+    def add(self, layer: Any, **kwargs: Any) -> Any:
+        if isinstance(layer, type):
+            return layer(self, **kwargs)
+        if hasattr(layer, "attach"):
+            return layer.attach(self)
+        return layer(self, **kwargs)
 
-    def __or__(self, layer: Any) -> "TrainingRunner":
+    def __or__(self, layer: Any) -> Any:
         return self.add(layer)
 
     def fit(
