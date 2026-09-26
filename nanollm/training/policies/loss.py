@@ -1,9 +1,12 @@
-from typing import Any, List
+from typing import Any, List, Protocol
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
-class CalibratedLoss(nn.Module):
+class ILossPolicy(Protocol):
+    def compute(self, scores: torch.Tensor, batch_meta: Any, device: torch.device) -> torch.Tensor: ...
+
+class CalibratedLoss(nn.Module, ILossPolicy):
     def __init__(self, brier_weight: float = 0.5):
         super().__init__()
         self.brier_weight = brier_weight
@@ -32,3 +35,5 @@ class CalibratedLoss(nn.Module):
                     t = torch.tensor(target, dtype=torch.float, device=device)
                     losses.append(4.0 * (torch.sigmoid(logits[0]) - t) ** 2)
         return torch.stack(losses).sum() / max(1, len(losses)) if losses else torch.tensor(0.0, device=device)
+
+    compute = forward

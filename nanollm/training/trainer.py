@@ -8,10 +8,7 @@ from nanollm.training.policies.dataset import to_decision_sample
 from nanollm.training.policies.loss import CalibratedLoss
 
 class ITrainer(Protocol):
-    def train_epoch(self, loader: DataLoader) -> float: ...
-    def evaluate(self, loader: DataLoader) -> float: ...
-    def add(self, layer: Any, **kwargs: Any) -> "ITrainer": ...
-    def __or__(self, layer: Any) -> "ITrainer": ...
+    def fit(self, data: Any) -> float: ...
 
 class EpochTrainer(ITrainer):
     def add(self, layer: Any, **kwargs: Any) -> "ITrainer":
@@ -89,6 +86,8 @@ class EpochTrainer(ITrainer):
                 )
                 last_log_time, interval_loss, interval_steps = now, torch.tensor(0.0, device=self.device), 0
         return (total_loss / max(1, total_steps)).item()
+
+    fit = train_epoch
 
 
     def evaluate(self, loader: DataLoader) -> float:

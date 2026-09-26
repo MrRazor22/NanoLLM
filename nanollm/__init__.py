@@ -25,7 +25,6 @@ from nanollm.training import (
     CheckpointingLayer,
     DecisionSample,
     EpochTrainer,
-    FoundationCurriculum,
     ICurriculum,
     ITrainer,
     MultiQuestionCollator,

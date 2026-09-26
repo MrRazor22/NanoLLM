@@ -6,7 +6,7 @@ import torch
 from torch.utils.data import DataLoader
 from transformers import AutoModel
 
-from nanollm.inference.policies.tokenizer import SubwordTokenizer
+from nanollm.inference.policies.assembler import SlotAssembler
 from nanollm.model import ModelConfig, NanoModel
 from nanollm.training import (
     CalibratedLoss,
@@ -42,14 +42,13 @@ def main() -> None:
         torch.backends.cudnn.benchmark = True
 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    tokenizer = SubwordTokenizer("answerdotai/ModernBERT-base")
-    collator = MultiQuestionCollator(tokenizer)
+    assembler = SlotAssembler("answerdotai/ModernBERT-base")
+    collator = MultiQuestionCollator(assembler)
 
     if args.curriculum:
         from nanollm.training.policies.curriculum import AdaptationCurriculum
-        from nanollm.training.policies.foundation import FoundationCurriculum
         from nanollm.training.policies.dataset import to_decision_sample
-        cur = AdaptationCurriculum(str(DEFAULT_TRAIN.parent)) if args.curriculum == "adaptation" else FoundationCurriculum()
+        cur = AdaptationCurriculum(str(DEFAULT_TRAIN.parent))
         raw_train, raw_val = cur.build()
         train_data = [to_decision_sample(r) for r in raw_train]
         val_data = [to_decision_sample(r) for r in raw_val]
