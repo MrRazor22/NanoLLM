@@ -37,11 +37,6 @@ class CheckpointingLayer(PipelineComposable, ITrainer):
             payload["optimizer_state_dict"] = getattr(self.inner, "optimizer").state_dict()
         torch.save(payload, str(path))
 
-    def train_epoch(self, batches: Iterable[Batch]) -> float:
-        if self.inner is None:
-            raise RuntimeError("CheckpointingLayer is not attached to an inner trainer.")
-        return self.inner.train_epoch(batches)
-
     def evaluate(self, batches: Iterable[Batch]) -> float:
         if self.inner is None:
             raise RuntimeError("CheckpointingLayer is not attached to an inner trainer.")
@@ -66,4 +61,3 @@ class CheckpointingLayer(PipelineComposable, ITrainer):
             yield stats
 
 __all__ = ["CheckpointingLayer"]
-

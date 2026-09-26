@@ -29,6 +29,7 @@ def main() -> None:
     for name in suites:
         parser.add_argument(f"--{name.replace('_', '-')}", action="store_const", dest="suite", const=name, help=f"Run {name} suite")
     parser.add_argument("--limit", type=int, default=None, help="Optional case limit for quick validation")
+    parser.add_argument("--log-interval", type=int, default=100, help="Print running accuracy every N items (0=off)")
     parser.add_argument("--compare", action="store_true", help="Render competitive benchmark matrix against baselines")
     args = parser.parse_args()
 
@@ -47,7 +48,7 @@ def main() -> None:
         }
         if len(target_suites) > 1:
             print(f"\n{'='*70}\n>>> Running Benchmark Suite: {meta['display_name'].upper()}\n{'='*70}", flush=True)
-        reports[key] = scorecard.evaluate_target(engine, ds, limit=args.limit)
+        reports[key] = scorecard.evaluate_target(engine, ds, limit=args.limit, log_interval=args.log_interval)
         metadata[key] = meta
 
     scorecard.render(reports, track=args.suite, metadata=metadata, model_name="NanoLLM Champion")

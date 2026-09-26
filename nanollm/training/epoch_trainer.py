@@ -1,5 +1,5 @@
-from dataclasses import dataclass
-from typing import Any, Iterable, Iterator, Mapping, Optional, Protocol, Union, runtime_checkable
+from dataclasses import dataclass, field
+from typing import Any, Iterable, Iterator, List, Mapping, Optional, Protocol, Union, runtime_checkable
 import time
 import torch
 from pipeline import PipelineComposable
@@ -7,25 +7,34 @@ from nanollm.model import NanoModel
 from nanollm.training.loss import CalibratedLoss, ILoss
 
 @dataclass(frozen=True)
+class StepStats:
+    step: int
+    total_steps: int  # 0 = unknown
+    loss: float
+    elapsed_ms: float
+
+@dataclass
 class EpochStats:
     epoch: int
     total_epochs: int
     train_loss: float
     val_loss: Optional[float]
     elapsed_sec: float
+    step_stats: List[StepStats] = field(default_factory=list)
 
 Batch = Mapping[str, Any]
 
 @runtime_checkable
 class ITrainer(Protocol):
-    def train_epoch(self, batches: Iterable[Batch]) -> float: ...
-    def evaluate(self, batches: Iterable[Batch]) -> float: ...
+    """ATA Root Contract: streaming training and standalone evaluation."""
     def fit(
         self,
         train_batches: Iterable[Batch],
         val_batches: Optional[Iterable[Batch]] = None,
         epochs: int = 1,
     ) -> Iterator[EpochStats]: ...
+
+    def evaluate(self, batches: Iterable[Batch]) -> float: ...
 
 class EpochTrainer(PipelineComposable, ITrainer):
     def __init__(
@@ -57,45 +66,21 @@ class EpochTrainer(PipelineComposable, ITrainer):
         dev = device or torch.device("cuda" if torch.cuda.is_available() else "cpu")
         model = NanoModel.from_backbone(backbone_name).to(dev)
         if init_checkpoint:
-            model.load_state_dict(torch.load(init_checkpoint, map_location=dev))
+            ckpt = torch.load(init_checkpoint, map_location=dev)
+            state_dict = ckpt.get("model_state_dict", ckpt) if isinstance(ckpt, dict) and "model_state_dict" in ckpt else ckpt
+            model.load_state_dict(state_dict)
         optimizer = torch.optim.AdamW(model.parameters(), lr=lr, fused=dev.type == "cuda")
-        loss_fn = CalibratedLoss()
-        return cls(model, optimizer, loss_fn, dev, accum_steps=accum_steps)
-
-    def train_epoch(self, batches: Iterable[Batch]) -> float:
-        self.model.train()
-        total_loss, steps = torch.tensor(0.0, device=self.device), 0
-        self.optimizer.zero_grad(set_to_none=True)
-        for step, batch in enumerate(batches):
-            steps += 1
-            ids = batch["input_ids"].to(self.device, non_blocking=True)
-            mask = batch["mask"].to(self.device, non_blocking=True)
-            with torch.amp.autocast("cuda", enabled=self.device.type == "cuda"):
-                scores = self.model(ids, mask)
-                loss = self.loss_fn(scores, batch["meta"], self.device) / self.accum_steps
-            self.scaler.scale(loss).backward()
-            total_loss += loss.detach() * self.accum_steps
-            if (step + 1) % self.accum_steps == 0:
-                self.scaler.step(self.optimizer)
-                self.scaler.update()
-                self.optimizer.zero_grad(set_to_none=True)
-        if steps % self.accum_steps != 0:
-            self.scaler.step(self.optimizer)
-            self.scaler.update()
-            self.optimizer.zero_grad(set_to_none=True)
-        return (total_loss / max(1, steps)).item()
+        return cls(model, optimizer, CalibratedLoss(), dev, accum_steps=accum_steps)
 
     def evaluate(self, batches: Iterable[Batch]) -> float:
         self.model.eval()
-        total_loss, steps = torch.tensor(0.0, device=self.device), 0
+        val_total, m = torch.tensor(0.0, device=self.device), 0
         with torch.no_grad(), torch.amp.autocast("cuda", enabled=self.device.type == "cuda"):
-            for batch in batches:
-                steps += 1
+            for m, batch in enumerate(batches):
                 ids = batch["input_ids"].to(self.device, non_blocking=True)
                 mask = batch["mask"].to(self.device, non_blocking=True)
-                scores = self.model(ids, mask)
-                total_loss += self.loss_fn(scores, batch["meta"], self.device)
-        return (total_loss / max(1, steps)).item()
+                val_total += self.loss_fn(self.model(ids, mask), batch["meta"], self.device)
+        return (val_total / max(1, m + 1)).item()
 
     def fit(
         self,
@@ -103,16 +88,39 @@ class EpochTrainer(PipelineComposable, ITrainer):
         val_batches: Optional[Iterable[Batch]] = None,
         epochs: int = 1,
     ) -> Iterator[EpochStats]:
+        total_steps = len(train_batches) if hasattr(train_batches, "__len__") else 0  # type: ignore[arg-type]
         for epoch in range(1, epochs + 1):
             t0 = time.perf_counter()
-            train_loss = self.train_epoch(train_batches)
-            val_loss = self.evaluate(val_batches) if val_batches else None
-            yield EpochStats(
-                epoch=epoch,
-                total_epochs=epochs,
-                train_loss=train_loss,
-                val_loss=val_loss,
-                elapsed_sec=time.perf_counter() - t0,
-            )
 
-__all__ = ["EpochStats", "ITrainer", "EpochTrainer", "Batch"]
+            # --- train ---
+            self.model.train()
+            total_loss = torch.tensor(0.0, device=self.device)
+            step_stats: List[StepStats] = []
+            self.optimizer.zero_grad(set_to_none=True)
+            last_t, n = t0, 0
+            for n, batch in enumerate(train_batches):
+                ids = batch["input_ids"].to(self.device, non_blocking=True)
+                mask = batch["mask"].to(self.device, non_blocking=True)
+                with torch.amp.autocast("cuda", enabled=self.device.type == "cuda"):
+                    loss = self.loss_fn(self.model(ids, mask), batch["meta"], self.device) / self.accum_steps
+                self.scaler.scale(loss).backward()
+                total_loss += loss.detach() * self.accum_steps
+                if (n + 1) % self.accum_steps == 0:
+                    self.scaler.step(self.optimizer)
+                    self.scaler.update()
+                    self.optimizer.zero_grad(set_to_none=True)
+                    now = time.perf_counter()
+                    step_stats.append(StepStats(n + 1, total_steps, (total_loss / (n + 1)).item(), (now - last_t) * 1000.0 / self.accum_steps))
+                    last_t = now
+            if (n + 1) % self.accum_steps != 0:
+                self.scaler.step(self.optimizer)
+                self.scaler.update()
+                self.optimizer.zero_grad(set_to_none=True)
+            train_loss = (total_loss / max(1, n + 1)).item()
+
+            # --- eval ---
+            val_loss = self.evaluate(val_batches) if val_batches is not None else None
+
+            yield EpochStats(epoch, epochs, train_loss, val_loss, time.perf_counter() - t0, step_stats)
+
+__all__ = ["StepStats", "EpochStats", "ITrainer", "EpochTrainer", "Batch"]

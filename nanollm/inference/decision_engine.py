@@ -8,7 +8,7 @@ from nanollm.inference.resolver import DecisionResolver, IDecisionResolver
 from nanollm.inference.schema import DecisionResult, Question
 from nanollm.model import ModelConfig, NanoModel
 
-DEFAULT_CHECKPOINT = Path(__file__).resolve().parent.parent.parent / "checkpoints" / "checkpoint_champion_v4.pt"
+DEFAULT_CHECKPOINT = Path(__file__).resolve().parent.parent.parent / "checkpoints" / "checkpoint_champion_v8.pt"
 
 @runtime_checkable
 class IDecisionEngine(Protocol):
@@ -56,7 +56,9 @@ class DecisionEngine(PipelineComposable, IDecisionEngine):
         backbone = AutoModel.from_pretrained(backbone_name)
         config = ModelConfig(vocab_size=getattr(assembler, "vocab_size", 50280), hidden_dim=768, num_layers=22, num_heads=12)
         model = NanoModel(config, backbone=backbone).to(dev)
-        model.load_state_dict(torch.load(str(ckpt_path), map_location=dev))
+        ckpt = torch.load(str(ckpt_path), map_location=dev)
+        state_dict = ckpt.get("model_state_dict", ckpt) if isinstance(ckpt, dict) and "model_state_dict" in ckpt else ckpt
+        model.load_state_dict(state_dict)
         model.eval()
         return cls(model, assembler, dev, resolver=resolver)
 
