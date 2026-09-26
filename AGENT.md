@@ -39,8 +39,7 @@ d:/CodeBase/NanoLLM/
 └── benchmark/                 # Independent verification boundary (outside nanollm)
     ├── report/                # Reporting boundary: evaluation orchestration & presentation
     │   ├── scorecard.py       # Scorecard primitive (P) & IScorecard contract
-    │   ├── renderer.py        # ConsoleScorecardRenderer policy (π) & IReportRenderer contract
-    │   └── baselines.py       # JsonBaselineProvider policy (π) & IBaselineProvider contract
+    │   └── renderer.py        # ConsoleScorecardRenderer policy (π) & IReportRenderer contract
     ├── baselines/             # Verified baseline numbers & competitor cache
     ├── __main__.py            # python -m benchmark entrypoint
     └── dataset/               # Benchmark dataset boundary (fully decoupled)

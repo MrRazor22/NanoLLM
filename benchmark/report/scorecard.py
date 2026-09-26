@@ -1,8 +1,11 @@
-﻿from typing import Any, Dict, List, Optional, Protocol, runtime_checkable
+﻿import json
+from pathlib import Path
+from typing import Any, Dict, List, Optional, Protocol, runtime_checkable
 import numpy as np
 from nanollm.inference.schema import Choice
-from benchmark.report.baselines import BaselineData, IBaselineProvider, JsonBaselineProvider
 from benchmark.report.renderer import ConsoleScorecardRenderer, IReportRenderer
+
+DEFAULT_BASELINES_PATH = Path(__file__).resolve().parent.parent / baselines / competitor_cache.json
 
 @runtime_checkable
 class IScorecard(Protocol):
@@ -15,14 +18,15 @@ class Scorecard(IScorecard):
 
     def __init__(
         self,
-        baseline_provider: Optional[IBaselineProvider] = None,
+        baselines_path: Optional[Path] = None,
         renderer: Optional[IReportRenderer] = None,
     ):
-        if baseline_provider is not None and not isinstance(baseline_provider, IBaselineProvider):
-            raise TypeError(fbaseline_provider must implement IBaselineProvider, got {type(baseline_provider).__name__})
         if renderer is not None and not isinstance(renderer, IReportRenderer):
             raise TypeError(frenderer must implement IReportRenderer, got {type(renderer).__name__})
-        self.baseline_provider: IBaselineProvider = baseline_provider or JsonBaselineProvider()
+        p = Path(baselines_path) if baselines_path else DEFAULT_BASELINES_PATH
+        raw = json.load(open(p, r, encoding=utf-8)) if p.exists() else {}
+        self.baselines: Dict[str, Any] = {k: v for k, v in raw.items() if k != p50_latencies_ms}
+        self.p50_latencies: Dict[str, float] = raw.get(p50_latencies_ms, {})
         self.renderer: IReportRenderer = renderer or ConsoleScorecardRenderer()
 
     def evaluate_target(self, target: Any, dataset: Any, limit: Optional[int] = None) -> Dict[str, Any]:
@@ -68,8 +72,7 @@ class Scorecard(IScorecard):
  return report
 
  def render(self, reports: Dict[str, Any], track: str = all, metadata: Optional[Dict[str, Any]] = None, model_name: str = NanoLLM) -> None:
- baselines: BaselineData = self.baseline_provider.load()
  tracks_data = reports if track == all else {track: reports}
- self.renderer.render(tracks_data, baselines, track, metadata or {}, model_name)
+ self.renderer.render(tracks_data, self.baselines, self.p50_latencies, track, metadata or {}, model_name)
 
-__all__ = [IScorecard, Scorecard]
+__all__ = [IScorecard, Scorecard, DEFAULT_BASELINES_PATH]
