@@ -1,7 +1,6 @@
+from nanollm.inference.assembler_policy import ISlotAssembler, SlotAssembler
 from nanollm.inference.engine import DecisionEngine, IDecisionEngine
-from nanollm.inference.layers.hierarchical import HierarchicalLayer
-from nanollm.inference.layers.profiling import DecisionEngineLayer, ProfilingLayer
-from nanollm.inference.policies.assembler import ISlotAssembler, SlotAssembler
+from nanollm.inference.profiling_layer import DecisionEngineLayer, ProfilingLayer
 from nanollm.inference.schema import (
     Answer,
     Choice,
@@ -21,7 +20,6 @@ __all__ = [
     "DecisionEngine",
     "DecisionEngineLayer",
     "DecisionResult",
-    "HierarchicalLayer",
     "IDecisionEngine",
     "ISlotAssembler",
     "Noul",

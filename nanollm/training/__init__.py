@@ -1,13 +1,12 @@
 from nanollm.training.checkpointing_layer import CheckpointingLayer
-from nanollm.training.policies import (
-    CalibratedLoss,
+from nanollm.training.dataset_policy import (
     DecisionSample,
-    ILossPolicy,
     MultiQuestionCollator,
     QuestionSpec,
     load_jsonl,
     to_decision_sample,
 )
+from nanollm.training.loss_policy import CalibratedLoss, ILossPolicy
 from nanollm.training.trainer import EpochTrainer, ITrainer
 
 __all__ = [

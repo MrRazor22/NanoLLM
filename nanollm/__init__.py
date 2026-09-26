@@ -9,14 +9,15 @@ from nanollm.inference import (
     DecisionEngine,
     DecisionEngineLayer,
     DecisionResult,
-    HierarchicalLayer,
     IDecisionEngine,
+    ISlotAssembler,
     Noul,
     NoulResult,
     ProfilingLayer,
     Question,
     Score,
     ScoreResult,
+    SlotAssembler,
 )
 
 from nanollm.training import (
@@ -40,23 +41,22 @@ __all__ = [
     "DecisionEngine",
     "DecisionEngineLayer",
     "DecisionResult",
-    "HierarchicalLayer",
     "IDecisionEngine",
+    "ISlotAssembler",
     "Noul",
     "NoulResult",
     "ProfilingLayer",
     "Question",
     "Score",
     "ScoreResult",
+    "SlotAssembler",
 
     # Training
-    "AdaptationCurriculum",
     "CalibratedLoss",
     "CheckpointingLayer",
     "DecisionSample",
     "EpochTrainer",
-    "FoundationCurriculum",
-    "ICurriculum",
+    "ILossPolicy",
     "ITrainer",
     "MultiQuestionCollator",
 ]

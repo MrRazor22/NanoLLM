@@ -3,8 +3,8 @@ import time
 import torch
 from torch.utils.data import DataLoader
 from nanollm.model import NanoModel
-from nanollm.training.policies.dataset import to_decision_sample
-from nanollm.training.policies.loss import CalibratedLoss
+from nanollm.training.dataset_policy import to_decision_sample
+from nanollm.training.loss_policy import CalibratedLoss
 
 class ITrainer(Protocol):
     def fit(self, data: Any) -> float: ...

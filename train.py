@@ -6,7 +6,7 @@ import torch
 from torch.utils.data import DataLoader
 from transformers import AutoModel
 
-from nanollm.inference.policies.assembler import SlotAssembler
+from nanollm.inference.assembler_policy import SlotAssembler
 from nanollm.model import ModelConfig, NanoModel
 from nanollm.training import (
     CalibratedLoss,
@@ -14,7 +14,7 @@ from nanollm.training import (
     EpochTrainer,
     MultiQuestionCollator,
 )
-from nanollm.training.policies.dataset import load_jsonl
+from nanollm.training.dataset_policy import load_jsonl
 
 ROOT = Path(__file__).resolve().parent
 DEFAULT_TRAIN = ROOT / "nanollm" / "training" / "dataset" / "data" / "train_adapt.jsonl"
@@ -47,7 +47,7 @@ def main() -> None:
 
     if args.curriculum:
         from nanollm.training.dataset import DatasetBuilder
-        from nanollm.training.policies.dataset import to_decision_sample
+        from nanollm.training.dataset_policy import to_decision_sample
         cur = DatasetBuilder(str(DEFAULT_TRAIN.parent))
         raw_train, raw_val = cur.build()
         train_data = [to_decision_sample(r) for r in raw_train]
