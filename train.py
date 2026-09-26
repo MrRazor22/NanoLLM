@@ -27,13 +27,13 @@ def main() -> None:
     parser.add_argument("--val-data", type=str, default=str(DEFAULT_VAL))
     parser.add_argument("--output", type=str, default=str(DEFAULT_OUTPUT))
     parser.add_argument("--init-checkpoint", type=str, default=None, help="Initial checkpoint to start adaptation from")
-    parser.add_argument("--epochs", type=int, default=2)
+    parser.add_argument("--epochs", type=int, default=1, help="Number of adaptation epochs (default: 1)")
     parser.add_argument("--batch-size", type=int, default=16)
     parser.add_argument("--max-tokens", type=int, default=4000, help="Max tokens per batch for dynamic batching (0 to use batch-size)")
-    parser.add_argument("--lr", type=float, default=2e-5)
+    parser.add_argument("--lr", type=float, default=1.5e-5)
     parser.add_argument("--max-samples", type=int, default=0)
     parser.add_argument("--accum-steps", type=int, default=2)
-    parser.add_argument("--log-interval", type=int, default=0)
+    parser.add_argument("--log-interval", type=float, default=10.0, help="Wall-clock log interval in seconds (default: 10s)")
     args = parser.parse_args()
 
     if torch.cuda.is_available():
@@ -50,7 +50,9 @@ def main() -> None:
         train_data = train_data[:args.max_samples]
         val_data = val_data[:max(50, args.max_samples // 5)]
 
-    def index_data(dataset):
+    def index_data(dataset, name="dataset"):
+        print(f"Indexing and packing {len(dataset)} {name} samples by token length...", flush=True)
+        t_idx = time.perf_counter()
         lens = []
         for s in dataset:
             rendered = collator.assembler.render_sample(s.state, s.questions)
@@ -65,12 +67,15 @@ def main() -> None:
                 cur_b.append(i); cur_toks += lens[i]
             if cur_b:
                 batches.append(cur_b)
+            print(f"Packed into {len(batches)} dynamic batches ({time.perf_counter() - t_idx:.1f}s).", flush=True)
             return batches
-        return [indices[i:i + args.batch_size] for i in range(0, len(indices), args.batch_size)]
+        batches = [indices[i:i + args.batch_size] for i in range(0, len(indices), args.batch_size)]
+        print(f"Packed into {len(batches)} batches ({time.perf_counter() - t_idx:.1f}s).", flush=True)
+        return batches
 
-    train_batches = index_data(train_data)
+    train_batches = index_data(train_data, "train")
     random.Random(42).shuffle(train_batches)
-    val_batches = index_data(val_data)
+    val_batches = index_data(val_data, "val")
 
     pin = device.type == "cuda"
     train_loader = DataLoader(train_data, batch_sampler=train_batches, collate_fn=collator, pin_memory=pin)

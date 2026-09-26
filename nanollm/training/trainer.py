@@ -78,8 +78,13 @@ class EpochTrainer(ITrainer):
             if (now - last_log_time >= interval_sec) or (step + 1 == total_steps):
                 step_ms = ((now - last_log_time) / max(1, interval_steps)) * 1000.0
                 win_loss = (interval_loss / max(1, interval_steps)).item()
+                rem_steps = total_steps - (step + 1)
+                eta_sec = rem_steps * (step_ms / 1000.0)
+                eta_str = f"{int(eta_sec // 60)}m {int(eta_sec % 60):02d}s" if eta_sec >= 60 else f"{int(eta_sec)}s"
+                mem_str = f" | VRAM: {torch.cuda.memory_allocated(self.device)/1e9:.1f}GB" if self.device.type == "cuda" else ""
+                lr_val = self.optimizer.param_groups[0]["lr"]
                 print(
-                    f"Step [{step+1:5d}/{total_steps}] Loss: {win_loss:.4f} | Speed: {step_ms:.1f}ms/step",
+                    f"Step [{step+1:5d}/{total_steps}] Loss: {win_loss:.4f} | Speed: {step_ms:.1f}ms/step | ETA: {eta_str} | LR: {lr_val:.1e}{mem_str}",
                     flush=True
                 )
                 last_log_time, interval_loss, interval_steps = now, torch.tensor(0.0, device=self.device), 0

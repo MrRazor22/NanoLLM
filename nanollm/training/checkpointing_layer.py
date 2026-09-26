@@ -50,6 +50,7 @@ class CheckpointingLayer(ITrainer):
                 p.parent.mkdir(parents=True, exist_ok=True)
                 if hasattr(self.inner, "model"):
                     torch.save(self.inner.model.state_dict(), str(p))
+                    print(f"Checkpoint saved -> {p} (Val Loss: {val_loss:.4f})", flush=True)
         return train_loss
 
     def evaluate(self, loader: DataLoader) -> float:
