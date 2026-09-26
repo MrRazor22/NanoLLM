@@ -3,7 +3,6 @@ import time
 import torch
 from torch.utils.data import DataLoader
 from nanollm.model import NanoModel
-from nanollm.training.policies.curriculum import ICurriculum
 from nanollm.training.policies.dataset import to_decision_sample
 from nanollm.training.policies.loss import CalibratedLoss
 

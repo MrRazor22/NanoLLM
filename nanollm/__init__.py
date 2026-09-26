@@ -20,12 +20,11 @@ from nanollm.inference import (
 )
 
 from nanollm.training import (
-    AdaptationCurriculum,
     CalibratedLoss,
     CheckpointingLayer,
     DecisionSample,
     EpochTrainer,
-    ICurriculum,
+    ILossPolicy,
     ITrainer,
     MultiQuestionCollator,
 )

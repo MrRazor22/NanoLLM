@@ -46,9 +46,9 @@ def main() -> None:
     collator = MultiQuestionCollator(assembler)
 
     if args.curriculum:
-        from nanollm.training.policies.curriculum import AdaptationCurriculum
+        from dataset import DatasetBuilder
         from nanollm.training.policies.dataset import to_decision_sample
-        cur = AdaptationCurriculum(str(DEFAULT_TRAIN.parent))
+        cur = DatasetBuilder(str(DEFAULT_TRAIN.parent))
         raw_train, raw_val = cur.build()
         train_data = [to_decision_sample(r) for r in raw_train]
         val_data = [to_decision_sample(r) for r in raw_val]
