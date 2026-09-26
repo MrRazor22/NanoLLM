@@ -78,7 +78,7 @@ class Scorecard(IScorecard):
         return report
 
     def render(self, reports: Dict[str, Any], track: str = "all", metadata: Optional[Dict[str, Any]] = None, model_name: str = "NanoLLM") -> None:
-        tracks_data = reports if track == "all" else {track: reports}
+        tracks_data = reports if (track == "all" or track in reports) else {track: reports}
         self.renderer.render(tracks_data, self.baselines, self.p50_latencies, track, metadata or {}, model_name)
 
 __all__ = ["IScorecard", "Scorecard", "DEFAULT_BASELINES_PATH"]

@@ -1,5 +1,14 @@
 {
   "agentic": {
+    "Champion v6 (Historical)": {
+      "overall": 0.645,
+      "slices": {
+        "agent_tool_routing": 0.71,
+        "negative_constraints": 0.73,
+        "safety_guardrails": 0.61,
+        "triage_incident": 0.53
+      }
+    },
     "Verdict 2.0 (151M)": {
       "overall": null,
       "slices": {
@@ -29,6 +38,13 @@
     }
   },
   "abstention": {
+    "Champion v6 (Historical)": {
+      "overall": 1.0,
+      "slices": {
+        "slice_missing_option": 1.0,
+        "slice_distant_oos": 1.0
+      }
+    },
     "Verdict 2.0 (151M)": {
       "overall": 0.868,
       "slices": {
@@ -52,6 +68,15 @@
     }
   },
   "typed_decisions": {
+    "Champion v6 (Historical)": {
+      "overall": 0.758,
+      "slices": {
+        "agent_trace_observability": 0.732,
+        "customer_service": 0.752,
+        "invoice_processing": 0.81,
+        "security_incidents": 0.74
+      }
+    },
     "Verdict 2.0 (151M)": {
       "overall": 0.771,
       "slices": {
@@ -81,6 +106,17 @@
     }
   },
   "laya": {
+    "Champion v6 (Historical)": {
+      "overall": 0.878,
+      "slices": {
+        "jev.ag_news": 0.922,
+        "jev.emotion": 0.858,
+        "jev.banking77_full": 0.792,
+        "app.support_triage": 0.722,
+        "app.email_spam": 0.992,
+        "app.phishing": 0.982
+      }
+    },
     "Verdict 2.0 (151M)": {
       "overall": 0.753,
       "slices": {
@@ -116,6 +152,7 @@
     }
   },
   "p50_latencies_ms": {
+    "Champion v6 (Historical)": 38.6,
     "Verdict 2.0 (151M)": 38.0,
     "Laya (421M)": 35.0,
     "TypeSafe Jev (API)": 256.0

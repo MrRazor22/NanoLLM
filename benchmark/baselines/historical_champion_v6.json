@@ -1,0 +1,55 @@
+{
+  "checkpoint": "checkpoint_champion_v6.pt",
+  "provenance": {
+    "conversation_id": "91c54e36-3bdb-4951-96a1-aaf722a4d650",
+    "step_index": 2721,
+    "task_id": "task-2682",
+    "timestamp": "2026-09-26T01:18:37Z",
+    "command": "python train.py --init-checkpoint nanollm/model/checkpoints/checkpoint_champion_v5.pt --output nanollm/model/checkpoints/checkpoint_champion_v6.pt --epochs 1 --lr 1.2e-5; python -m benchmark --checkpoint nanollm/model/checkpoints/checkpoint_champion_v6.pt --all"
+  },
+  "overall_macro_accuracy": 0.823,
+  "total_evaluated_samples": 5200,
+  "p50_latency_ms": 38.6,
+  "suites": {
+    "agentic": {
+      "overall": 0.645,
+      "count": 400,
+      "slices": {
+        "agent_tool_routing": 0.710,
+        "negative_constraints": 0.730,
+        "safety_guardrails": 0.610,
+        "triage_incident": 0.530
+      }
+    },
+    "abstention": {
+      "overall": 1.000,
+      "count": 400,
+      "slices": {
+        "slice_distant_oos": 1.000,
+        "slice_missing_option": 1.000
+      }
+    },
+    "typed_decisions": {
+      "overall": 0.758,
+      "count": 2000,
+      "slices": {
+        "agent_trace_observability": 0.732,
+        "customer_service": 0.752,
+        "invoice_processing": 0.810,
+        "security_incidents": 0.740
+      }
+    },
+    "laya": {
+      "overall": 0.878,
+      "count": 2400,
+      "slices": {
+        "app.email_spam": 0.992,
+        "app.phishing": 0.982,
+        "app.support_triage": 0.722,
+        "jev.ag_news": 0.922,
+        "jev.banking77_full": 0.792,
+        "jev.emotion": 0.858
+      }
+    }
+  }
+}
