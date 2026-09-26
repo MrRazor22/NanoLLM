@@ -1,12 +1,12 @@
-﻿from typing import Any, Callable, Dict, List, Optional, Protocol, Sequence
+﻿from typing import Any, Callable, Dict, List, Optional, Protocol, Sequence, Union
 import numpy as np
 from nanollm.inference.schema import Choice
-from benchmark.tracks import load_benchmark_items
+from benchmark.suites.base_policy import ISuitePolicy
 
 DecideFn = Callable[[str, Dict[str, Any]], Dict[str, Any]]
 
 class IEvaluator(Protocol):
-    def evaluate(self, items: List[Dict[str, Any]]) -> Dict[str, Any]: ...
+    def evaluate(self, source: Union[ISuitePolicy, Sequence[Dict[str, Any]]], limit: Optional[int] = None) -> Dict[str, Any]: ...
 
 class ModelEvaluator:
     def __init__(self, name: str, decide_fn: DecideFn, log_interval: int = 0):
@@ -35,7 +35,8 @@ class ModelEvaluator:
     def __or__(self, layer: Any) -> Any:
         return layer.attach(self) if hasattr(layer, "attach") else layer(self)
 
-    def evaluate(self, items: List[Dict[str, Any]]) -> Dict[str, Any]:
+    def evaluate(self, source: Union[ISuitePolicy, Sequence[Dict[str, Any]]], limit: Optional[int] = None) -> Dict[str, Any]:
+        items = source.load(limit=limit) if hasattr(source, "load") else (source[:limit] if limit else source)
         stats: Dict[str, Dict[str, int]] = {}
         all_hits: List[float] = []
         all_confs: List[float] = []
@@ -88,4 +89,4 @@ class ModelEvaluator:
             report["brier_score"] = float(np.mean(all_briers))
         return report
 
-__all__ = ["DecideFn", "IEvaluator", "ModelEvaluator", "load_benchmark_items"]
+__all__ = ["DecideFn", "IEvaluator", "ModelEvaluator"]

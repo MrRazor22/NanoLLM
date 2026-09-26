@@ -1,4 +1,4 @@
-# Model weights and binaries (>100MB exceeds GitHub limits)
+﻿# Model weights and binaries (>100MB exceeds GitHub limits)
 *.pt
 *.bin
 *.safetensors
@@ -8,6 +8,10 @@ nanollm/training/dataset/data/*.jsonl
 nanollm/training/dataset/data/*.cache
 nanollm/training/data/*.jsonl
 nanollm/training/data/*.cache
+
+# Benchmark generated caches
+benchmark/data/*.cache.json
+benchmark/data/*.cache
 
 # Python cache
 __pycache__/
@@ -19,5 +23,4 @@ __pycache__/
 .cache/
 venv/
 .venv/
-.vs/ 
-
+.vs/

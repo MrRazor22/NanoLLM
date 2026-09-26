@@ -1,7 +1,7 @@
-﻿import json
+import json
 from pathlib import Path
 from typing import Any, Dict, List, Optional
-from benchmark.tracks.base_policy import ITrackPolicy
+from benchmark.suites.base_policy import ITrackPolicy
 
 DATA_DIR = Path(__file__).resolve().parent.parent / "data"
 
