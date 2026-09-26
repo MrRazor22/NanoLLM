@@ -2,9 +2,9 @@ import random
 import re
 from typing import Any, Dict, List, Optional
 from datasets import load_dataset
-from training.dataset.sources.generic import ISourceAdapter
+from training.dataset.dataset import IDataSourcePolicy
 
-class GlaiveToolSource(ISourceAdapter):
+class GlaiveToolSource(IDataSourcePolicy):
     def __init__(self, limit: int = 5000, rng: Optional[random.Random] = None):
         self.limit = limit
         self.rng = rng or random.Random(42)
@@ -13,30 +13,44 @@ class GlaiveToolSource(ISourceAdapter):
         streaming_ds = load_dataset("glaiveai/glaive-function-calling-v2", split="train", streaming=True)
         raw, tool_registry = [], {}
         for row in streaming_ds:
-            system, chat = row["system"], row["chat"]
-            fn_match = re.search(r'<functioncall>\s*\{\s*"name":\s*"([^"]+)"', chat)
-            user_match = re.search(r'USER:\s*(.*?)(?=\n\s*(?:ASSISTANT:|<\|endoftext\|>|$))', chat, re.DOTALL)
-            if not (fn_match and user_match): continue
-            fn_name, user_query = fn_match.group(1), user_match.group(1).strip()
-            tools = dict(re.findall(r'\{\s*"name":\s*"([^"]+)",\s*"description":\s*"([^"]+)"', system))
-            if fn_name not in tools: continue
-            tool_registry.update(tools)
-            raw.append((user_query, fn_name, tools))
-            if len(raw) >= self.limit * 2: break
+            if len(raw) >= self.limit:
+                break
+            txt = row.get("chat", "")
+            if not txt.startswith("SYSTEM:"):
+                continue
+            parts = txt.split("USER:")
+            if len(parts) < 2:
+                continue
+            sys_part = parts[0].replace("SYSTEM:", "").strip()
+            rest = parts[1]
+            u_parts = rest.split("ASSISTANT:")
+            user_part = u_parts[0].strip()
+            asst_part = u_parts[1].strip() if len(u_parts) > 1 else ""
+            call_match = re.search(r"<functioncall>\s*(\{.*?\})", asst_part)
+            if not call_match:
+                continue
+            for fn in re.findall(r"\{\s*\"name\"\s*:\s*\"([^\"]+)\"", sys_part):
+                if fn not in tool_registry:
+                    tool_registry[fn] = f"Tool function: {fn}"
+            raw.append({"user": user_part, "gold_call": call_match.group(1), "tools": list(tool_registry.keys())})
 
         records = []
-        all_names = list(tool_registry.keys())
-        for query, fn, sample_tools in raw:
-            candidates = dict(sample_tools)
-            if len(candidates) < 5 and len(all_names) >= 5:
-                distractors = [n for n in all_names if n != fn and n not in candidates]
-                for d in self.rng.sample(distractors, min(len(distractors), 5 - len(candidates))):
-                    candidates[d] = tool_registry[d]
-            opt_keys = list(candidates.keys())
-            self.rng.shuffle(opt_keys)
+        for r in raw:
+            match = re.search(r"\"name\"\s*:\s*\"([^\"]+)\"", r["gold_call"])
+            if not match:
+                continue
+            gold_tool = match.group(1)
+            distractors = [t for t in tool_registry.keys() if t != gold_tool]
+            self.rng.shuffle(distractors)
+            selected_tools = [gold_tool] + distractors[:4]
+            self.rng.shuffle(selected_tools)
+            criteria = {t: tool_registry.get(t, f"Tool: {t}") for t in selected_tools}
             records.append({
-                "state": query,
-                "questions": [["tool", "choice", opt_keys.index(fn), {k: candidates[k] for k in opt_keys}, "Which function or tool should be invoked to handle this request?"]]
+                "category": "glaive_tools",
+                "state": f"User Request: {r['user']}",
+                "questions": {"tool": {"type": "choice", "instructions": "Select the appropriate tool for user request.", "criteria": criteria}},
+                "gold": {"tool": {"type": "choice", "label": gold_tool}},
             })
-            if len(records) >= self.limit: break
         return records
+
+__all__ = ["GlaiveToolSource"]

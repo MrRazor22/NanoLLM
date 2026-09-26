@@ -22,7 +22,6 @@ from nanollm.inference import (
 
 from nanollm.training import (
     CalibratedLoss,
-    CheckpointingLayer,
     EpochTrainer,
     ILossPolicy,
     ITrainer,
@@ -51,7 +50,6 @@ __all__ = [
 
     # Training
     "CalibratedLoss",
-    "CheckpointingLayer",
     "EpochTrainer",
     "ILossPolicy",
     "ITrainer",

@@ -1,38 +1,14 @@
-﻿import json
-from abc import ABC, abstractmethod
-from pathlib import Path
-from typing import Any, Dict, List, Optional, Protocol
+﻿from typing import Any, Dict, List, Optional
+from benchmark.dataset import BenchmarkDataset, DATA_DIR, IBenchmarkDataset, ISuiteSourcePolicy
 
-DATA_DIR = Path(__file__).resolve().parent.parent / "data"
-
-class ISuitePolicy(Protocol):
-    """Bedrock contract for any benchmark suite."""
-    def load(self, limit: Optional[int] = None) -> List[Dict[str, Any]]: ...
-
-class BaseSuitePolicy(ABC, ISuitePolicy):
-    """Template method base: handles standardized disk caching so children only define extraction."""
+class BaseSuitePolicy(ISuiteSourcePolicy):
+    """Convenience base suite defining a dataset-backed benchmark policy."""
     name: str
 
-    @property
-    def cache_path(self) -> Path:
-        return DATA_DIR / f"{self.name}.cache.json"
+    def extract(self) -> List[Dict[str, Any]]:
+        raise NotImplementedError
 
     def load(self, limit: Optional[int] = None) -> List[Dict[str, Any]]:
-        if self.cache_path.exists():
-            with open(self.cache_path, "r", encoding="utf-8") as f:
-                data = json.load(f)
-            return data[:limit] if limit else data
+        return BenchmarkDataset(self).load(limit=limit)
 
-        items = self.extract()
-        self.cache_path.parent.mkdir(parents=True, exist_ok=True)
-        with open(self.cache_path, "w", encoding="utf-8") as f:
-            json.dump(items, f, indent=2)
-        return items[:limit] if limit else items
-
-    @abstractmethod
-    def extract(self) -> List[Dict[str, Any]]: ...
-
-# Backward compatibility alias
-ITrackPolicy = ISuitePolicy
-
-__all__ = ["ISuitePolicy", "ITrackPolicy", "BaseSuitePolicy", "DATA_DIR"]
+__all__ = ["BaseSuitePolicy", "ISuiteSourcePolicy", "IBenchmarkDataset", "BenchmarkDataset", "DATA_DIR"]

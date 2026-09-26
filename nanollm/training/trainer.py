@@ -1,4 +1,4 @@
-﻿from typing import Any, Optional, Protocol, Tuple, Union
+﻿from typing import Any, Optional, Protocol
 import time
 import torch
 from torch.utils.data import DataLoader
@@ -6,7 +6,7 @@ from nanollm.model import NanoModel
 from nanollm.training.loss_policy import CalibratedLoss
 
 class ITrainer(Protocol):
-    def fit(self, data: Any, epochs: int = 1) -> float: ...
+    def fit(self, train_loader: DataLoader, val_loader: Optional[DataLoader] = None, epochs: int = 1) -> float: ...
 
 class EpochTrainer(ITrainer):
     def add(self, layer: Any, **kwargs: Any) -> "ITrainer":
@@ -25,15 +25,13 @@ class EpochTrainer(ITrainer):
         optimizer: torch.optim.Optimizer,
         loss_fn: CalibratedLoss,
         device: torch.device,
-        collator: Optional[Any] = None,
         accum_steps: int = 2,
-        log_interval: int = 0,
+        log_interval: float = 10.0,
     ):
         self.model = model
         self.optimizer = optimizer
         self.loss_fn = loss_fn
         self.device = device
-        self.collator = collator
         self.accum_steps = accum_steps
         self.log_interval = log_interval
         self.scaler = torch.amp.GradScaler("cuda", enabled=device.type == "cuda")
@@ -89,21 +87,10 @@ class EpochTrainer(ITrainer):
 
     def fit(
         self,
-        data: Any,
-        val_data: Optional[Any] = None,
+        train_loader: DataLoader,
+        val_loader: Optional[DataLoader] = None,
         epochs: int = 1,
-        max_tokens: int = 4000,
-        batch_size: int = 16,
     ) -> float:
-        if hasattr(data, "get_loaders"):
-            if self.collator is None:
-                raise ValueError("EpochTrainer requires a collator to build DataLoaders from dataset provider.")
-            pin = self.device.type == "cuda"
-            train_loader, val_loader = data.get_loaders(self.collator, max_tokens=max_tokens, batch_size=batch_size, pin_memory=pin)
-        else:
-            train_loader = data
-            val_loader = val_data
-
         last_loss = 0.0
         for epoch in range(1, epochs + 1):
             t0 = time.perf_counter()

@@ -1,8 +1,7 @@
 ﻿import time
-from typing import Any, Dict, List, Optional, Sequence, Union
+from typing import Any, Dict, List, Optional
 import numpy as np
 from benchmark.evaluator import IEvaluator
-from benchmark.suites.base_policy import ISuitePolicy
 
 class ProfilingEvaluatorLayer:
     def __init__(self, inner: Optional[IEvaluator] = None, warmup_runs: int = 5):
@@ -23,7 +22,7 @@ class ProfilingEvaluatorLayer:
     def __or__(self, layer: Any) -> Any:
         return self.add(layer)
 
-    def evaluate(self, source: Union[ISuitePolicy, Sequence[Dict[str, Any]]], limit: Optional[int] = None) -> Dict[str, Any]:
+    def evaluate(self, source: Any, limit: Optional[int] = None) -> Dict[str, Any]:
         if self.inner is None:
             raise RuntimeError("ProfilingEvaluatorLayer is not attached to an inner evaluator.")
 

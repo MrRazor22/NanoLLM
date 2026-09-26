@@ -1,11 +1,8 @@
-from typing import Any, Callable, Dict, List, Optional, Protocol, Set
+from typing import Any, Callable, Dict, List, Optional, Set
 from datasets import load_dataset
+from training.dataset.dataset import IDataSourcePolicy
 
-class ISourceAdapter(Protocol):
-    """The bedrock contract for an injected data source policy."""
-    def extract(self) -> List[Dict[str, Any]]: ...
-
-class GenericChoiceSource(ISourceAdapter):
+class GenericChoiceSource(IDataSourcePolicy):
     def __init__(
         self,
         path: str,
@@ -38,30 +35,51 @@ class GenericChoiceSource(ISourceAdapter):
         ds = load_dataset(self.path, self.sub, split=self.split) if self.sub else load_dataset(self.path, split=self.split)
         feat = ds.features.get(self.label_extractor) if isinstance(self.label_extractor, str) else None
         if self.opts_dict:
-            labels = self.opts_dict
-        elif hasattr(feat, "names") and feat.names:
-            labels = list(feat.names)
-        elif isinstance(self.label_extractor, str):
-            labels = sorted(list(set(ds[self.label_extractor])))
+            criteria = self.opts_dict
+        elif feat and hasattr(feat, "names"):
+            criteria = {name.replace("_", " "): name.replace("_", " ") for name in feat.names if name not in self.blacklist}
         else:
-            labels = sorted(list(set(self.label_extractor(row) for row in ds.select(range(min(len(ds), 500))))))
-        opt_keys = list(labels.keys()) if isinstance(labels, dict) else labels
-        records, counts = [], {}
+            criteria = None
+
+        count, per_class_counts = 0, {}
+        records = []
         for row in ds:
+            if self.limit and count >= self.limit:
+                break
             if self.filter_fn and not self.filter_fn(row):
                 continue
-            text = self.formatter(row).strip() if callable(self.formatter) else str(row.get(self.formatter, "")).strip()
-            if not text or (self.blacklist and text.lower() in self.blacklist):
+            text = self.formatter(row) if callable(self.formatter) else str(row.get(self.formatter, ""))
+            if not text.strip():
                 continue
-            raw = self.label_extractor(row) if callable(self.label_extractor) else row.get(self.label_extractor)
-            lbl_str = opt_keys[raw] if isinstance(raw, int) and isinstance(labels, dict) else (labels[raw] if isinstance(raw, int) else str(raw))
-            if lbl_str not in opt_keys:
+
+            if callable(self.label_extractor):
+                gold_label = self.label_extractor(row)
+            else:
+                raw_val = row.get(self.label_extractor)
+                gold_label = feat.names[raw_val].replace("_", " ") if feat and hasattr(feat, "names") and isinstance(raw_val, int) else str(raw_val)
+
+            if gold_label in self.blacklist:
                 continue
-            if self.per_class_limit > 0:
-                if counts.get(lbl_str, 0) >= self.per_class_limit:
+
+            if self.per_class_limit:
+                c = per_class_counts.get(gold_label, 0)
+                if c >= self.per_class_limit:
                     continue
-                counts[lbl_str] = counts.get(lbl_str, 0) + 1
-            records.append({"state": text, "questions": [[self.qname, "choice", opt_keys.index(lbl_str), labels, self.instr]]})
-            if self.limit > 0 and len(records) >= self.limit:
-                break
+                per_class_counts[gold_label] = c + 1
+
+            records.append({
+                "category": self.path,
+                "state": text.strip(),
+                "questions": {
+                    self.qname: {
+                        "type": "choice",
+                        "instructions": self.instr,
+                        "criteria": criteria or {gold_label: gold_label},
+                    }
+                },
+                "gold": {self.qname: {"type": "choice", "label": gold_label}},
+            })
+            count += 1
         return records
+
+__all__ = ["GenericChoiceSource"]

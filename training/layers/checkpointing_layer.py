@@ -68,10 +68,14 @@ class CheckpointingLayer(ITrainer):
     ) -> float:
         if self.inner is None:
             raise RuntimeError("CheckpointingLayer is not attached to an inner trainer.")
-        if hasattr(data, "get_loaders"):
-            pin = self.inner.device.type == "cuda"
-            train_loader, val_loader = data.get_loaders(self.inner.collator, max_tokens=max_tokens, batch_size=batch_size, pin_memory=pin)
-            self.val_loader = val_loader
+        pin = self.inner.device.type == "cuda"
+        if hasattr(data, "load_samples"):
+            train_samples, val_samples = data.load_samples()
+            train_loader = self.inner.collator.pack_loader(train_samples, max_tokens=max_tokens, batch_size=batch_size, pin_memory=pin)
+            self.val_loader = self.inner.collator.pack_loader(val_samples, max_tokens=max_tokens, batch_size=batch_size, shuffle=False, pin_memory=pin)
+        elif isinstance(data, (list, tuple)):
+            train_loader = self.inner.collator.pack_loader(data, max_tokens=max_tokens, batch_size=batch_size, pin_memory=pin)
+            self.val_loader = self.inner.collator.pack_loader(val_data, max_tokens=max_tokens, batch_size=batch_size, shuffle=False, pin_memory=pin) if val_data else None
         else:
             train_loader = data
             if val_data:

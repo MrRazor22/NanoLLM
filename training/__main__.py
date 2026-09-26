@@ -1,17 +1,12 @@
 ﻿import argparse
 from pathlib import Path
 import torch
-from transformers import AutoModel
 
 from nanollm.inference.assembler_policy import SlotAssembler
-from nanollm.model import ModelConfig, NanoModel
-from nanollm.training import (
-    CalibratedLoss,
-    CheckpointingLayer,
-    EpochTrainer,
-    MultiQuestionCollator,
-)
+from nanollm.model import NanoModel
+from nanollm.training import CalibratedLoss, EpochTrainer
 from training.dataset import TrainingDataset
+from training.layers import CheckpointingLayer
 
 ROOT = Path(__file__).resolve().parent.parent
 DEFAULT_DATA_DIR = Path(__file__).resolve().parent / "dataset" / "data"
@@ -39,30 +34,32 @@ def main() -> None:
 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     assembler = SlotAssembler("answerdotai/ModernBERT-base")
-    collator = MultiQuestionCollator(assembler)
+    pin = device.type == "cuda"
 
-    # 1. Training data policy: handles loading, extraction, and batch packing
-    dataset = TrainingDataset(train_path=args.train_data, val_path=args.val_data)
+    # 1. Dataset primitives loaded with assembler
+    train_dataset = TrainingDataset.from_jsonl(args.train_data, assembler=assembler)
+    val_dataset = TrainingDataset.from_jsonl(args.val_data, assembler=assembler)
 
-    # 2. Model & Optimizer
-    backbone = AutoModel.from_pretrained("answerdotai/ModernBERT-base")
-    config = ModelConfig(vocab_size=assembler.tokenizer.vocab_size, hidden_dim=768, num_layers=22, num_heads=12)
-    model = NanoModel(config, backbone=backbone).to(device)
+    # 2. Dataset yields PyTorch DataLoaders directly
+    train_loader = train_dataset.get_loader(batch_size=args.batch_size, max_tokens=args.max_tokens, shuffle=True, pin_memory=pin)
+    val_loader = val_dataset.get_loader(batch_size=args.batch_size, max_tokens=args.max_tokens, shuffle=False, pin_memory=pin)
+
+    # 3. Model & Optimizer
+    model = NanoModel.from_backbone("answerdotai/ModernBERT-base", vocab_size=assembler.tokenizer.vocab_size).to(device)
     if args.init_checkpoint:
         model.load_state_dict(torch.load(args.init_checkpoint, map_location=device))
 
-    pin = device.type == "cuda"
     optimizer = torch.optim.AdamW(model.parameters(), lr=args.lr, fused=pin)
     loss_fn = CalibratedLoss()
 
-    # 3. Training Engine wrapped with Checkpointing Layer
+    # 4. Trainer Primitive wrapped with Checkpointing Layer
     trainer = EpochTrainer(
-        model, optimizer, loss_fn, device, collator=collator, accum_steps=args.accum_steps, log_interval=args.log_interval
+        model, optimizer, loss_fn, device, accum_steps=args.accum_steps, log_interval=args.log_interval
     ) | CheckpointingLayer(output_path=args.output)
 
-    # 4. Run the full training session directly on the dataset policy
-    print(f"Starting training on {device}...")
-    trainer.fit(dataset, epochs=args.epochs, max_tokens=args.max_tokens, batch_size=args.batch_size)
+    # 5. Fit model directly on DataLoaders
+    print(f"Starting training on {device} ({len(train_dataset)} train samples, {len(val_dataset)} val samples)...")
+    trainer.fit(train_loader, val_loader, epochs=args.epochs)
 
 if __name__ == "__main__":
     main()

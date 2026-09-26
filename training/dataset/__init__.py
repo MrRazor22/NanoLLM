@@ -1,10 +1,6 @@
-from training.dataset.builder import (
-    DatasetBuilder,
-    IDatasetBuilder,
-    ITrainingDataPolicy,
-    TrainingDataset,
-)
+﻿from training.dataset.dataset import IDataSourcePolicy, ITrainingDataset, TrainingDataset
 from training.dataset.collator_policy import IBatchCollator, MultiQuestionCollator
+from training.dataset.recipes import get_default_training_sources
 from training.dataset.schema import DecisionSample, QuestionSpec
 from training.dataset.transforms import (
     inject_abstention,
@@ -15,15 +11,16 @@ from training.dataset.transforms import (
 )
 
 __all__ = [
-    # Primitive / Dataset Policy
+    # Root Primitive
     "TrainingDataset",
-    "ITrainingDataPolicy",
-    "DatasetBuilder",
-    "IDatasetBuilder",
+    "ITrainingDataset",
     # Policies
+    "IDataSourcePolicy",
     "IBatchCollator",
     "MultiQuestionCollator",
-    # Schema / Value Objects
+    # Recipes
+    "get_default_training_sources",
+    # State / DTO
     "DecisionSample",
     "QuestionSpec",
     # Transforms

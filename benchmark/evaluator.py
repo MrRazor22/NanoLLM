@@ -1,12 +1,12 @@
 ﻿from typing import Any, Callable, Dict, List, Optional, Protocol, Sequence, Union
 import numpy as np
 from nanollm.inference.schema import Choice
-from benchmark.suites.base_policy import ISuitePolicy
+from benchmark.dataset import IBenchmarkDataset
 
 DecideFn = Callable[[str, Dict[str, Any]], Dict[str, Any]]
 
 class IEvaluator(Protocol):
-    def evaluate(self, source: Union[ISuitePolicy, Sequence[Dict[str, Any]]], limit: Optional[int] = None) -> Dict[str, Any]: ...
+    def evaluate(self, source: Union[IBenchmarkDataset, Sequence[Dict[str, Any]]], limit: Optional[int] = None) -> Dict[str, Any]: ...
 
 class ModelEvaluator:
     def __init__(self, name: str, decide_fn: DecideFn, log_interval: int = 0):
@@ -35,7 +35,7 @@ class ModelEvaluator:
     def __or__(self, layer: Any) -> Any:
         return layer.attach(self) if hasattr(layer, "attach") else layer(self)
 
-    def evaluate(self, source: Union[ISuitePolicy, Sequence[Dict[str, Any]]], limit: Optional[int] = None) -> Dict[str, Any]:
+    def evaluate(self, source: Union[IBenchmarkDataset, Sequence[Dict[str, Any]]], limit: Optional[int] = None) -> Dict[str, Any]:
         items = source.load(limit=limit) if hasattr(source, "load") else (source[:limit] if limit else source)
         stats: Dict[str, Dict[str, int]] = {}
         all_hits: List[float] = []
@@ -59,34 +59,34 @@ class ModelEvaluator:
                 stats[cat]["correct"] += int(hit)
                 all_hits.append(hit)
 
-                if isinstance(pred_obj, dict):
-                    all_confs.append(float(pred_obj.get("confidence", 0.0)))
-                    gold_probs, pred_probs = gold.get("probabilities", {}), pred_obj.get("probabilities", {})
-                    if gold_probs and pred_probs:
-                        keys = list(gold_probs.keys())
-                        pv = np.array([pred_probs.get(k, 0.0) for k in keys], dtype=float)
-                        gv = np.array([gold_probs.get(k, 0.0) for k in keys], dtype=float)
-                        if pv.sum() > 0: pv /= pv.sum()
-                        if gv.sum() > 0: gv /= gv.sum()
-                        all_briers.append(float(np.sum((pv - gv) ** 2)))
+                conf = pred_obj.get("confidence", 0.0) if isinstance(pred_obj, dict) else 0.0
+                all_confs.append(conf)
+                all_briers.append((conf - hit) ** 2)
 
-            if self.log_interval > 0 and ((i + 1) % self.log_interval == 0 or (i + 1) == len(items)):
-                tot_c = sum(s["correct"] for s in stats.values())
-                tot_q = sum(s["total"] for s in stats.values())
-                print(f"[{self.name}] [{i+1:5d}/{len(items)}] Acc: {(tot_c / max(1, tot_q)) * 100.0:.1f}%", flush=True)
+            if self.log_interval > 0 and (i + 1) % self.log_interval == 0:
+                cur_acc = 100.0 * np.mean(all_hits) if all_hits else 0.0
+                print(f"[{self.name}] [{i+1:5d}/{len(items)}] Acc: {cur_acc:.1f}%", flush=True)
 
-        tot_c = sum(s["correct"] for s in stats.values())
-        tot_q = sum(s["total"] for s in stats.values())
-        report: Dict[str, Any] = {
-            "name": self.name,
-            "overall_acc": tot_c / max(1, tot_q) if tot_q else 0.0,
-            "total_correct": tot_c,
-            "total_questions": tot_q,
-            "by_cat": {c: s["correct"] / max(1, s["total"]) for c, s in stats.items()},
+        total_correct = sum(s["correct"] for s in stats.values())
+        total_eval = sum(s["total"] for s in stats.values())
+        overall_acc = (total_correct / total_eval) if total_eval > 0 else 0.0
+
+        return {
+            "evaluator": self.name,
+            "overall_acc": overall_acc,
+            "total_correct": total_correct,
+            "total_questions": total_eval,
+            "mean_confidence": float(np.mean(all_confs)) if all_confs else 0.0,
+            "brier_score": float(np.mean(all_briers)) if all_briers else 0.0,
+            "by_cat": {c: (s["correct"] / s["total"]) if s["total"] > 0 else 0.0 for c, s in stats.items()},
             "cat_counts": {c: s["total"] for c, s in stats.items()},
+            "categories": {
+                c: {
+                    "accuracy": (s["correct"] / s["total"]) if s["total"] > 0 else 0.0,
+                    "total": s["total"]
+                }
+                for c, s in stats.items()
+            }
         }
-        if all_briers:
-            report["brier_score"] = float(np.mean(all_briers))
-        return report
 
-__all__ = ["DecideFn", "IEvaluator", "ModelEvaluator"]
+__all__ = ["IEvaluator", "ModelEvaluator", "DecideFn"]
