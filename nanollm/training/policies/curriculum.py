@@ -3,7 +3,7 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional, Protocol, Tuple
 from datasets import load_dataset
 from nanollm.training.policies.builder import split_train_val
-from nanollm.training.policies.dataset import extract_glaive_tools, parse_typed_decisions
+from nanollm.training.policies.dataset import extract_glaive_tools, inject_abstention, parse_typed_decisions
 from nanollm.training.policies.taxonomies import (
     AG_NEWS_TOPICS,
     EMOTION_CRITERIA,
@@ -68,5 +68,6 @@ class AdaptationCurriculum:
                 for line in lines[:5000]: replay.append(json.loads(line))
 
         all_samples = td + tools + massive + ag_news + spam + phish + support + emotion + replay
+        all_samples = inject_abstention(all_samples, rate=0.15, rng=self.rng)
         return split_train_val(all_samples, 0.08, self.rng)
 
