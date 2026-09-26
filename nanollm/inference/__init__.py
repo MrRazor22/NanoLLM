@@ -1,4 +1,4 @@
-from nanollm.inference.assembler_policy import ISlotAssembler, SlotAssembler
+from nanollm.inference.assembler import ISlotAssembler, SlotAssembler
 from nanollm.inference.engine import DecisionEngine, IDecisionEngine
 from nanollm.inference.profiling_layer import DecisionEngineLayer, ProfilingLayer
 from nanollm.inference.schema import (

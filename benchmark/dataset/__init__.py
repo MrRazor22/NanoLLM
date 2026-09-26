@@ -2,7 +2,7 @@ from benchmark.dataset.dataset import (
     BenchmarkDataset,
     DATA_DIR,
     IBenchmarkDataset,
-    ISuiteSourcePolicy,
+    IDataSource,
 )
 from benchmark.dataset.sources import (
     AbstentionSource,
@@ -17,7 +17,7 @@ __all__ = [
     "IBenchmarkDataset",
     "DATA_DIR",
     # Policies
-    "ISuiteSourcePolicy",
+    "IDataSource",
     "AbstentionSource",
     "AgenticSource",
     "LayaSource",

@@ -1,5 +1,5 @@
-﻿from typing import Any, Dict, List, Optional, Protocol, Sequence, Tuple
-from nanollm.inference.assembler_policy import ISlotAssembler, SlotAssembler
+from typing import Any, Dict, List, Optional, Protocol, Sequence, Tuple
+from nanollm.inference.assembler import ISlotAssembler, SlotAssembler
 
 class IBatchCollator(Protocol):
     """Collation policy contract: collates a batch of dataset samples into tensors."""

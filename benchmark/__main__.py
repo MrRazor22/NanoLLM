@@ -7,14 +7,14 @@ from benchmark.dataset import (
     AbstentionSource,
     AgenticSource,
     BenchmarkDataset,
-    ISuiteSourcePolicy,
+    IDataSource,
     LayaSource,
     TypedDecisionsSource,
 )
 from benchmark.evaluator import ModelEvaluator
 from benchmark.reporting_layer import ReportingEvaluatorLayer
 
-SUITE_POLICIES: dict[str, type[ISuiteSourcePolicy]] = {
+SUITE_SOURCES: dict[str, type[IDataSource]] = {
     "agentic": AgenticSource,
     "abstention": AbstentionSource,
     "typed_decisions": TypedDecisionsSource,
@@ -22,7 +22,7 @@ SUITE_POLICIES: dict[str, type[ISuiteSourcePolicy]] = {
 }
 
 def main() -> None:
-    suites = SUITE_POLICIES
+    suites = SUITE_SOURCES
     parser = argparse.ArgumentParser(description="NanoLLM Honest Benchmark")
     parser.add_argument("--checkpoint", type=str, default=str(DEFAULT_CHECKPOINT), help="Path to checkpoint")
     parser.add_argument("--suite", "--track", type=str, default="all", dest="suite", choices=["all"] + list(suites.keys()), help="Benchmark suite to run")

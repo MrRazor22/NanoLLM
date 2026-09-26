@@ -1,9 +1,10 @@
 import json
 from typing import Any, Dict, List
 from datasets import load_dataset
-from training.dataset.dataset import IDataSourcePolicy
+from training.dataset.dataset import IDataSource
 
-class TypedDecisionsSource(IDataSourcePolicy):
+class TypedDecisionsSource(IDataSource):
+    name = "typed_decisions"
     def __init__(self, repeat: int = 3):
         self.repeat = repeat
 

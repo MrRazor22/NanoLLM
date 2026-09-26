@@ -1,9 +1,9 @@
-﻿from pathlib import Path
+from pathlib import Path
 from typing import Any, Optional, Union
 import torch
 from torch.utils.data import DataLoader
 
-from training.dataset.collator_policy import IBatchCollator
+from training.dataset.collator import IBatchCollator
 from training.dataset.dataset import ITrainingDataset
 from training.dataset.schema import DecisionSample
 

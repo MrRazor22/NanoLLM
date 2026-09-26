@@ -3,10 +3,10 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
-class ILossPolicy(Protocol):
+class ILoss(Protocol):
     def compute(self, scores: torch.Tensor, batch_meta: Any, device: torch.device) -> torch.Tensor: ...
 
-class CalibratedLoss(nn.Module, ILossPolicy):
+class CalibratedLoss(nn.Module, ILoss):
     def __init__(self, brier_weight: float = 0.5):
         super().__init__()
         self.brier_weight = brier_weight

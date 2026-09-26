@@ -1,9 +1,9 @@
 from pathlib import Path
 from typing import Any, Dict, List
 from datasets import load_dataset
-from benchmark.dataset import DATA_DIR, ISuiteSourcePolicy
+from benchmark.dataset import DATA_DIR, IDataSource
 
-class LayaSource(ISuiteSourcePolicy):
+class LayaSource(IDataSource):
     name = "laya"
 
     def extract(self) -> List[Dict[str, Any]]:

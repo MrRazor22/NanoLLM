@@ -2,8 +2,7 @@ from pathlib import Path
 from typing import Any, Optional, Protocol, Sequence, Union
 import torch
 import torch.nn.functional as F
-from transformers import AutoModel
-from nanollm.inference.assembler_policy import ISlotAssembler, SlotAssembler
+from nanollm.inference.assembler import ISlotAssembler, SlotAssembler
 from nanollm.inference.schema import Answer, Choice, ChoiceResult, DecisionResult, Noul, NoulResult, Question, Score, ScoreResult
 from nanollm.model import ModelConfig, NanoModel
 

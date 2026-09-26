@@ -2,9 +2,9 @@ import argparse
 from pathlib import Path
 import torch
 
-from nanollm.inference.assembler_policy import SlotAssembler
-from nanollm.model import NanoModel
-from nanollm.training import CalibratedLoss, CheckpointingLayer, EpochTrainer
+from nanollm.inference.assembler import SlotAssembler
+from nanollm.training import CheckpointingLayer, EpochTrainer
+from training import LoggingLayer
 from training.dataset import CachedDatasetLayer, TrainingDataset
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -58,20 +58,21 @@ def main() -> None:
         batch_size=args.batch_size, max_tokens=args.max_tokens, shuffle=False, pin_memory=pin, seed=args.seed
     )
 
-    # 3. Model & Optimizer
-    model = NanoModel.from_backbone(args.backbone, vocab_size=assembler.tokenizer.vocab_size).to(device)
-    if args.init_checkpoint:
-        model.load_state_dict(torch.load(args.init_checkpoint, map_location=device))
+    # 3. Trainer Primitive composed with Logging and Checkpointing layers
+    trainer = (
+        EpochTrainer.from_backbone(
+            backbone_name=args.backbone,
+            lr=args.lr,
+            device=device,
+            accum_steps=args.accum_steps,
+            log_interval=args.log_interval,
+            init_checkpoint=args.init_checkpoint,
+        )
+        | LoggingLayer()
+        | CheckpointingLayer(output_path=args.output)
+    )
 
-    optimizer = torch.optim.AdamW(model.parameters(), lr=args.lr, fused=pin)
-    loss_fn = CalibratedLoss()
-
-    # 4. Trainer Primitive wrapped with Checkpointing Layer
-    trainer = EpochTrainer(
-        model, optimizer, loss_fn, device, accum_steps=args.accum_steps, log_interval=args.log_interval
-    ) | CheckpointingLayer(output_path=args.output)
-
-    # 5. Fit model directly on DataLoaders
+    # 4. Fit model directly on DataLoaders
     print(f"Starting training on {device} ({len(train_dataset)} train samples, {len(val_dataset)} val samples)...")
     trainer.fit(train_loader, val_loader, epochs=args.epochs)
 

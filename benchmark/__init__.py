@@ -3,7 +3,7 @@ from benchmark.dataset import (
     AgenticSource,
     BenchmarkDataset,
     IBenchmarkDataset,
-    ISuiteSourcePolicy,
+    IDataSource,
     LayaSource,
     TypedDecisionsSource,
 )
@@ -18,7 +18,7 @@ __all__ = [
     "IEvaluator",
     "ModelEvaluator",
     # Policies
-    "ISuiteSourcePolicy",
+    "IDataSource",
     "AbstentionSource",
     "AgenticSource",
     "LayaSource",

@@ -1,8 +1,9 @@
 from typing import Any, Callable, Dict, List, Optional, Set
 from datasets import load_dataset
-from training.dataset.dataset import IDataSourcePolicy
+from training.dataset.dataset import IDataSource
 
-class GenericChoiceSource(IDataSourcePolicy):
+class GenericChoiceSource(IDataSource):
+    name = "generic_choice"
     def __init__(
         self,
         path: str,

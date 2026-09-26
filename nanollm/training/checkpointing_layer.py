@@ -1,4 +1,4 @@
-﻿from pathlib import Path
+from pathlib import Path
 from typing import Any, Optional
 import torch
 from torch.utils.data import DataLoader
@@ -72,12 +72,6 @@ class CheckpointingLayer(ITrainer):
         if self.inner is None:
             raise RuntimeError("CheckpointingLayer is not attached to an inner trainer.")
         self.val_loader = val_loader
-
-        last_loss = 0.0
-        for epoch in range(1, epochs + 1):
-            last_loss = self.train_epoch(train_loader)
-            val_info = f" | Best Val Loss: {self.best_val_loss:.4f}" if self.val_loader else ""
-            print(f"Epoch {epoch:2d}/{epochs:2d} | Train Loss: {last_loss:.4f}{val_info}")
-        return last_loss
+        return self.inner.fit(train_loader, val_loader=val_loader, epochs=epochs)
 
 __all__ = ["CheckpointingLayer"]

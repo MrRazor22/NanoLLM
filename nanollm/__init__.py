@@ -1,4 +1,4 @@
-﻿from nanollm.model import (
+from nanollm.model import (
     ModelConfig,
     NanoModel,
 )
@@ -22,8 +22,9 @@ from nanollm.inference import (
 
 from nanollm.training import (
     CalibratedLoss,
+    CheckpointingLayer,
     EpochTrainer,
-    ILossPolicy,
+    ILoss,
     ITrainer,
 )
 
@@ -50,7 +51,8 @@ __all__ = [
 
     # Training
     "CalibratedLoss",
+    "CheckpointingLayer",
     "EpochTrainer",
-    "ILossPolicy",
+    "ILoss",
     "ITrainer",
 ]

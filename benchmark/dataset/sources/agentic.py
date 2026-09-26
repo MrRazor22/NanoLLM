@@ -1,8 +1,8 @@
 import json
 from typing import Any, Dict, List
-from benchmark.dataset import DATA_DIR, ISuiteSourcePolicy
+from benchmark.dataset import DATA_DIR, IDataSource
 
-class AgenticSource(ISuiteSourcePolicy):
+class AgenticSource(IDataSource):
     name = "agentic"
 
     def extract(self) -> List[Dict[str, Any]]:

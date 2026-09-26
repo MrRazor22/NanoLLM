@@ -1,8 +1,8 @@
 import json
 from typing import Any, Dict, List
-from benchmark.dataset import ISuiteSourcePolicy
+from benchmark.dataset import IDataSource
 
-class TypedDecisionsSource(ISuiteSourcePolicy):
+class TypedDecisionsSource(IDataSource):
     name = "typed_decisions"
 
     def extract(self) -> List[Dict[str, Any]]:

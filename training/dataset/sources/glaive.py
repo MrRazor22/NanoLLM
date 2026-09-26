@@ -2,9 +2,10 @@ import random
 import re
 from typing import Any, Dict, List, Optional
 from datasets import load_dataset
-from training.dataset.dataset import IDataSourcePolicy
+from training.dataset.dataset import IDataSource
 
-class GlaiveToolSource(IDataSourcePolicy):
+class GlaiveToolSource(IDataSource):
+    name = "glaive_tool"
     def __init__(self, limit: int = 5000, rng: Optional[random.Random] = None):
         self.limit = limit
         self.rng = rng or random.Random(42)

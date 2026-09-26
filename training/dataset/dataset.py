@@ -4,12 +4,13 @@ from typing import Any, Dict, List, Optional, Protocol, Sequence, Union
 import torch
 from torch.utils.data import DataLoader, Dataset
 
-from training.dataset.collator_policy import IBatchCollator, MultiQuestionCollator
+from training.dataset.collator import IBatchCollator, MultiQuestionCollator
 from training.dataset.schema import DecisionSample
 from training.dataset.transforms import load_jsonl
 
-class IDataSourcePolicy(Protocol):
-    """Policy contract for raw data source extraction."""
+class IDataSource(Protocol):
+    """Universal strategy contract for dataset extraction."""
+    name: str
     def extract(self) -> List[Dict[str, Any]]: ...
 
 class ITrainingDataset(Protocol):
@@ -93,4 +94,9 @@ class TrainingDataset(Dataset, ITrainingDataset):
     def from_jsonl(cls, path: Union[str, Path], assembler: Optional[Any] = None) -> "TrainingDataset":
         return cls(load_jsonl(path), assembler=assembler)
 
-__all__ = ["IDataSourcePolicy", "ITrainingDataset", "TrainingDataset"]
+    @classmethod
+    def from_source(cls, source: IDataSource, assembler: Optional[Any] = None) -> "TrainingDataset":
+        from training.dataset.transforms import to_decision_sample
+        return cls([to_decision_sample(item) for item in source.extract()], assembler=assembler)
+
+__all__ = ["IDataSource", "ITrainingDataset", "TrainingDataset"]

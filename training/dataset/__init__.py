@@ -1,6 +1,6 @@
-from training.dataset.dataset import IDataSourcePolicy, ITrainingDataset, TrainingDataset
+from training.dataset.dataset import IDataSource, ITrainingDataset, TrainingDataset
 from training.dataset.cached_dataset_layer import CachedDatasetLayer
-from training.dataset.collator_policy import IBatchCollator, MultiQuestionCollator
+from training.dataset.collator import IBatchCollator, MultiQuestionCollator
 from training.dataset.schema import DecisionSample, QuestionSpec
 from training.dataset.transforms import (
     inject_abstention,
@@ -17,7 +17,7 @@ __all__ = [
     # Layers
     "CachedDatasetLayer",
     # Policies
-    "IDataSourcePolicy",
+    "IDataSource",
     "IBatchCollator",
     "MultiQuestionCollator",
     # State / DTO
