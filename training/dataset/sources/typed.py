@@ -1,7 +1,7 @@
 import json
 from typing import Any, Dict, List
 from datasets import load_dataset
-from nanollm.training.dataset.sources.generic import ISourceAdapter
+from training.dataset.sources.generic import ISourceAdapter
 
 class TypedDecisionsSource(ISourceAdapter):
     def __init__(self, repeat: int = 3):

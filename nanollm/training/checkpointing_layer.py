@@ -1,4 +1,4 @@
-from pathlib import Path
+﻿from pathlib import Path
 from typing import Any, Optional, Union
 import torch
 from torch.utils.data import DataLoader
@@ -57,3 +57,31 @@ class CheckpointingLayer(ITrainer):
         if self.inner is None:
             raise RuntimeError("CheckpointingLayer is not attached to an inner trainer.")
         return self.inner.evaluate(loader)
+
+    def fit(
+        self,
+        data: Any,
+        val_data: Optional[Any] = None,
+        epochs: int = 1,
+        max_tokens: int = 4000,
+        batch_size: int = 16,
+    ) -> float:
+        if self.inner is None:
+            raise RuntimeError("CheckpointingLayer is not attached to an inner trainer.")
+        if hasattr(data, "get_loaders"):
+            pin = self.inner.device.type == "cuda"
+            train_loader, val_loader = data.get_loaders(self.inner.collator, max_tokens=max_tokens, batch_size=batch_size, pin_memory=pin)
+            self.val_loader = val_loader
+        else:
+            train_loader = data
+            if val_data:
+                self.val_loader = val_data
+
+        last_loss = 0.0
+        for epoch in range(1, epochs + 1):
+            last_loss = self.train_epoch(train_loader)
+            val_info = f" | Best Val Loss: {self.best_val_loss:.4f}" if self.val_loader else ""
+            print(f"Epoch {epoch:2d}/{epochs:2d} | Train Loss: {last_loss:.4f}{val_info}")
+        return last_loss
+
+__all__ = ["CheckpointingLayer"]

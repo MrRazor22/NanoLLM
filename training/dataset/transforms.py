@@ -2,6 +2,33 @@ import json
 from pathlib import Path
 import random
 from typing import Any, Dict, List, Optional, Sequence, Tuple, Union
+from training.dataset.schema import DecisionSample, QuestionSpec
+
+def to_decision_sample(item: Dict[str, Any]) -> DecisionSample:
+    specs = [
+        QuestionSpec(
+            name=q[0],
+            q_type=q[1],
+            target=q[2],
+            options=q[3] if len(q) > 3 else None,
+            instruction=q[4] if len(q) > 4 else None,
+        )
+        for q in item["questions"]
+    ]
+    return DecisionSample(state=item["state"], questions=specs)
+
+def load_jsonl(path: Union[str, Path]) -> List[DecisionSample]:
+    samples = []
+    with open(path, "r", encoding="utf-8") as f:
+        for line in f:
+            if line.strip():
+                samples.append(to_decision_sample(json.loads(line)))
+    return samples
+
+def save_jsonl(path: Union[str, Path], records: Sequence[Dict[str, Any]]) -> None:
+    with open(path, "w", encoding="utf-8") as f:
+        for r in records:
+            f.write(json.dumps(r) + "\n")
 
 def inject_abstention(
     records: List[Dict[str, Any]],
@@ -45,8 +72,3 @@ def split_train_val(
     gen.shuffle(shuffled)
     n_val = max(10, int(len(shuffled) * val_ratio))
     return shuffled[n_val:], shuffled[:n_val]
-
-def save_jsonl(path: Union[str, Path], records: Sequence[Dict[str, Any]]) -> None:
-    with open(path, "w", encoding="utf-8") as f:
-        for r in records:
-            f.write(json.dumps(r) + "\n")

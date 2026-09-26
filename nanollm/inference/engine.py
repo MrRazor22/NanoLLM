@@ -7,7 +7,7 @@ from nanollm.inference.assembler_policy import ISlotAssembler, SlotAssembler
 from nanollm.inference.schema import Answer, Choice, ChoiceResult, DecisionResult, Noul, NoulResult, Question, Score, ScoreResult
 from nanollm.model import ModelConfig, NanoModel
 
-DEFAULT_CHECKPOINT = Path(__file__).resolve().parent.parent / "model" / "checkpoints" / "checkpoint_champion_v4.pt"
+DEFAULT_CHECKPOINT = Path(__file__).resolve().parent.parent.parent / "checkpoints" / "checkpoint_champion_v4.pt"
 
 class IDecisionEngine(Protocol):
     def decide(self, state: str, questions: Sequence[Question]) -> DecisionResult: ...

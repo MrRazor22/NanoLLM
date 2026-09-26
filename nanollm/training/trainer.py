@@ -1,13 +1,12 @@
-from typing import Any, Optional, Protocol, Tuple
+﻿from typing import Any, Optional, Protocol, Tuple, Union
 import time
 import torch
 from torch.utils.data import DataLoader
 from nanollm.model import NanoModel
-from nanollm.training.dataset_policy import to_decision_sample
 from nanollm.training.loss_policy import CalibratedLoss
 
 class ITrainer(Protocol):
-    def fit(self, data: Any) -> float: ...
+    def fit(self, data: Any, epochs: int = 1) -> float: ...
 
 class EpochTrainer(ITrainer):
     def add(self, layer: Any, **kwargs: Any) -> "ITrainer":
@@ -19,34 +18,25 @@ class EpochTrainer(ITrainer):
 
     def __or__(self, layer: Any) -> "ITrainer":
         return self.add(layer)
+
     def __init__(
         self,
         model: NanoModel,
         optimizer: torch.optim.Optimizer,
         loss_fn: CalibratedLoss,
         device: torch.device,
-        curriculum: Optional[ICurriculum] = None,
-        accum_steps: int = 4,
+        collator: Optional[Any] = None,
+        accum_steps: int = 2,
         log_interval: int = 0,
     ):
         self.model = model
         self.optimizer = optimizer
         self.loss_fn = loss_fn
         self.device = device
-        self.curriculum = curriculum
+        self.collator = collator
         self.accum_steps = accum_steps
         self.log_interval = log_interval
         self.scaler = torch.amp.GradScaler("cuda", enabled=device.type == "cuda")
-
-    def build_dataloaders(self, collator: Any, batch_size: int = 8) -> Tuple[DataLoader, DataLoader]:
-        if self.curriculum is None:
-            raise ValueError("No curriculum policy injected into EpochTrainer")
-        train_raw, val_raw = self.curriculum.build()
-        train_samples = [to_decision_sample(r) for r in train_raw]
-        val_samples = [to_decision_sample(r) for r in val_raw]
-        train_loader = DataLoader(train_samples, batch_size=batch_size, shuffle=True, collate_fn=collator)
-        val_loader = DataLoader(val_samples, batch_size=batch_size, shuffle=False, collate_fn=collator)
-        return train_loader, val_loader
 
     def train_epoch(self, loader: DataLoader) -> float:
         self.model.train()
@@ -86,9 +76,6 @@ class EpochTrainer(ITrainer):
                 last_log_time, interval_loss, interval_steps = now, torch.tensor(0.0, device=self.device), 0
         return (total_loss / max(1, total_steps)).item()
 
-    fit = train_epoch
-
-
     def evaluate(self, loader: DataLoader) -> float:
         self.model.eval()
         total_loss = torch.tensor(0.0, device=self.device)
@@ -99,3 +86,30 @@ class EpochTrainer(ITrainer):
                 scores = self.model(ids, mask)
                 total_loss += self.loss_fn(scores, batch["meta"], self.device)
         return (total_loss / max(1, len(loader))).item()
+
+    def fit(
+        self,
+        data: Any,
+        val_data: Optional[Any] = None,
+        epochs: int = 1,
+        max_tokens: int = 4000,
+        batch_size: int = 16,
+    ) -> float:
+        if hasattr(data, "get_loaders"):
+            if self.collator is None:
+                raise ValueError("EpochTrainer requires a collator to build DataLoaders from dataset provider.")
+            pin = self.device.type == "cuda"
+            train_loader, val_loader = data.get_loaders(self.collator, max_tokens=max_tokens, batch_size=batch_size, pin_memory=pin)
+        else:
+            train_loader = data
+            val_loader = val_data
+
+        last_loss = 0.0
+        for epoch in range(1, epochs + 1):
+            t0 = time.perf_counter()
+            last_loss = self.train_epoch(train_loader)
+            val_info = f" | Val Loss: {self.evaluate(val_loader):.4f}" if val_loader else ""
+            print(f"Epoch {epoch:2d}/{epochs:2d} | Train Loss: {last_loss:.4f}{val_info} | Elapsed: {time.perf_counter() - t0:.1f}s")
+        return last_loss
+
+__all__ = ["ITrainer", "EpochTrainer"]

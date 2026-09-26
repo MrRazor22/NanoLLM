@@ -2,12 +2,13 @@
 *.pt
 *.bin
 *.safetensors
+checkpoints/
 
 # Training corpora (large datasets kept local; generated via curricula)
+training/dataset/data/*.jsonl
+training/dataset/data/*.cache
 nanollm/training/dataset/data/*.jsonl
 nanollm/training/dataset/data/*.cache
-nanollm/training/data/*.jsonl
-nanollm/training/data/*.cache
 
 # Benchmark generated caches
 benchmark/data/*.cache.json
