@@ -86,3 +86,18 @@ class AdaptationCurriculum:
         all_samples = inject_abstention(all_samples, rate=0.15, rng=self.rng)
         return split_train_val(all_samples, 0.08, self.rng)
 
+if __name__ == "__main__":
+    import argparse
+    from nanollm.training.policies.builder import save_jsonl
+    parser = argparse.ArgumentParser(description="Build curriculum datasets")
+    parser.add_argument("--curriculum", type=str, default="adaptation", choices=["adaptation", "foundation"])
+    parser.add_argument("--output-dir", type=str, default=str(Path(__file__).resolve().parent.parent / "data"))
+    args = parser.parse_args()
+
+    out_p = Path(args.output_dir)
+    cur = AdaptationCurriculum(str(out_p)) if args.curriculum == "adaptation" else FoundationCurriculum()
+    train_recs, val_recs = cur.build()
+    save_jsonl(str(out_p / f"train_{args.curriculum}.jsonl"), train_recs)
+    save_jsonl(str(out_p / f"val_{args.curriculum}.jsonl"), val_recs)
+    print(f"Built {args.curriculum} curriculum: {len(train_recs)} train, {len(val_recs)} val -> {out_p}")
+

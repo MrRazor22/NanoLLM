@@ -86,5 +86,8 @@ d:/CodeBase/NanoLLM/
    * Any dataset prepared or curated must be genuinely rich, semantically deep, and structurally complete—never poor, shallow, or degraded toy data.
    * Domain adaptation performance is strictly bounded by data quality: high-signal, rich multi-domain distributions drive real capability, while evaluation splits remain strictly isolated to prevent test leakage.
 
+7. **Domain & Schema Parity Invariant:**
+   * Before launching any adaptation or fine-tuning run, always systematically validate that all evaluation domains, task types, and candidate action spaces (e.g., verifying 4-choice contrastive options vs binary pairs) are fully represented and aligned in the training mixture. Training on a reduced or mismatched action space causes severe evaluation divergence.
+
 
 

@@ -23,6 +23,7 @@ DEFAULT_OUTPUT = ROOT / "nanollm" / "model" / "checkpoints" / "checkpoint_traine
 
 def main() -> None:
     parser = argparse.ArgumentParser(description="Train NanoLLM")
+    parser.add_argument("--curriculum", type=str, default=None, choices=["adaptation", "foundation"], help="Build and train directly from curriculum primitive")
     parser.add_argument("--train-data", type=str, default=str(DEFAULT_TRAIN))
     parser.add_argument("--val-data", type=str, default=str(DEFAULT_VAL))
     parser.add_argument("--output", type=str, default=str(DEFAULT_OUTPUT))
@@ -44,8 +45,17 @@ def main() -> None:
     tokenizer = SubwordTokenizer("answerdotai/ModernBERT-base")
     collator = MultiQuestionCollator(tokenizer)
 
-    train_data = load_jsonl(args.train_data)
-    val_data = load_jsonl(args.val_data)
+    if args.curriculum:
+        from nanollm.training.policies.curriculum import AdaptationCurriculum
+        from nanollm.training.policies.foundation import FoundationCurriculum
+        from nanollm.training.policies.dataset import to_decision_sample
+        cur = AdaptationCurriculum(str(DEFAULT_TRAIN.parent)) if args.curriculum == "adaptation" else FoundationCurriculum()
+        raw_train, raw_val = cur.build()
+        train_data = [to_decision_sample(r) for r in raw_train]
+        val_data = [to_decision_sample(r) for r in raw_val]
+    else:
+        train_data = load_jsonl(args.train_data)
+        val_data = load_jsonl(args.val_data)
     if args.max_samples > 0:
         train_data = train_data[:args.max_samples]
         val_data = val_data[:max(50, args.max_samples // 5)]
