@@ -1,3 +1,4 @@
+from benchmark.competitor import CompetitorScorecard
 from benchmark.dataset import (
     AbstentionSource,
     AgenticSource,
@@ -17,6 +18,7 @@ __all__ = [
     "DecideFn",
     "IEvaluator",
     "ModelEvaluator",
+    "CompetitorScorecard",
     # Policies
     "IDataSource",
     "AbstentionSource",

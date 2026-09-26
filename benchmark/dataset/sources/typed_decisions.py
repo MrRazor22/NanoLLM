@@ -1,11 +1,24 @@
 import json
+from pathlib import Path
 from typing import Any, Dict, List
-from benchmark.dataset import IDataSource
+from benchmark.dataset import DATA_DIR, IDataSource
 
 class TypedDecisionsSource(IDataSource):
     name = "typed_decisions"
+    display_name = "3. Canonical Typed Decisions"
+    category_labels: Dict[str, str] = {
+        "agent_trace_observability": "Agent Observability",
+        "customer_service": "Customer Service",
+        "invoice_processing": "Invoice Processing",
+        "security_incidents": "Security Incidents",
+    }
 
     def extract(self) -> List[Dict[str, Any]]:
+        local_file = DATA_DIR / "typed_decisions.json"
+        if local_file.exists():
+            with open(local_file, "r", encoding="utf-8") as f:
+                return json.load(f)
+
         from datasets import load_dataset
         ds = load_dataset("LocalLLaMA/typed-decisions", "all", split="test")
         items = []

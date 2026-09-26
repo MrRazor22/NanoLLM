@@ -2,16 +2,15 @@ import argparse
 from pathlib import Path
 import torch
 
-from nanollm.inference.assembler import SlotAssembler
-from nanollm.training import CheckpointingLayer, EpochTrainer
-from training import LoggingLayer
-from training.dataset import CachedDatasetLayer, TrainingDataset
+from nanollm.training import CheckpointingLayer, EpochTrainer, MetricsLayer
+from training.dataset import TrainingDataset
 
 ROOT = Path(__file__).resolve().parent.parent
 DEFAULT_DATA_DIR = Path(__file__).resolve().parent / "dataset" / "data"
-DEFAULT_TRAIN = DEFAULT_DATA_DIR / "train_adapt.jsonl"
-DEFAULT_VAL = DEFAULT_DATA_DIR / "val_adapt.jsonl"
+DEFAULT_TRAIN = DEFAULT_DATA_DIR / "train.jsonl"
+DEFAULT_VAL = DEFAULT_DATA_DIR / "val.jsonl"
 DEFAULT_OUTPUT = ROOT / "checkpoints" / "checkpoint_trained.pt"
+DEFAULT_METRICS = ROOT / "checkpoints" / "metrics.json"
 DEFAULT_CACHE_DIR = ROOT / "checkpoints" / "cache"
 DEFAULT_BACKBONE = "answerdotai/ModernBERT-base"
 
@@ -21,6 +20,7 @@ def main() -> None:
     parser.add_argument("--train-data", type=str, default=str(DEFAULT_TRAIN), help="Path to training jsonl")
     parser.add_argument("--val-data", type=str, default=str(DEFAULT_VAL), help="Path to validation jsonl")
     parser.add_argument("--output", type=str, default=str(DEFAULT_OUTPUT), help="Output checkpoint path")
+    parser.add_argument("--metrics-output", type=str, default=str(DEFAULT_METRICS), help="Metrics JSON output path")
     parser.add_argument("--cache-dir", type=str, default=str(DEFAULT_CACHE_DIR), help="Cache directory for batch splits")
     parser.add_argument("--init-checkpoint", type=str, default=None, help="Initial checkpoint path")
     parser.add_argument("--epochs", type=int, default=1, help="Number of training epochs")
@@ -29,51 +29,36 @@ def main() -> None:
     parser.add_argument("--lr", type=float, default=1.5e-5)
     parser.add_argument("--accum-steps", type=int, default=2)
     parser.add_argument("--seed", type=int, default=42, help="Random seed for reproducibility")
-    parser.add_argument("--log-interval", type=float, default=10.0)
     args = parser.parse_args()
 
     if torch.cuda.is_available():
         torch.set_float32_matmul_precision("high")
         torch.backends.cudnn.benchmark = True
 
-    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    assembler = SlotAssembler(args.backbone)
-    pin = device.type == "cuda"
-
-    # 1. Dataset primitives composed with CachedDatasetLayer (ATA pipeline decorator)
-    train_dataset = (
-        TrainingDataset.from_jsonl(args.train_data, assembler=assembler)
-        | CachedDatasetLayer(cache_dir=args.cache_dir)
-    )
-    val_dataset = (
-        TrainingDataset.from_jsonl(args.val_data, assembler=assembler)
-        | CachedDatasetLayer(cache_dir=args.cache_dir)
+    # 1. Dataset primitive builds DataLoaders directly with cache layer applied
+    train_loader, val_loader = TrainingDataset.loaders(
+        train_data=args.train_data,
+        val_data=args.val_data,
+        backbone=args.backbone,
+        batch_size=args.batch_size,
+        max_tokens=args.max_tokens,
+        cache_dir=args.cache_dir,
+        seed=args.seed,
     )
 
-    # 2. Dataset yields PyTorch DataLoaders directly with seed passed from CLI
-    train_loader = train_dataset.get_loader(
-        batch_size=args.batch_size, max_tokens=args.max_tokens, shuffle=True, pin_memory=pin, seed=args.seed
-    )
-    val_loader = val_dataset.get_loader(
-        batch_size=args.batch_size, max_tokens=args.max_tokens, shuffle=False, pin_memory=pin, seed=args.seed
-    )
-
-    # 3. Trainer Primitive composed with Logging and Checkpointing layers
+    # 2. Trainer Primitive from backbone composed with Metrics and Checkpointing layers
     trainer = (
         EpochTrainer.from_backbone(
             backbone_name=args.backbone,
             lr=args.lr,
-            device=device,
             accum_steps=args.accum_steps,
-            log_interval=args.log_interval,
             init_checkpoint=args.init_checkpoint,
         )
-        | LoggingLayer()
+        | MetricsLayer(output_path=args.metrics_output, sink=print)
         | CheckpointingLayer(output_path=args.output)
     )
 
-    # 4. Fit model directly on DataLoaders
-    print(f"Starting training on {device} ({len(train_dataset)} train samples, {len(val_dataset)} val samples)...")
+    # 3. Fit
     trainer.fit(train_loader, val_loader, epochs=args.epochs)
 
 if __name__ == "__main__":

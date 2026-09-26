@@ -1,8 +1,8 @@
 from pathlib import Path
-from typing import Any, Optional
+from typing import Any, Iterator, Optional
 import torch
 from torch.utils.data import DataLoader
-from nanollm.training.trainer import ITrainer
+from nanollm.training.trainer import EpochStats, ITrainer
 
 class CheckpointingLayer(ITrainer):
     """ATA Composable Layer: transparently decorates ITrainer to save checkpoints on epoch improvement."""
@@ -63,15 +63,35 @@ class CheckpointingLayer(ITrainer):
             raise RuntimeError("CheckpointingLayer is not attached to an inner trainer.")
         return self.inner.evaluate(loader)
 
+    def fit_iter(
+        self,
+        train_loader: DataLoader,
+        val_loader: Optional[DataLoader] = None,
+        epochs: int = 1,
+    ) -> Iterator[EpochStats]:
+        if self.inner is None:
+            raise RuntimeError("CheckpointingLayer is not attached to an inner trainer.")
+        self.val_loader = val_loader
+        for stats in self.inner.fit_iter(train_loader, val_loader=val_loader, epochs=epochs):
+            val_loss = stats.val_loss
+            if val_loss is not None:
+                if val_loss < self.best_val_loss:
+                    self.best_val_loss = val_loss
+                    if self.output_path:
+                        self.save_checkpoint(self.output_path)
+            elif self.output_path:
+                self.save_checkpoint(self.output_path)
+            yield stats
+
     def fit(
         self,
         train_loader: DataLoader,
         val_loader: Optional[DataLoader] = None,
         epochs: int = 1,
     ) -> float:
-        if self.inner is None:
-            raise RuntimeError("CheckpointingLayer is not attached to an inner trainer.")
-        self.val_loader = val_loader
-        return self.inner.fit(train_loader, val_loader=val_loader, epochs=epochs)
+        last_loss = 0.0
+        for stats in self.fit_iter(train_loader, val_loader=val_loader, epochs=epochs):
+            last_loss = stats.train_loss
+        return last_loss
 
 __all__ = ["CheckpointingLayer"]

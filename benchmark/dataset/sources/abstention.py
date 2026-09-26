@@ -4,8 +4,18 @@ from benchmark.dataset import DATA_DIR, IDataSource
 
 class AbstentionSource(IDataSource):
     name = "abstention"
+    display_name = "2. Abstention (Out-of-Scope)"
+    category_labels: Dict[str, str] = {
+        "slice_missing_option": "Missing Option Abstention",
+        "slice_distant_oos": "Distant Out-of-Scope",
+    }
 
     def extract(self) -> List[Dict[str, Any]]:
+        local_file = DATA_DIR / "abstention.json"
+        if local_file.exists():
+            with open(local_file, "r", encoding="utf-8") as f:
+                return json.load(f)
+
         items = []
         for fn in ("slice_missing_option.jsonl", "slice_distant_oos.jsonl"):
             fp = DATA_DIR / fn

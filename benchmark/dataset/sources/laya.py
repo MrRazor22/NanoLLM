@@ -1,3 +1,4 @@
+import json
 from pathlib import Path
 from typing import Any, Dict, List
 from datasets import load_dataset
@@ -5,8 +6,22 @@ from benchmark.dataset import DATA_DIR, IDataSource
 
 class LayaSource(IDataSource):
     name = "laya"
+    display_name = "4. Laya 6-Suite"
+    category_labels: Dict[str, str] = {
+        "jev.ag_news": "AG News",
+        "jev.emotion": "DAIR Emotion",
+        "jev.banking77_full": "Banking77 (77 classes)",
+        "app.support_triage": "Support Triage",
+        "app.email_spam": "Email Spam",
+        "app.phishing": "Phishing",
+    }
 
     def extract(self) -> List[Dict[str, Any]]:
+        local_file = DATA_DIR / "laya.json"
+        if local_file.exists():
+            with open(local_file, "r", encoding="utf-8") as f:
+                return json.load(f)
+
         items: List[Dict[str, Any]] = []
 
         # 1. AG News

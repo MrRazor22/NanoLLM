@@ -18,18 +18,17 @@ d:/CodeBase/NanoLLM/
 │   │   ├── layers/            # ProfilingLayer, HierarchicalLayer
 │   │   └── schema.py          # Choice, Noul, Score, DecisionResult
 │   └── training/              # EpochTrainer primitive
-│       ├── policies/          # CalibratedLoss, MultiQuestionCollator, AdaptationCurriculum
 │       ├── checkpointing_layer.py
-│       └── data/              # train_adapt.jsonl, val_adapt.jsonl
+│       └── data/              # train.jsonl, val.jsonl
 └── benchmark/                 # Independent verification boundary (outside nanollm)
     ├── evaluator.py           # ModelEvaluator primitive
     ├── profiling_layer.py     # ProfilingEvaluatorLayer (λ)
     ├── reporting_layer.py     # ReportingEvaluatorLayer (λ)
-    ├── reporter.py            # Head-to-head scorecard printer (T)
+    ├── baselines/             # Baseline scores & competitor data
     ├── __main__.py            # python -m benchmark runner
     └── dataset/               # Benchmark dataset boundary (mirrors training/dataset)
-        ├── dataset.py         # BenchmarkDataset primitive & ISuiteSourcePolicy contract
-        ├── data/              # Evaluation data files & caches
+        ├── dataset.py         # BenchmarkDataset primitive & IDataSource contract
+        ├── data/              # Evaluation data files (agentic.json, abstention.json, laya.json)
         └── sources/           # Suite source extraction policies (Agentic, Laya, etc.)
 ```
 

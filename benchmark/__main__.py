@@ -11,6 +11,7 @@ from benchmark.dataset import (
     LayaSource,
     TypedDecisionsSource,
 )
+from benchmark.competitor import CompetitorScorecard
 from benchmark.evaluator import ModelEvaluator
 from benchmark.reporting_layer import ReportingEvaluatorLayer
 
@@ -31,6 +32,7 @@ def main() -> None:
         parser.add_argument(f"--{name.replace('_', '-')}", action="store_const", dest="suite", const=name, help=f"Run {name} suite")
     parser.add_argument("--limit", type=int, default=None, help="Optional case limit for quick validation")
     parser.add_argument("--log-interval", type=int, default=100, help="Live step logging interval")
+    parser.add_argument("--compare", action="store_true", help="Render competitive benchmark matrix against baselines")
     args = parser.parse_args()
 
     device = "cuda" if torch.cuda.is_available() else "cpu"
@@ -40,16 +42,25 @@ def main() -> None:
 
     if args.suite == "all":
         reports = {}
+        metadata = {}
         for name, suite_cls in suites.items():
             print(f"\n{'='*70}\n>>> Running Benchmark Suite: {name.upper().replace('_', ' ')}\n{'='*70}", flush=True)
-            reports[name] = base_evaluator.evaluate(BenchmarkDataset(suite_cls()), limit=args.limit)
-        ReportingEvaluatorLayer.render_scorecard(reports, track="all")
+            ds = BenchmarkDataset(suite_cls())
+            metadata[name] = {
+                "display_name": ds.display_name,
+                "category_labels": ds.category_labels,
+            }
+            reports[name] = base_evaluator.evaluate(ds, limit=args.limit)
+
+        CompetitorScorecard().render(reports, track="all", metadata=metadata, model_name="NanoLLM Champion")
     else:
         suite_cls = suites.get(args.suite)
         if suite_cls is None:
             raise ValueError(f"Unknown benchmark suite: '{args.suite}'. Available: {list(suites.keys())}")
         evaluator = base_evaluator | ReportingEvaluatorLayer(track=args.suite)
-        evaluator.evaluate(BenchmarkDataset(suite_cls()), limit=args.limit)
+        report = evaluator.evaluate(BenchmarkDataset(suite_cls()), limit=args.limit)
+        if args.compare:
+            CompetitorScorecard().render({args.suite: report}, track=args.suite, model_name="NanoLLM Champion")
 
 if __name__ == "__main__":
     main()
