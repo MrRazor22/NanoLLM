@@ -1,9 +1,8 @@
 import argparse
 from pathlib import Path
-import torch
 
-from nanollm.training import CheckpointingLayer, EpochTrainer, MetricsLayer
-from training.dataset import TrainingDataset
+from nanollm.training import CheckpointingLayer, MetricsLayer
+from training.runner import TrainingRunner
 
 ROOT = Path(__file__).resolve().parent.parent
 DEFAULT_DATA_DIR = Path(__file__).resolve().parent / "dataset" / "data"
@@ -31,24 +30,8 @@ def main() -> None:
     parser.add_argument("--seed", type=int, default=42, help="Random seed for reproducibility")
     args = parser.parse_args()
 
-    if torch.cuda.is_available():
-        torch.set_float32_matmul_precision("high")
-        torch.backends.cudnn.benchmark = True
-
-    # 1. Dataset primitive builds DataLoaders directly with cache layer applied
-    train_loader, val_loader = TrainingDataset.loaders(
-        train_data=args.train_data,
-        val_data=args.val_data,
-        backbone=args.backbone,
-        batch_size=args.batch_size,
-        max_tokens=args.max_tokens,
-        cache_dir=args.cache_dir,
-        seed=args.seed,
-    )
-
-    # 2. Trainer Primitive from backbone composed with Metrics and Checkpointing layers
-    trainer = (
-        EpochTrainer.from_backbone(
+    training = (
+        TrainingRunner.from_backbone(
             backbone_name=args.backbone,
             lr=args.lr,
             accum_steps=args.accum_steps,
@@ -58,8 +41,15 @@ def main() -> None:
         | CheckpointingLayer(output_path=args.output)
     )
 
-    # 3. Fit
-    trainer.fit(train_loader, val_loader, epochs=args.epochs)
+    training.fit(
+        train_data=args.train_data,
+        val_data=args.val_data,
+        epochs=args.epochs,
+        batch_size=args.batch_size,
+        max_tokens=args.max_tokens,
+        cache_dir=args.cache_dir,
+        seed=args.seed,
+    )
 
 if __name__ == "__main__":
     main()

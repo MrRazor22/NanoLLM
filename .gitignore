@@ -1,12 +1,12 @@
-# Model weights and binaries (>100MB exceeds GitHub limits)
+# Model weights and checkpoints
 *.pt
 *.bin
 *.safetensors
-checkpoints/
+**/checkpoint*/
 
-# Training corpora (large datasets kept local; generated via curricula)
-training/dataset/data/**/*.jsonl
-nanollm/training/dataset/data/**/*.jsonl
+
+# Data directories (training, benchmarking, raw, adapted, splits)
+**/data/
 
 # Ephemeral caches and temp data
 *.cache

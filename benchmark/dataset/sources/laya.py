@@ -22,23 +22,10 @@ class LayaSource(IDataSource):
             with open(local_file, "r", encoding="utf-8") as f:
                 return json.load(f)
 
-        raw_file = RAW_DIR / "laya.jsonl"
-        if raw_file.exists():
-            items = []
-            with open(raw_file, "r", encoding="utf-8") as f:
-                for line in f:
-                    if line.strip():
-                        items.append(json.loads(line))
-            if items:
-                ADAPTED_DIR.mkdir(parents=True, exist_ok=True)
-                with open(local_file, "w", encoding="utf-8") as f:
-                    json.dump(items, f, indent=2)
-                return items
-
+        laya_raw_dir = RAW_DIR / "laya"
         items: List[Dict[str, Any]] = []
 
         # 1. AG News
-        ds_ag = load_dataset("fancyzhx/ag_news", split="test")
         ag_classes = ["world", "sports", "business", "sci_tech"]
         ag_criteria = {
             "world": "world news and international politics",
@@ -46,6 +33,8 @@ class LayaSource(IDataSource):
             "business": "business and economy",
             "sci_tech": "science and technology"
         }
+        raw_ag = laya_raw_dir / "ag_news.jsonl"
+        ds_ag = (json.loads(line) for line in open(raw_ag, "r", encoding="utf-8")) if raw_ag.exists() else load_dataset("fancyzhx/ag_news", split="test")
         for row in ds_ag:
             if len([x for x in items if x["category"] == "jev.ag_news"]) >= 400: break
             lbl = int(row["label"])
@@ -58,9 +47,10 @@ class LayaSource(IDataSource):
                 })
 
         # 2. Emotion
-        ds_emo = load_dataset("dair-ai/emotion", "split", split="test")
         emo_classes = ["sadness", "joy", "love", "anger", "fear", "surprise"]
         emo_criteria = {k: f"expressing {k}" for k in emo_classes}
+        raw_emo = laya_raw_dir / "emotion.jsonl"
+        ds_emo = (json.loads(line) for line in open(raw_emo, "r", encoding="utf-8")) if raw_emo.exists() else load_dataset("dair-ai/emotion", "split", split="test")
         for row in ds_emo:
             if len([x for x in items if x["category"] == "jev.emotion"]) >= 400: break
             lbl = int(row["label"])
@@ -73,8 +63,14 @@ class LayaSource(IDataSource):
                 })
 
         # 3. Banking77
-        ds_b77 = load_dataset("mteb/banking77", split="test")
-        b77_opts = {str(n).replace("_", " "): str(n).replace("_", " ") for n in ds_b77.features["label"].names}
+        raw_b77 = laya_raw_dir / "banking77.jsonl"
+        if raw_b77.exists():
+            rows_b77 = [json.loads(line) for line in open(raw_b77, "r", encoding="utf-8")]
+            b77_opts = {str(r.get("label_text", "")).replace("_", " "): str(r.get("label_text", "")).replace("_", " ") for r in rows_b77 if r.get("label_text")}
+            ds_b77 = rows_b77
+        else:
+            ds_b77 = load_dataset("mteb/banking77", split="test")
+            b77_opts = {str(n).replace("_", " "): str(n).replace("_", " ") for n in ds_b77.features["label"].names}
         for row in ds_b77:
             if len([x for x in items if x["category"] == "jev.banking77_full"]) >= 400: break
             lbl_name = str(row.get("label_text", "")).replace("_", " ")
@@ -86,7 +82,6 @@ class LayaSource(IDataSource):
             })
 
         # 4. Support Triage
-        ds_sup = load_dataset("Tobi-Bueck/customer-support-tickets", split="train")
         sup_criteria = {
             "Technical Support": "technical problems, bugs, outages, integrations",
             "Product Support": "help using a product or feature",
@@ -99,6 +94,8 @@ class LayaSource(IDataSource):
             "Human Resources": "employment, payroll, leave, hiring",
             "General Inquiry": "anything else"
         }
+        raw_sup = laya_raw_dir / "support_triage.jsonl"
+        ds_sup = (json.loads(line) for line in open(raw_sup, "r", encoding="utf-8")) if raw_sup.exists() else load_dataset("Tobi-Bueck/customer-support-tickets", split="train")
         for row in ds_sup:
             if len([x for x in items if x["category"] == "app.support_triage"]) >= 400: break
             if row.get("language") != "en" or not row.get("body") or row.get("queue") not in sup_criteria: continue
@@ -110,8 +107,9 @@ class LayaSource(IDataSource):
             })
 
         # 5. Email Spam
-        ds_spam = load_dataset("SetFit/enron_spam", split="test")
         spam_crit = {"true": "unsolicited spam or promotional email", "false": "legitimate email communication"}
+        raw_spam = laya_raw_dir / "enron_spam.jsonl"
+        ds_spam = (json.loads(line) for line in open(raw_spam, "r", encoding="utf-8")) if raw_spam.exists() else load_dataset("SetFit/enron_spam", split="test")
         for row in ds_spam:
             if len([x for x in items if x["category"] == "app.email_spam"]) >= 400: break
             is_sp = "true" if int(row.get("label", 0)) == 1 else "false"
@@ -123,8 +121,9 @@ class LayaSource(IDataSource):
             })
 
         # 6. Phishing
-        ds_phish = load_dataset("zefang-liu/phishing-email-dataset", split="train")
         phish_crit = {"true": "phishing, scam, or fraudulent email", "false": "legitimate safe email"}
+        raw_phish = laya_raw_dir / "phishing.jsonl"
+        ds_phish = (json.loads(line) for line in open(raw_phish, "r", encoding="utf-8")) if raw_phish.exists() else load_dataset("zefang-liu/phishing-email-dataset", split="train")
         for row in ds_phish:
             if len([x for x in items if x["category"] == "app.phishing"]) >= 400: break
             is_ph = "true" if row.get("Email Type") == "Phishing Email" else "false"
@@ -136,10 +135,6 @@ class LayaSource(IDataSource):
             })
 
         if items:
-            RAW_DIR.mkdir(parents=True, exist_ok=True)
-            with open(raw_file, "w", encoding="utf-8") as f:
-                for it in items:
-                    f.write(json.dumps(it) + "\n")
             ADAPTED_DIR.mkdir(parents=True, exist_ok=True)
             with open(local_file, "w", encoding="utf-8") as f:
                 json.dump(items, f, indent=2)

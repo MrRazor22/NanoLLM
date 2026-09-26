@@ -8,16 +8,15 @@ from benchmark.dataset import (
     LayaSource,
     TypedDecisionsSource,
 )
-from benchmark.evaluator import DecideFn, IEvaluator, ModelEvaluator
-from benchmark.reporting_layer import ReportingEvaluatorLayer
+from benchmark.runner import BenchmarkRunner, IBenchmarkRunner
+from benchmark.scorecard_layer import ScorecardLayer
 
 __all__ = [
-    # Primitive
+    # Primitive & Contract
+    "IBenchmarkRunner",
+    "BenchmarkRunner",
     "BenchmarkDataset",
     "IBenchmarkDataset",
-    "DecideFn",
-    "IEvaluator",
-    "ModelEvaluator",
     "CompetitorScorecard",
     # Policies
     "IDataSource",
@@ -26,5 +25,5 @@ __all__ = [
     "LayaSource",
     "TypedDecisionsSource",
     # Layers
-    "ReportingEvaluatorLayer",
+    "ScorecardLayer",
 ]
