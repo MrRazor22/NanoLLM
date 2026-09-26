@@ -118,14 +118,11 @@ class TrainingDataset(PipelineComposable, Dataset, ITrainingDataset):
         pin_memory: Optional[bool] = None,
     ) -> Union[DataLoader, Tuple[DataLoader, Optional[DataLoader]]]:
         from nanollm.inference.assembler import SlotAssembler
-        from harness.dataset.cached_dataset_layer import CachedDatasetLayer
 
         assembler = SlotAssembler(backbone) if isinstance(backbone, str) else backbone
         pin = pin_memory if pin_memory is not None else torch.cuda.is_available()
 
         train_ds: ITrainingDataset = cls.from_jsonl(train_data, assembler=assembler)
-        if cache_dir:
-            train_ds = train_ds | CachedDatasetLayer(cache_dir=cache_dir)
         train_loader = train_ds.get_loader(
             batch_size=batch_size, max_tokens=max_tokens, shuffle=True, pin_memory=pin, seed=seed
         )
@@ -134,8 +131,6 @@ class TrainingDataset(PipelineComposable, Dataset, ITrainingDataset):
             return train_loader
 
         val_ds: ITrainingDataset = cls.from_jsonl(val_data, assembler=assembler)
-        if cache_dir:
-            val_ds = val_ds | CachedDatasetLayer(cache_dir=cache_dir)
         val_loader = val_ds.get_loader(
             batch_size=batch_size, max_tokens=max_tokens, shuffle=False, pin_memory=pin, seed=seed
         )

@@ -11,15 +11,13 @@ d:/CodeBase/NanoLLM/
 ├── cli.py                     # User-facing inference CLI
 ├── pipeline.py                # ATA Universal Pipeline Helper (PipelineComposable)
 ├── harness/                   # External training orchestration boundary (outside nanollm)
-│   ├── runner.py              # TrainingRunner primitive (P)
-│   ├── __main__.py            # python -m harness runner
+│   ├── __main__.py            # python -m harness training entrypoint
 │   └── dataset/               # Training dataset boundary
 │       ├── training_dataset.py# TrainingDataset primitive (P)
 │       ├── curriculum.py      # Dataset curriculum recipe & builder
 │       ├── __main__.py        # python -m harness.dataset entrypoint
 │       ├── sources/           # Dataset source adapters (Glaive, Generic, Typed)
 │       ├── collator.py        # MultiQuestionCollator policy (π)
-│       ├── cached_dataset_layer.py # CachedDatasetLayer (λ)
 │       └── data/
 │           ├── raw/           # Raw unadapted corpora & source drops (*.jsonl)
 │           ├── adapted/       # 11 individual adapted source files (*.jsonl)
@@ -39,10 +37,8 @@ d:/CodeBase/NanoLLM/
 │       ├── checkpointing_layer.py # CheckpointingLayer (λ)
 │       └── metrics_layer.py   # MetricsLayer (λ)
 └── benchmark/                 # Independent verification boundary (outside nanollm)
-    ├── runner.py              # BenchmarkRunner primitive (P)
-    ├── scorecard_layer.py     # ScorecardLayer (λ)
     ├── competitor/            # Competitor baselines & scorecard printer
-    ├── __main__.py            # python -m benchmark runner
+    ├── __main__.py            # python -m benchmark entrypoint & direct evaluation
     └── dataset/               # Benchmark dataset boundary (fully decoupled)
         ├── benchmark_dataset.py # BenchmarkDataset primitive (P) & IDataSource contract
         ├── sources/           # Suite source extraction adapters (Agentic, Laya, etc.)

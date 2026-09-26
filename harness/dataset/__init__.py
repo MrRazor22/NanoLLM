@@ -7,7 +7,6 @@ from harness.dataset.training_dataset import (
     SPLITS_DIR,
     TrainingDataset,
 )
-from harness.dataset.cached_dataset_layer import CachedDatasetLayer
 from harness.dataset.collator import IBatchCollator, MultiQuestionCollator
 from harness.dataset.schema import DecisionSample, QuestionSpec
 from harness.dataset.transforms import (
@@ -31,8 +30,6 @@ __all__ = [
     # Builder & Recipe
     "build_curriculum",
     "get_default_sources",
-    # Layers
-    "CachedDatasetLayer",
     # Policies
     "IDataSource",
     "IBatchCollator",
