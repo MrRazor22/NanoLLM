@@ -22,6 +22,7 @@ class ITrainingDataset(Protocol):
         max_tokens: int = 4000,
         shuffle: bool = True,
         pin_memory: bool = False,
+        seed: int = 42,
         collator: Optional[IBatchCollator] = None,
     ) -> DataLoader: ...
 
@@ -50,6 +51,7 @@ class TrainingDataset(Dataset, ITrainingDataset):
         max_tokens: int = 4000,
         shuffle: bool = True,
         pin_memory: bool = False,
+        seed: int = 42,
         collator: Optional[IBatchCollator] = None,
         cache_path: Optional[Union[str, Path]] = None,
     ) -> DataLoader:
@@ -81,7 +83,7 @@ class TrainingDataset(Dataset, ITrainingDataset):
                 torch.save(batches, str(cache_path))
 
         if shuffle:
-            random.Random(42).shuffle(batches)
+            random.Random(seed).shuffle(batches)
 
         return DataLoader(self, batch_sampler=batches, collate_fn=active_collator, pin_memory=pin_memory)
 
