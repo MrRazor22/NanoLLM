@@ -50,32 +50,26 @@ def main() -> None:
         train_data = train_data[:args.max_samples]
         val_data = val_data[:max(50, args.max_samples // 5)]
 
-    def index_data(dataset, name="dataset"):
-        print(f"Indexing and packing {len(dataset)} {name} samples by token length...", flush=True)
-        t_idx = time.perf_counter()
-        lens = []
-        for s in dataset:
-            rendered = collator.assembler.render_sample(s.state, s.questions)
-            collator._cache[id(s)] = rendered
-            lens.append(len(rendered[0]))
+    def index_data(dataset, path_str: str, name="dataset"):
+        cf = Path(path_str).with_suffix(f".{name}.cache")
+        if cf.exists() and cf.stat().st_mtime >= Path(path_str).stat().st_mtime:
+            return torch.load(cf, weights_only=False)
+        print(f"Packing {len(dataset)} {name} samples...", flush=True)
+        lens = [len(collator.assembler.render_sample(s.state, s.questions)[0]) for s in dataset]
         indices = sorted(range(len(dataset)), key=lambda i: lens[i])
-        if args.max_tokens > 0:
-            batches, cur_b, cur_toks = [], [], 0
-            for i in indices:
-                if cur_toks + lens[i] > args.max_tokens and cur_b:
-                    batches.append(cur_b); cur_b, cur_toks = [], 0
-                cur_b.append(i); cur_toks += lens[i]
-            if cur_b:
-                batches.append(cur_b)
-            print(f"Packed into {len(batches)} dynamic batches ({time.perf_counter() - t_idx:.1f}s).", flush=True)
-            return batches
-        batches = [indices[i:i + args.batch_size] for i in range(0, len(indices), args.batch_size)]
-        print(f"Packed into {len(batches)} batches ({time.perf_counter() - t_idx:.1f}s).", flush=True)
+        batches, cur_b, cur_toks = [], [], 0
+        for i in indices:
+            if cur_toks + lens[i] > args.max_tokens and cur_b:
+                batches.append(cur_b); cur_b, cur_toks = [], 0
+            cur_b.append(i); cur_toks += lens[i]
+        if cur_b: batches.append(cur_b)
+        torch.save(batches, cf)
         return batches
 
-    train_batches = index_data(train_data, "train")
+    train_batches = index_data(train_data, args.train_data, "train")
     random.Random(42).shuffle(train_batches)
-    val_batches = index_data(val_data, "val")
+    val_batches = index_data(val_data, args.val_data, "val")
+
 
     pin = device.type == "cuda"
     train_loader = DataLoader(train_data, batch_sampler=train_batches, collate_fn=collator, pin_memory=pin)
