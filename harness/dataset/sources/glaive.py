@@ -9,6 +9,7 @@ from harness.dataset.transforms import load_raw_jsonl, save_jsonl
 
 class GlaiveToolSource(IDataSource):
     name = "glaive_tools"
+
     def __init__(self, limit: int = 5000, rng: Optional[random.Random] = None):
         self.limit = limit
         self.rng = rng or random.Random(42)
@@ -22,49 +23,54 @@ class GlaiveToolSource(IDataSource):
             streaming_ds = []
             for row in ds:
                 streaming_ds.append(row)
-                if len(streaming_ds) >= self.limit:
+                if len(streaming_ds) >= self.limit * 2:
                     break
             save_jsonl(raw_path, streaming_ds)
+
         raw, tool_registry = [], {}
         for row in streaming_ds:
-            if len(raw) >= self.limit:
+            system = row.get("system", "")
+            chat = row.get("chat", "")
+            fn_match = re.search(r'<functioncall>\s*\{\s*"name":\s*"([^"]+)"', chat)
+            user_match = re.search(r'USER:\s*(.*?)(?=\n\s*(?:ASSISTANT:|<\|endoftext\|>|$))', chat, re.DOTALL)
+            if not (fn_match and user_match):
+                continue
+            fn_name = fn_match.group(1)
+            user_query = user_match.group(1).strip()
+            tools = dict(re.findall(r'\{\s*"name":\s*"([^"]+)",\s*"description":\s*"([^"]+)"', system))
+            if fn_name not in tools:
+                continue
+            tool_registry.update(tools)
+            raw.append((user_query, fn_name, tools))
+            if len(raw) >= self.limit * 2:
                 break
-            txt = row.get("chat", "")
-            if not txt.startswith("SYSTEM:"):
-                continue
-            parts = txt.split("USER:")
-            if len(parts) < 2:
-                continue
-            sys_part = parts[0].replace("SYSTEM:", "").strip()
-            rest = parts[1]
-            u_parts = rest.split("ASSISTANT:")
-            user_part = u_parts[0].strip()
-            asst_part = u_parts[1].strip() if len(u_parts) > 1 else ""
-            call_match = re.search(r"<functioncall>\s*(\{.*?\})", asst_part)
-            if not call_match:
-                continue
-            for fn in re.findall(r"\{\s*\"name\"\s*:\s*\"([^\"]+)\"", sys_part):
-                if fn not in tool_registry:
-                    tool_registry[fn] = f"Tool function: {fn}"
-            raw.append({"user": user_part, "gold_call": call_match.group(1), "tools": list(tool_registry.keys())})
 
         records = []
-        for r in raw:
-            match = re.search(r"\"name\"\s*:\s*\"([^\"]+)\"", r["gold_call"])
-            if not match:
-                continue
-            gold_tool = match.group(1)
-            distractors = [t for t in tool_registry.keys() if t != gold_tool]
-            self.rng.shuffle(distractors)
-            selected_tools = [gold_tool] + distractors[:4]
-            self.rng.shuffle(selected_tools)
-            criteria = {t: tool_registry.get(t, f"Tool: {t}") for t in selected_tools}
+        all_names = list(tool_registry.keys())
+        for query, fn, sample_tools in raw:
+            candidates = dict(sample_tools)
+            if len(candidates) < 5 and len(all_names) >= 5:
+                distractors = [n for n in all_names if n != fn and n not in candidates]
+                sample_k = min(len(distractors), 5 - len(candidates))
+                if sample_k > 0:
+                    for d in self.rng.sample(distractors, sample_k):
+                        candidates[d] = tool_registry[d]
+            opt_keys = list(candidates.keys())
+            self.rng.shuffle(opt_keys)
             records.append({
-                "category": "glaive_tools",
-                "state": f"User Request: {r['user']}",
-                "questions": {"tool": {"type": "choice", "instructions": "Select the appropriate tool for user request.", "criteria": criteria}},
-                "gold": {"tool": {"type": "choice", "label": gold_tool}},
+                "category": "agent_tool_routing",
+                "state": query,
+                "questions": {
+                    "tool": {
+                        "type": "choice",
+                        "instructions": "Which function or tool should be invoked to handle this request?",
+                        "criteria": {k: candidates[k] for k in opt_keys},
+                    }
+                },
+                "gold": {"tool": {"type": "choice", "label": fn}},
             })
+            if len(records) >= self.limit:
+                break
 
         return records
 

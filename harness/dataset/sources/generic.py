@@ -67,7 +67,12 @@ class GenericChoiceSource(IDataSource):
                 gold_label = self.label_extractor(row)
             else:
                 raw_val = row.get(self.label_extractor)
-                gold_label = feat.names[raw_val].replace("_", " ") if feat and hasattr(feat, "names") and isinstance(raw_val, int) else str(raw_val)
+                if isinstance(raw_val, int) and self.opts_dict and raw_val < len(self.opts_dict):
+                    gold_label = list(self.opts_dict.keys())[raw_val]
+                elif feat and hasattr(feat, "names") and isinstance(raw_val, int):
+                    gold_label = feat.names[raw_val].replace("_", " ")
+                else:
+                    gold_label = str(raw_val)
 
             if gold_label in self.blacklist:
                 continue

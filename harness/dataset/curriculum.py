@@ -6,6 +6,14 @@ from harness.dataset.training_dataset import ADAPTED_DIR, DATA_DIR, RAW_DIR, SPL
 from harness.dataset.sources.generic import GenericChoiceSource
 from harness.dataset.sources.glaive import GlaiveToolSource
 from harness.dataset.sources.typed import TypedDecisionsSource
+from harness.dataset.taxonomies import (
+    AG_NEWS_TOPICS,
+    EMOTION_CRITERIA,
+    PHISHING_CRITERIA,
+    SAFETY_GUARDRAIL_CRITERIA,
+    SPAM_CRITERIA,
+    SUPPORT_QUEUES,
+)
 from harness.dataset.transforms import inject_abstention, load_raw_jsonl, save_jsonl, split_train_val
 
 def get_default_sources(rng: Optional[random.Random] = None) -> List[IDataSource]:
@@ -14,14 +22,14 @@ def get_default_sources(rng: Optional[random.Random] = None) -> List[IDataSource
         TypedDecisionsSource(repeat=3),
         GlaiveToolSource(limit=5000, rng=gen),
         GenericChoiceSource("mteb/amazon_massive_intent", "en", "train", "text", "label_text", "action", "What is the user's intent in this utterance?", 6000, name="massive_intent"),
-        GenericChoiceSource("fancyzhx/ag_news", None, "train", "text", "label", "label", "What is the topic of the article?", 6000, per_class_limit=1500, name="ag_news"),
-        GenericChoiceSource("SetFit/enron_spam", None, "train", lambda r: f"Subject: {r.get('subject', '')}\n\nMessage: {(r.get('message') or '')[:2000]}", lambda r: "spam" if int(r.get("label", 0)) == 1 else "legitimate", "is_spam", "Is this email unsolicited spam or bulk marketing?", 3000, name="enron_spam"),
-        GenericChoiceSource("zefang-liu/phishing-email-dataset", None, "train", lambda r: f"Email:\n{(r.get('Email Text') or '')[:2000]}", lambda r: "phishing" if r.get("Email Type") == "Phishing Email" else "safe", "is_phishing", "Is this email a phishing or scam attempt?", 3000, name="phishing_email"),
-        GenericChoiceSource("Tobi-Bueck/customer-support-tickets", None, "train", lambda r: f"Subject: {r.get('subject', '')}\n\nBody: {(r.get('body') or '')[:2000]}", "queue", "queue", "Which support queue should handle this ticket?", 5000, filter_fn=lambda r: r.get("language") == "en" and r.get("body"), per_class_limit=500, name="customer_support"),
-        GenericChoiceSource("dair-ai/emotion", "split", "train", "text", "label", "emotion", "Which emotion is most strongly expressed in text?", 3000, name="emotion"),
+        GenericChoiceSource("fancyzhx/ag_news", None, "train", "text", "label", "label", "What is the topic of the article?", 6000, per_class_limit=1500, opts_dict=AG_NEWS_TOPICS, name="ag_news"),
+        GenericChoiceSource("SetFit/enron_spam", None, "train", lambda r: f"Subject: {r.get('subject', '')}\n\nMessage: {(r.get('message') or '')[:2000]}", lambda r: "true" if int(r.get("label", 0)) == 1 else "false", "is_spam", "Is this email unsolicited spam or bulk marketing?", 3000, opts_dict=SPAM_CRITERIA, name="enron_spam"),
+        GenericChoiceSource("zefang-liu/phishing-email-dataset", None, "train", lambda r: f"Email:\n{(r.get('Email Text') or '')[:2000]}", lambda r: "true" if r.get("Email Type") == "Phishing Email" else "false", "is_phishing", "Is this email a phishing or scam attempt?", 3000, opts_dict=PHISHING_CRITERIA, name="phishing_email"),
+        GenericChoiceSource("Tobi-Bueck/customer-support-tickets", None, "train", lambda r: f"Subject: {r.get('subject', '')}\n\nBody: {(r.get('body') or '')[:2000]}", "queue", "queue", "Which support queue should handle this ticket?", 5000, filter_fn=lambda r: r.get("language") == "en" and r.get("body"), per_class_limit=500, opts_dict=SUPPORT_QUEUES, name="customer_support"),
+        GenericChoiceSource("dair-ai/emotion", "split", "train", "text", "label", "emotion", "Which emotion is most strongly expressed in text?", 3000, opts_dict=EMOTION_CRITERIA, name="emotion"),
         GenericChoiceSource("mteb/banking77", None, "train", "text", lambda r: str(r.get("label_text", "")).replace("_", " "), "intent", "What is the primary customer inquiry or banking request?", 6000, name="banking77"),
-        GenericChoiceSource("deepset/prompt-injections", None, "train", "text", lambda r: "quarantine_threat" if int(r.get("label", 0)) == 1 else "allow", "guardrail_action", "Determine the safety policy action for this user input.", 1000, name="prompt_injections"),
-        GenericChoiceSource("jackhhao/jailbreak-classification", None, "train", "prompt", lambda r: "quarantine_threat" if str(r.get("type", "")).lower() == "jailbreak" else "allow", "guardrail_action", "Determine the safety policy action for this user input.", 1500, name="jailbreak_classification"),
+        GenericChoiceSource("deepset/prompt-injections", None, "train", "text", lambda r: "quarantine_threat" if int(r.get("label", 0)) == 1 else "allow", "guardrail_action", "Determine the safety policy action for this user input.", 1000, opts_dict=SAFETY_GUARDRAIL_CRITERIA, name="prompt_injections"),
+        GenericChoiceSource("jackhhao/jailbreak-classification", None, "train", "prompt", lambda r: "quarantine_threat" if str(r.get("type", "")).lower() == "jailbreak" else "allow", "guardrail_action", "Determine the safety policy action for this user input.", 1500, opts_dict=SAFETY_GUARDRAIL_CRITERIA, name="jailbreak_classification"),
     ]
 
 def build_curriculum(
@@ -30,6 +38,7 @@ def build_curriculum(
     abstention_rate: float = 0.15,
     val_ratio: float = 0.08,
     save_individual_sources: bool = True,
+    force_rebuild: bool = False,
 ) -> Tuple[List[Dict[str, Any]], List[Dict[str, Any]]]:
     rng = random.Random(seed)
     active_sources = list(sources) if sources is not None else get_default_sources(rng)
@@ -41,7 +50,7 @@ def build_curriculum(
 
     for src in active_sources:
         src_path = ADAPTED_DIR / f"{src.name}.jsonl"
-        if src_path.exists():
+        if src_path.exists() and not force_rebuild:
             src_samples = load_raw_jsonl(src_path)
         else:
             src_samples = src.extract()

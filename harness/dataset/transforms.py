@@ -21,7 +21,7 @@ def load_raw_jsonl(path: Union[str, Path]) -> List[Dict[str, Any]]:
     p = Path(path)
     if not p.exists():
         return []
-    with open(p, "r", encoding="utf-8") as f:
+    with open(p, "r", encoding="utf-8-sig") as f:
         return [json.loads(line) for line in f if line.strip()]
 
 def load_jsonl(path: Union[str, Path]) -> List[DecisionSample]:
