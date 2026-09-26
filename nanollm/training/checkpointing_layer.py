@@ -2,9 +2,10 @@ from pathlib import Path
 from typing import Any, Iterator, Optional
 import torch
 from torch.utils.data import DataLoader
+from pipeline import PipelineComposable
 from nanollm.training.epoch_trainer import EpochStats, ITrainer
 
-class CheckpointingLayer(ITrainer):
+class CheckpointingLayer(PipelineComposable, ITrainer):
     """ATA Composable Layer: transparently decorates ITrainer to save checkpoints on epoch improvement."""
 
     def __init__(
@@ -22,16 +23,6 @@ class CheckpointingLayer(ITrainer):
     def attach(self, inner: ITrainer) -> "CheckpointingLayer":
         self.inner = inner
         return self
-
-    def add(self, layer: Any, **kwargs: Any) -> "ITrainer":
-        if isinstance(layer, type):
-            return layer(self, **kwargs)
-        if hasattr(layer, "attach"):
-            return layer.attach(self)
-        return layer(self, **kwargs)
-
-    def __or__(self, layer: Any) -> "ITrainer":
-        return self.add(layer)
 
     @property
     def model(self) -> Any:

@@ -3,6 +3,7 @@ from typing import Any, Iterator, Optional, Protocol
 import time
 import torch
 from torch.utils.data import DataLoader
+from pipeline import PipelineComposable
 from nanollm.model import NanoModel
 from nanollm.training.loss import CalibratedLoss
 
@@ -20,17 +21,7 @@ class ITrainer(Protocol):
         self, train_loader: DataLoader, val_loader: Optional[DataLoader] = None, epochs: int = 1
     ) -> Iterator[EpochStats]: ...
 
-class EpochTrainer(ITrainer):
-    def add(self, layer: Any, **kwargs: Any) -> "ITrainer":
-        if isinstance(layer, type):
-            return layer(self, **kwargs)
-        if hasattr(layer, "attach"):
-            return layer.attach(self)
-        return layer(self, **kwargs)
-
-    def __or__(self, layer: Any) -> "ITrainer":
-        return self.add(layer)
-
+class EpochTrainer(PipelineComposable, ITrainer):
     def __init__(
         self,
         model: NanoModel,

@@ -9,7 +9,7 @@ NanoLLM is a high-performance micro-decision engine designed for ultra-low laten
 ```text
 d:/CodeBase/NanoLLM/
 ├── cli.py                     # User-facing inference CLI
-├── train.py                   # External training runner (invokes harness)
+├── pipeline.py                # ATA Universal Pipeline Helper (PipelineComposable)
 ├── harness/                   # External training orchestration boundary (outside nanollm)
 │   ├── runner.py              # TrainingRunner primitive (P)
 │   ├── __main__.py            # python -m harness runner

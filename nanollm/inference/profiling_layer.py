@@ -1,26 +1,18 @@
-from typing import Any, Optional, Sequence
+from typing import Optional, Sequence
 import time
 import torch
+from pipeline import PipelineComposable
 from nanollm.inference.decision_engine import IDecisionEngine
 from nanollm.inference.schema import DecisionResult, Question
 
-class DecisionEngineLayer(IDecisionEngine):
+class DecisionEngineLayer(PipelineComposable, IDecisionEngine):
+    """ATA Composable Layer Contract (λ: P -> P) for DecisionEngine."""
     def __init__(self, inner: Optional[IDecisionEngine] = None):
         self.inner = inner
 
     def attach(self, inner: IDecisionEngine) -> "DecisionEngineLayer":
         self.inner = inner
         return self
-
-    def add(self, layer: Any, **kwargs: Any) -> IDecisionEngine:
-        if isinstance(layer, type):
-            return layer(self, **kwargs)
-        if hasattr(layer, "attach"):
-            return layer.attach(self)
-        return layer(self, **kwargs)
-
-    def __or__(self, layer: Any) -> IDecisionEngine:
-        return self.add(layer)
 
     def decide(self, state: str, questions: Sequence[Question]) -> DecisionResult:
         if self.inner is None:

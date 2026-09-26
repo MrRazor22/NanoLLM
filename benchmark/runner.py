@@ -3,6 +3,7 @@ from typing import Any, Dict, List, Mapping, Optional, Protocol, Sequence, Union
 import numpy as np
 import torch
 
+from pipeline import PipelineComposable
 from nanollm.inference.decision_engine import DEFAULT_CHECKPOINT, DecisionEngine
 from nanollm.inference.profiling_layer import ProfilingLayer
 from nanollm.inference.schema import Choice
@@ -14,7 +15,7 @@ class IBenchmarkRunner(Protocol):
         self, sources: Union[Mapping[str, Any], Sequence[Any], Any], limit: Optional[int] = None
     ) -> Dict[str, Any]: ...
 
-class BenchmarkRunner(IBenchmarkRunner):
+class BenchmarkRunner(PipelineComposable, IBenchmarkRunner):
     """Benchmark Primitive: Executes candidate engine against benchmark sources and computes metrics."""
 
     def __init__(self, target: Any):
@@ -32,16 +33,6 @@ class BenchmarkRunner(IBenchmarkRunner):
         if profile:
             engine = engine | ProfilingLayer()
         return cls(engine)
-
-    def add(self, layer: Any, **kwargs: Any) -> Any:
-        if isinstance(layer, type):
-            return layer(self, **kwargs)
-        if hasattr(layer, "attach"):
-            return layer.attach(self)
-        return layer(self, **kwargs)
-
-    def __or__(self, layer: Any) -> Any:
-        return self.add(layer)
 
     def _predict(self, state: str, questions: Dict[str, Any]) -> tuple[Dict[str, str], Optional[float]]:
         if hasattr(self.target, "decide"):

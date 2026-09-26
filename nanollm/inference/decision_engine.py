@@ -1,9 +1,11 @@
 from pathlib import Path
 from typing import Any, Optional, Protocol, Sequence, Union
 import torch
-import torch.nn.functional as F
+from transformers import AutoModel
+from pipeline import PipelineComposable
 from nanollm.inference.assembler import ISlotAssembler, SlotAssembler
-from nanollm.inference.schema import Answer, Choice, ChoiceResult, DecisionResult, Noul, NoulResult, Question, Score, ScoreResult
+from nanollm.inference.resolver import DecisionResolver, IDecisionResolver
+from nanollm.inference.schema import DecisionResult, Question
 from nanollm.model import ModelConfig, NanoModel
 
 DEFAULT_CHECKPOINT = Path(__file__).resolve().parent.parent.parent / "checkpoints" / "checkpoint_champion_v4.pt"
@@ -11,20 +13,21 @@ DEFAULT_CHECKPOINT = Path(__file__).resolve().parent.parent.parent / "checkpoint
 class IDecisionEngine(Protocol):
     def decide(self, state: str, questions: Sequence[Question]) -> DecisionResult: ...
 
-class DecisionEngine(IDecisionEngine):
-    def __init__(self, model: NanoModel, assembler: ISlotAssembler, device: torch.device):
+class DecisionEngine(PipelineComposable, IDecisionEngine):
+    """ATA Root Primitive (P): Executes neural model forward pass and coordinates slot extraction."""
+
+    def __init__(
+        self,
+        model: NanoModel,
+        assembler: ISlotAssembler,
+        device: torch.device,
+        resolver: Optional[IDecisionResolver] = None,
+    ):
         self.model = model
         self.assembler = assembler
         self.device = device
+        self.resolver = resolver or DecisionResolver()
         self._warmup()
-
-    def add(self, layer: Any, **kwargs: Any) -> "IDecisionEngine":
-        if isinstance(layer, type): return layer(self, **kwargs)
-        if hasattr(layer, "attach"): return layer.attach(self)
-        return layer(self, **kwargs)
-
-    def __or__(self, layer: Any) -> "IDecisionEngine":
-        return self.add(layer)
 
     def _warmup(self) -> None:
         if self.device.type == "cuda":
@@ -40,6 +43,7 @@ class DecisionEngine(IDecisionEngine):
         checkpoint_path: Optional[Union[str, Path]] = None,
         backbone_name: str = "answerdotai/ModernBERT-base",
         device: Optional[str] = None,
+        resolver: Optional[IDecisionResolver] = None,
     ) -> "DecisionEngine":
         ckpt_path = Path(checkpoint_path) if checkpoint_path else DEFAULT_CHECKPOINT
         dev = torch.device(device if device else ("cuda" if torch.cuda.is_available() else "cpu"))
@@ -49,7 +53,7 @@ class DecisionEngine(IDecisionEngine):
         model = NanoModel(config, backbone=backbone).to(dev)
         model.load_state_dict(torch.load(str(ckpt_path), map_location=dev))
         model.eval()
-        return cls(model, assembler, dev)
+        return cls(model, assembler, dev, resolver=resolver)
 
     def decide(self, state: str, questions: Sequence[Question]) -> DecisionResult:
         layout = self.assembler.assemble(type("Sample", (), {"state": state, "questions": questions})(), device=self.device)
@@ -57,21 +61,6 @@ class DecisionEngine(IDecisionEngine):
             with torch.amp.autocast("cuda", enabled=self.device.type == "cuda"):
                 scores = self.model(layout["input_ids"], layout["mask"])
         raw_scores = scores[0]
-
-        answers: Dict[str, Answer] = {}
-        for q, slot_indices in zip(questions, layout["slots"]):
-            if isinstance(q, Choice):
-                opt_keys = list(q.options.keys()) if isinstance(q.options, dict) else list(q.options)
-                logits = raw_scores[slot_indices].squeeze(-1)
-                probs = F.softmax(logits, dim=-1)
-                idx = int(torch.argmax(probs).item())
-                prob_dict = {k: float(p.item()) for k, p in zip(opt_keys, probs)}
-                answers[q.name] = ChoiceResult(choice=opt_keys[idx], confidence=float(probs[idx].item()), probabilities=prob_dict)
-            elif isinstance(q, Noul):
-                prob = float(torch.sigmoid(raw_scores[slot_indices[0]]).item())
-                answers[q.name] = NoulResult(value=prob >= 0.5, probability=prob)
-            elif isinstance(q, Score):
-                val = float(raw_scores[slot_indices[0]].item())
-                norm = max(0.0, min(1.0, (val - q.min_value) / max(1e-5, (q.max_value - q.min_value))))
-                answers[q.name] = ScoreResult(score=val, normalized=norm)
-        return DecisionResult(answers=answers)
+        answers = self.resolver.resolve(questions, layout["slots"], raw_scores)
+        return DecisionResult(answers=answers)
+

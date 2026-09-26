@@ -4,6 +4,7 @@ from typing import Any, Dict, List, Optional, Protocol, Sequence, Tuple, Union
 import torch
 from torch.utils.data import DataLoader, Dataset
 
+from pipeline import PipelineComposable
 from harness.dataset.collator import IBatchCollator, MultiQuestionCollator
 from harness.dataset.schema import DecisionSample
 from harness.dataset.transforms import load_jsonl
@@ -32,7 +33,7 @@ class ITrainingDataset(Protocol):
         collator: Optional[IBatchCollator] = None,
     ) -> DataLoader: ...
 
-class TrainingDataset(Dataset, ITrainingDataset):
+class TrainingDataset(PipelineComposable, Dataset, ITrainingDataset):
     """The single root primitive of the dataset boundary: holds samples and builds DataLoaders."""
 
     def __init__(
@@ -50,16 +51,6 @@ class TrainingDataset(Dataset, ITrainingDataset):
 
     def __getitem__(self, idx: int) -> DecisionSample:
         return self.samples[idx]
-
-    def add(self, layer: Any, **kwargs: Any) -> ITrainingDataset:
-        if isinstance(layer, type):
-            return layer(self, **kwargs)
-        if hasattr(layer, "attach"):
-            return layer.attach(self)
-        return layer(self, **kwargs)
-
-    def __or__(self, layer: Any) -> ITrainingDataset:
-        return self.add(layer)
 
     def get_loader(
         self,

@@ -3,9 +3,10 @@ import json
 from pathlib import Path
 from typing import Any, Callable, List, Optional, Union
 from torch.utils.data import DataLoader
+from pipeline import PipelineComposable
 from nanollm.training.epoch_trainer import EpochStats, ITrainer
 
-class MetricsLayer(ITrainer):
+class MetricsLayer(PipelineComposable, ITrainer):
     """ATA Composable Layer: captures training history, persists metrics to disk, and routes telemetry to a pluggable sink."""
 
     def __init__(
@@ -24,16 +25,6 @@ class MetricsLayer(ITrainer):
     def attach(self, inner: ITrainer) -> "MetricsLayer":
         self.inner = inner
         return self
-
-    def add(self, layer: Any, **kwargs: Any) -> "ITrainer":
-        if isinstance(layer, type):
-            return layer(self, **kwargs)
-        if hasattr(layer, "attach"):
-            return layer.attach(self)
-        return layer(self, **kwargs)
-
-    def __or__(self, layer: Any) -> "ITrainer":
-        return self.add(layer)
 
     @property
     def model(self) -> Any:

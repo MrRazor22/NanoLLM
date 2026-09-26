@@ -2,10 +2,11 @@ from pathlib import Path
 from typing import Any, Optional, Union
 import torch
 
+from pipeline import PipelineComposable
 from nanollm.training import CheckpointingLayer, EpochTrainer, ITrainer, MetricsLayer
 from harness.dataset import TrainingDataset
 
-class TrainingRunner:
+class TrainingRunner(PipelineComposable):
     """Training Primitive: Coordinates hardware setup, dataset loaders, and trainer execution."""
 
     def __init__(self, trainer: ITrainer, backbone: str = "answerdotai/ModernBERT-base"):
@@ -36,16 +37,6 @@ class TrainingRunner:
             trainer = trainer | CheckpointingLayer(output_path=checkpoint_output)
 
         return cls(trainer, backbone=backbone_name)
-
-    def add(self, layer: Any, **kwargs: Any) -> Any:
-        if isinstance(layer, type):
-            return layer(self, **kwargs)
-        if hasattr(layer, "attach"):
-            return layer.attach(self)
-        return layer(self, **kwargs)
-
-    def __or__(self, layer: Any) -> Any:
-        return self.add(layer)
 
     def fit(
         self,
