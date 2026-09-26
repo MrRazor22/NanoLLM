@@ -55,7 +55,9 @@ class EpochTrainer(ITrainer):
     def train_epoch(self, loader: DataLoader) -> float:
         self.model.train()
         total_loss, total_steps = torch.tensor(0.0, device=self.device), len(loader)
-        start_time = time.perf_counter()
+        start_time, last_log_time = time.perf_counter(), time.perf_counter()
+        interval_loss, interval_steps = torch.tensor(0.0, device=self.device), 0
+        interval_sec = float(self.log_interval) if self.log_interval > 0 else 10.0
         self.optimizer.zero_grad(set_to_none=True)
         for step, batch in enumerate(loader):
             ids = batch["input_ids"].to(self.device, non_blocking=True)
@@ -64,21 +66,25 @@ class EpochTrainer(ITrainer):
                 scores = self.model(ids, mask)
                 loss = self.loss_fn(scores, batch["meta"], self.device) / self.accum_steps
             self.scaler.scale(loss).backward()
-            total_loss += loss.detach() * self.accum_steps
+            step_loss = loss.detach() * self.accum_steps
+            total_loss += step_loss
+            interval_loss += step_loss
+            interval_steps += 1
             if (step + 1) % self.accum_steps == 0 or (step + 1) == total_steps:
                 self.scaler.step(self.optimizer)
                 self.scaler.update()
                 self.optimizer.zero_grad(set_to_none=True)
-            log_int = self.log_interval if self.log_interval > 0 else min(100, max(1, total_steps // 10))
-            if (step + 1) % log_int == 0 or (step + 1) == total_steps:
-                elapsed = time.perf_counter() - start_time
-                avg_step_ms = (elapsed / (step + 1)) * 1000.0
-                curr_loss = (total_loss / (step + 1)).item()
+            now = time.perf_counter()
+            if (now - last_log_time >= interval_sec) or (step + 1 == total_steps):
+                step_ms = ((now - last_log_time) / max(1, interval_steps)) * 1000.0
+                win_loss = (interval_loss / max(1, interval_steps)).item()
                 print(
-                    f"Step [{step+1:5d}/{total_steps}] Loss: {curr_loss:.4f} | Speed: {avg_step_ms:.1f}ms/step",
+                    f"Step [{step+1:5d}/{total_steps}] Loss: {win_loss:.4f} | Speed: {step_ms:.1f}ms/step",
                     flush=True
                 )
+                last_log_time, interval_loss, interval_steps = now, torch.tensor(0.0, device=self.device), 0
         return (total_loss / max(1, total_steps)).item()
+
 
     def evaluate(self, loader: DataLoader) -> float:
         self.model.eval()
