@@ -15,7 +15,8 @@ d:/CodeBase/NanoLLM/
 │   ├── __main__.py            # python -m harness runner
 │   └── dataset/               # Training dataset boundary
 │       ├── training_dataset.py# TrainingDataset primitive (P)
-│       ├── build.py           # Dataset curriculum builder & adapter
+│       ├── curriculum.py      # Dataset curriculum recipe & builder
+│       ├── __main__.py        # python -m harness.dataset entrypoint
 │       ├── sources/           # Dataset source adapters (Glaive, Generic, Typed)
 │       ├── collator.py        # MultiQuestionCollator policy (π)
 │       ├── cached_dataset_layer.py # CachedDatasetLayer (λ)
@@ -60,7 +61,7 @@ d:/CodeBase/NanoLLM/
   ```
 * **Build / Adapt Training Dataset (from raw & sources):**
   ```bash
-  python -m harness.dataset.build
+  python -m harness.dataset
   ```
 * **Run Training (1-Epoch Adaptation):**
   ```bash

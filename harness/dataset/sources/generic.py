@@ -1,7 +1,7 @@
 import json
 from pathlib import Path
 from datasets import load_dataset
-from harness.dataset.training_dataset import ADAPTED_DIR, RAW_DIR, IDataSource
+from harness.dataset.training_dataset import RAW_DIR, IDataSource
 from harness.dataset.transforms import load_raw_jsonl, save_jsonl
 
 class GenericChoiceSource(IDataSource):
@@ -38,10 +38,6 @@ class GenericChoiceSource(IDataSource):
         self.blacklist = blacklist or set()
 
     def extract(self) -> List[Dict[str, Any]]:
-        adapted_path = ADAPTED_DIR / f"{self.name}.jsonl"
-        if adapted_path.exists():
-            return load_raw_jsonl(adapted_path)
-
         raw_path = RAW_DIR / f"{self.name}.jsonl"
         if raw_path.exists():
             ds, feat = load_raw_jsonl(raw_path), None
@@ -96,7 +92,6 @@ class GenericChoiceSource(IDataSource):
             })
             count += 1
 
-        save_jsonl(adapted_path, records)
         return records
 
 __all__ = ["GenericChoiceSource"]

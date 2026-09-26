@@ -18,7 +18,7 @@ from harness.dataset.transforms import (
     to_decision_sample,
 )
 
-from harness.dataset.build import build_curriculum, get_default_sources
+from harness.dataset.curriculum import build_curriculum, get_default_sources
 
 __all__ = [
     # Root Primitive

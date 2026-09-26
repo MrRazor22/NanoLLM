@@ -1,16 +1,12 @@
-import argparse
-import json
 from pathlib import Path
 import random
 from typing import Any, Dict, List, Optional, Sequence, Tuple
 
-from harness.dataset.training_dataset import ADAPTED_DIR, DATA_DIR, RAW_DIR, IDataSource
+from harness.dataset.training_dataset import ADAPTED_DIR, DATA_DIR, RAW_DIR, SPLITS_DIR, IDataSource
 from harness.dataset.sources.generic import GenericChoiceSource
 from harness.dataset.sources.glaive import GlaiveToolSource
 from harness.dataset.sources.typed import TypedDecisionsSource
-from harness.dataset.transforms import inject_abstention, save_jsonl, split_train_val
-
-SOURCES_ADAPTED_DIR = ADAPTED_DIR / "sources"
+from harness.dataset.transforms import inject_abstention, load_raw_jsonl, save_jsonl, split_train_val
 
 def get_default_sources(rng: Optional[random.Random] = None) -> List[IDataSource]:
     gen = rng or random.Random(42)
@@ -38,35 +34,33 @@ def build_curriculum(
     rng = random.Random(seed)
     active_sources = list(sources) if sources is not None else get_default_sources(rng)
 
-    SPLITS_DIR = DATA_DIR / "splits"
     SPLITS_DIR.mkdir(parents=True, exist_ok=True)
     ADAPTED_DIR.mkdir(parents=True, exist_ok=True)
 
     all_samples: List[Dict[str, Any]] = []
 
     for src in active_sources:
-        src_samples = src.extract()
-        print(f"  [Source] Extracted {len(src_samples)} items from {src.name}")
-        if save_individual_sources:
-            src_path = ADAPTED_DIR / f"{src.name}.jsonl"
-            save_jsonl(src_path, src_samples)
+        src_path = ADAPTED_DIR / f"{src.name}.jsonl"
+        if src_path.exists():
+            src_samples = load_raw_jsonl(src_path)
+        else:
+            src_samples = src.extract()
+            if save_individual_sources:
+                save_jsonl(src_path, src_samples)
+        print(f"  [Source] Loaded {len(src_samples)} items for {src.name}")
         all_samples.extend(src_samples)
 
-    # Check for raw foundation replay
-    raw_foundation = RAW_DIR / "foundation_replay.jsonl"
-    if not raw_foundation.exists():
-        raw_foundation = RAW_DIR / "foundation_train.jsonl"
-    if not raw_foundation.exists():
-        raw_foundation = RAW_DIR / "train.jsonl"
-    if raw_foundation.exists():
-        with open(raw_foundation, "r", encoding="utf-8") as f:
-            lines = [line.strip() for line in f if line.strip()]
-        rng.shuffle(lines)
-        replay = [json.loads(line) for line in lines[:5000]]
-        print(f"  [Foundation Replay] Added {len(replay)} samples from {raw_foundation.name}")
-        if save_individual_sources:
-            save_jsonl(ADAPTED_DIR / "foundation_replay.jsonl", replay)
-        all_samples.extend(replay)
+    for fn in ("foundation_replay.jsonl", "foundation_train.jsonl", "train.jsonl"):
+        raw_fp = RAW_DIR / fn
+        if raw_fp.exists():
+            lines = load_raw_jsonl(raw_fp)
+            rng.shuffle(lines)
+            replay = lines[:5000]
+            print(f"  [Foundation Replay] Added {len(replay)} samples from {raw_fp.name}")
+            if save_individual_sources:
+                save_jsonl(ADAPTED_DIR / "foundation_replay.jsonl", replay)
+            all_samples.extend(replay)
+            break
 
     print(f"Total raw extracted samples: {len(all_samples)}")
     all_samples = inject_abstention(all_samples, rate=abstention_rate, rng=rng)
@@ -79,22 +73,3 @@ def build_curriculum(
 
     print(f"Successfully adapted: {len(train_recs)} train -> {train_path}, {len(val_recs)} val -> {val_path}")
     return train_recs, val_recs
-
-def main() -> None:
-    parser = argparse.ArgumentParser(description="Adapt raw sources into training datasets")
-    parser.add_argument("--seed", type=int, default=42)
-    parser.add_argument("--abstention-rate", type=float, default=0.15)
-    parser.add_argument("--val-ratio", type=float, default=0.08)
-    parser.add_argument("--no-sources", action="store_true", help="Skip saving individual source jsonl files")
-    args = parser.parse_args()
-
-    print(">>> Starting Training Dataset Adaptation...")
-    build_curriculum(
-        seed=args.seed,
-        abstention_rate=args.abstention_rate,
-        val_ratio=args.val_ratio,
-        save_individual_sources=not args.no_sources,
-    )
-
-if __name__ == "__main__":
-    main()

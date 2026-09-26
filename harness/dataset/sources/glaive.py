@@ -4,7 +4,7 @@ import random
 import re
 from typing import Any, Dict, List, Optional
 from datasets import load_dataset
-from harness.dataset.training_dataset import ADAPTED_DIR, RAW_DIR, IDataSource
+from harness.dataset.training_dataset import RAW_DIR, IDataSource
 from harness.dataset.transforms import load_raw_jsonl, save_jsonl
 
 class GlaiveToolSource(IDataSource):
@@ -14,10 +14,6 @@ class GlaiveToolSource(IDataSource):
         self.rng = rng or random.Random(42)
 
     def extract(self) -> List[Dict[str, Any]]:
-        adapted_path = ADAPTED_DIR / f"{self.name}.jsonl"
-        if adapted_path.exists():
-            return load_raw_jsonl(adapted_path)
-
         raw_path = RAW_DIR / f"{self.name}.jsonl"
         if raw_path.exists():
             streaming_ds = load_raw_jsonl(raw_path)
@@ -70,7 +66,6 @@ class GlaiveToolSource(IDataSource):
                 "gold": {"tool": {"type": "choice", "label": gold_tool}},
             })
 
-        save_jsonl(adapted_path, records)
         return records
 
 __all__ = ["GlaiveToolSource"]

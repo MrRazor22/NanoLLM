@@ -2,7 +2,7 @@ import json
 from pathlib import Path
 from typing import Any, Dict, List
 from datasets import load_dataset
-from harness.dataset.training_dataset import ADAPTED_DIR, RAW_DIR, IDataSource
+from harness.dataset.training_dataset import RAW_DIR, IDataSource
 from harness.dataset.transforms import load_raw_jsonl, save_jsonl
 
 class TypedDecisionsSource(IDataSource):
@@ -11,10 +11,6 @@ class TypedDecisionsSource(IDataSource):
         self.repeat = repeat
 
     def extract(self) -> List[Dict[str, Any]]:
-        adapted_path = ADAPTED_DIR / f"{self.name}.jsonl"
-        if adapted_path.exists():
-            return load_raw_jsonl(adapted_path)
-
         raw_path = RAW_DIR / f"{self.name}.jsonl"
         if raw_path.exists():
             ds = load_raw_jsonl(raw_path)
@@ -44,7 +40,6 @@ class TypedDecisionsSource(IDataSource):
                     "gold": {q["id"]: {"type": "choice", "label": q["gold"]} for q in qs},
                 })
         final_records = records * self.repeat
-        save_jsonl(adapted_path, final_records)
         return final_records
 
 __all__ = ["TypedDecisionsSource"]
