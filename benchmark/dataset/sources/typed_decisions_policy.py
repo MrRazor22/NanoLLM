@@ -1,8 +1,8 @@
-﻿import json
+import json
 from typing import Any, Dict, List
-from benchmark.suites.base_policy import BaseSuitePolicy
+from benchmark.dataset import ISuiteSourcePolicy
 
-class TypedDecisionsPolicy(BaseSuitePolicy):
+class TypedDecisionsPolicy(ISuiteSourcePolicy):
     name = "typed_decisions"
 
     def extract(self) -> List[Dict[str, Any]]:

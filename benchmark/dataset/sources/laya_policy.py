@@ -1,14 +1,10 @@
-﻿from pathlib import Path
+from pathlib import Path
 from typing import Any, Dict, List
 from datasets import load_dataset
-from benchmark.suites.base_policy import BaseSuitePolicy, DATA_DIR
+from benchmark.dataset import DATA_DIR, ISuiteSourcePolicy
 
-class LayaPolicy(BaseSuitePolicy):
+class LayaPolicy(ISuiteSourcePolicy):
     name = "laya"
-
-    @property
-    def cache_path(self) -> Path:
-        return DATA_DIR / "laya_benchmark.json"
 
     def extract(self) -> List[Dict[str, Any]]:
         items: List[Dict[str, Any]] = []

@@ -23,10 +23,14 @@ d:/CodeBase/NanoLLM/
 │       └── data/              # train_adapt.jsonl, val_adapt.jsonl
 └── benchmark/                 # Independent verification boundary (outside nanollm)
     ├── evaluator.py           # ModelEvaluator primitive
-    ├── profiling_layer.py     # ProfilingEvaluatorLayer
-    ├── reporter.py            # Head-to-head scorecard printer (Delta vs Best)
+    ├── profiling_layer.py     # ProfilingEvaluatorLayer (λ)
+    ├── reporting_layer.py     # ReportingEvaluatorLayer (λ)
+    ├── reporter.py            # Head-to-head scorecard printer (T)
     ├── __main__.py            # python -m benchmark runner
-    └── data/                  # laya_benchmark.json (2,400 cases), benchmark.json (400 cases)
+    └── dataset/               # Benchmark dataset boundary (mirrors training/dataset)
+        ├── dataset.py         # BenchmarkDataset primitive & ISuiteSourcePolicy contract
+        ├── data/              # Evaluation data files & caches
+        └── sources/           # Suite source extraction policies (Agentic, Laya, etc.)
 ```
 
 ---

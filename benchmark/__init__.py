@@ -1,14 +1,15 @@
-﻿from benchmark.dataset import BenchmarkDataset, IBenchmarkDataset, ISuiteSourcePolicy
-from benchmark.evaluator import DecideFn, IEvaluator, ModelEvaluator
-from benchmark.profiling_layer import ProfilingEvaluatorLayer
-from benchmark.reporting_layer import ReportingEvaluatorLayer
-from benchmark.suites import (
+from benchmark.dataset import (
     AbstentionPolicy,
     AgenticPolicy,
-    BaseSuitePolicy,
+    BenchmarkDataset,
+    IBenchmarkDataset,
+    ISuiteSourcePolicy,
     LayaPolicy,
     TypedDecisionsPolicy,
 )
+from benchmark.evaluator import DecideFn, IEvaluator, ModelEvaluator
+from benchmark.profiling_layer import ProfilingEvaluatorLayer
+from benchmark.reporting_layer import ReportingEvaluatorLayer
 
 __all__ = [
     # Primitive
@@ -18,7 +19,6 @@ __all__ = [
     "IEvaluator",
     "ModelEvaluator",
     # Policies
-    "BaseSuitePolicy",
     "ISuiteSourcePolicy",
     "AgenticPolicy",
     "AbstentionPolicy",

@@ -1,18 +1,25 @@
-﻿import argparse
+import argparse
 import torch
 
 from nanollm.inference.engine import DEFAULT_CHECKPOINT, DecisionEngine
-from benchmark.evaluator import ModelEvaluator
-from benchmark.profiling_layer import ProfilingEvaluatorLayer
-from benchmark.reporter import print_consolidated_scorecard, print_scorecard
-import benchmark.suites
-from benchmark.suites.base_policy import BaseSuitePolicy
+from benchmark.dataset import (
+    AbstentionPolicy,
+    AgenticPolicy,
+    BenchmarkDataset,
+    ISuiteSourcePolicy,
+    LayaPolicy,
+    TypedDecisionsPolicy,
+)
 
-def get_available_suites() -> dict[str, type[BaseSuitePolicy]]:
-    return {cls.name: cls for cls in BaseSuitePolicy.__subclasses__()}
+SUITE_POLICIES: dict[str, type[ISuiteSourcePolicy]] = {
+    "agentic": AgenticPolicy,
+    "abstention": AbstentionPolicy,
+    "typed_decisions": TypedDecisionsPolicy,
+    "laya": LayaPolicy,
+}
 
 def main() -> None:
-    suites = get_available_suites()
+    suites = SUITE_POLICIES
     parser = argparse.ArgumentParser(description="NanoLLM Honest Benchmark")
     parser.add_argument("--checkpoint", type=str, default=str(DEFAULT_CHECKPOINT), help="Path to checkpoint")
     parser.add_argument("--suite", "--track", type=str, default="all", dest="suite", choices=["all"] + list(suites.keys()), help="Benchmark suite to run")
@@ -31,13 +38,13 @@ def main() -> None:
         reports = {}
         for name, suite_cls in suites.items():
             print(f"\n{'='*70}\n>>> Running Benchmark Suite: {name.upper().replace('_', ' ')}\n{'='*70}", flush=True)
-            reports[name] = evaluator.evaluate(suite_cls(), limit=args.limit)
+            reports[name] = evaluator.evaluate(BenchmarkDataset(suite_cls()), limit=args.limit)
         print_consolidated_scorecard(reports)
     else:
         suite_cls = suites.get(args.suite)
         if suite_cls is None:
             raise ValueError(f"Unknown benchmark suite: '{args.suite}'. Available: {list(suites.keys())}")
-        report = evaluator.evaluate(suite_cls(), limit=args.limit)
+        report = evaluator.evaluate(BenchmarkDataset(suite_cls()), limit=args.limit)
         print_scorecard(report, track=args.suite)
 
 if __name__ == "__main__":

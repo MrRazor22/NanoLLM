@@ -1,8 +1,8 @@
 import json
 from typing import Any, Dict, List
-from benchmark.suites.base_policy import BaseSuitePolicy, DATA_DIR
+from benchmark.dataset import DATA_DIR, ISuiteSourcePolicy
 
-class AgenticPolicy(BaseSuitePolicy):
+class AgenticPolicy(ISuiteSourcePolicy):
     name = "agentic"
 
     def extract(self) -> List[Dict[str, Any]]:
