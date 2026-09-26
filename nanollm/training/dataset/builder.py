@@ -3,10 +3,10 @@ from pathlib import Path
 import random
 from typing import Any, Dict, List, Optional, Protocol, Sequence, Tuple, Union
 
-from dataset.sources.generic import GenericChoiceSource, ISourceAdapter
-from dataset.sources.glaive import GlaiveToolSource
-from dataset.sources.typed import TypedDecisionsSource
-from dataset.transforms import inject_abstention, save_jsonl, split_train_val
+from nanollm.training.dataset.sources.generic import GenericChoiceSource, ISourceAdapter
+from nanollm.training.dataset.sources.glaive import GlaiveToolSource
+from nanollm.training.dataset.sources.typed import TypedDecisionsSource
+from nanollm.training.dataset.transforms import inject_abstention, save_jsonl, split_train_val
 
 class IDatasetBuilder(Protocol):
     """The bedrock contract of the Dataset boundary."""
@@ -61,7 +61,7 @@ class DatasetBuilder(IDatasetBuilder):
 if __name__ == "__main__":
     import argparse
     parser = argparse.ArgumentParser(description="Build curriculum datasets")
-    parser.add_argument("--output-dir", type=str, default=str(Path(__file__).resolve().parent.parent / "nanollm" / "training" / "data"))
+    parser.add_argument("--output-dir", type=str, default=str(Path(__file__).resolve().parent / "data"))
     args = parser.parse_args()
 
     out_p = Path(args.output_dir)

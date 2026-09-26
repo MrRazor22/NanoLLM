@@ -2,7 +2,7 @@ import random
 import re
 from typing import Any, Dict, List, Optional
 from datasets import load_dataset
-from dataset.sources.generic import ISourceAdapter
+from nanollm.training.dataset.sources.generic import ISourceAdapter
 
 class GlaiveToolSource(ISourceAdapter):
     def __init__(self, limit: int = 5000, rng: Optional[random.Random] = None):

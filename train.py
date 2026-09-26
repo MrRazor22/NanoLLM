@@ -17,8 +17,8 @@ from nanollm.training import (
 from nanollm.training.policies.dataset import load_jsonl
 
 ROOT = Path(__file__).resolve().parent
-DEFAULT_TRAIN = ROOT / "nanollm" / "training" / "data" / "train_adapt.jsonl"
-DEFAULT_VAL = ROOT / "nanollm" / "training" / "data" / "val_adapt.jsonl"
+DEFAULT_TRAIN = ROOT / "nanollm" / "training" / "dataset" / "data" / "train_adapt.jsonl"
+DEFAULT_VAL = ROOT / "nanollm" / "training" / "dataset" / "data" / "val_adapt.jsonl"
 DEFAULT_OUTPUT = ROOT / "nanollm" / "model" / "checkpoints" / "checkpoint_trained.pt"
 
 def main() -> None:
@@ -46,7 +46,7 @@ def main() -> None:
     collator = MultiQuestionCollator(assembler)
 
     if args.curriculum:
-        from dataset import DatasetBuilder
+        from nanollm.training.dataset import DatasetBuilder
         from nanollm.training.policies.dataset import to_decision_sample
         cur = DatasetBuilder(str(DEFAULT_TRAIN.parent))
         raw_train, raw_val = cur.build()
