@@ -2,7 +2,7 @@ from pathlib import Path
 from typing import Any, Iterator, Optional
 import torch
 from torch.utils.data import DataLoader
-from nanollm.training.trainer import EpochStats, ITrainer
+from nanollm.training.epoch_trainer import EpochStats, ITrainer
 
 class CheckpointingLayer(ITrainer):
     """ATA Composable Layer: transparently decorates ITrainer to save checkpoints on epoch improvement."""

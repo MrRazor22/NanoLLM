@@ -4,11 +4,11 @@ from pathlib import Path
 import random
 from typing import Any, Dict, List, Optional, Sequence, Tuple
 
-from training.dataset.dataset import ADAPTED_DIR, DATA_DIR, RAW_DIR, IDataSource
-from training.dataset.sources.generic import GenericChoiceSource
-from training.dataset.sources.glaive import GlaiveToolSource
-from training.dataset.sources.typed import TypedDecisionsSource
-from training.dataset.transforms import inject_abstention, save_jsonl, split_train_val
+from harness.dataset.training_dataset import ADAPTED_DIR, DATA_DIR, RAW_DIR, IDataSource
+from harness.dataset.sources.generic import GenericChoiceSource
+from harness.dataset.sources.glaive import GlaiveToolSource
+from harness.dataset.sources.typed import TypedDecisionsSource
+from harness.dataset.transforms import inject_abstention, save_jsonl, split_train_val
 
 SOURCES_ADAPTED_DIR = ADAPTED_DIR / "sources"
 

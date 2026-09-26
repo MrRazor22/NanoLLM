@@ -4,7 +4,7 @@ import random
 import re
 from typing import Any, Dict, List, Optional
 from datasets import load_dataset
-from training.dataset.dataset import ADAPTED_DIR, RAW_DIR, IDataSource
+from harness.dataset.training_dataset import ADAPTED_DIR, RAW_DIR, IDataSource
 
 class GlaiveToolSource(IDataSource):
     name = "glaive_tools"

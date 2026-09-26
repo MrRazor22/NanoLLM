@@ -2,7 +2,7 @@ import json
 from pathlib import Path
 import random
 from typing import Any, Dict, List, Optional, Sequence, Tuple, Union
-from training.dataset.schema import DecisionSample, QuestionSpec
+from harness.dataset.schema import DecisionSample, QuestionSpec
 
 def to_decision_sample(item: Dict[str, Any]) -> DecisionSample:
     specs = [

@@ -3,7 +3,7 @@ from typing import Any, Optional, Union
 import torch
 
 from nanollm.training import CheckpointingLayer, EpochTrainer, ITrainer, MetricsLayer
-from training.dataset import TrainingDataset
+from harness.dataset import TrainingDataset
 
 class TrainingRunner:
     """Training Primitive: Coordinates hardware setup, dataset loaders, and trainer execution."""

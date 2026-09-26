@@ -1,7 +1,7 @@
 import json
 from pathlib import Path
 from typing import Any, Dict, List
-from benchmark.dataset.dataset import ADAPTED_DIR, IDataSource
+from benchmark.dataset.benchmark_dataset import ADAPTED_DIR, IDataSource
 
 class TypedDecisionsSource(IDataSource):
     name = "typed_decisions"

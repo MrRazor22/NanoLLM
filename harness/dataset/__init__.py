@@ -1,4 +1,4 @@
-from training.dataset.dataset import (
+from harness.dataset.training_dataset import (
     ADAPTED_DIR,
     DATA_DIR,
     IDataSource,
@@ -7,10 +7,10 @@ from training.dataset.dataset import (
     SPLITS_DIR,
     TrainingDataset,
 )
-from training.dataset.cached_dataset_layer import CachedDatasetLayer
-from training.dataset.collator import IBatchCollator, MultiQuestionCollator
-from training.dataset.schema import DecisionSample, QuestionSpec
-from training.dataset.transforms import (
+from harness.dataset.cached_dataset_layer import CachedDatasetLayer
+from harness.dataset.collator import IBatchCollator, MultiQuestionCollator
+from harness.dataset.schema import DecisionSample, QuestionSpec
+from harness.dataset.transforms import (
     inject_abstention,
     load_jsonl,
     save_jsonl,
@@ -18,7 +18,7 @@ from training.dataset.transforms import (
     to_decision_sample,
 )
 
-from training.dataset.build import build_curriculum, get_default_sources
+from harness.dataset.build import build_curriculum, get_default_sources
 
 __all__ = [
     # Root Primitive

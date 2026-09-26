@@ -1,7 +1,7 @@
 import argparse
 from pathlib import Path
 
-from training.runner import TrainingRunner
+from harness.runner import TrainingRunner
 
 ROOT = Path(__file__).resolve().parent.parent
 DEFAULT_DATA_DIR = Path(__file__).resolve().parent / "dataset" / "data"

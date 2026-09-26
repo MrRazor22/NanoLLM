@@ -4,9 +4,9 @@ from typing import Any, Dict, List, Optional, Protocol, Sequence, Tuple, Union
 import torch
 from torch.utils.data import DataLoader, Dataset
 
-from training.dataset.collator import IBatchCollator, MultiQuestionCollator
-from training.dataset.schema import DecisionSample
-from training.dataset.transforms import load_jsonl
+from harness.dataset.collator import IBatchCollator, MultiQuestionCollator
+from harness.dataset.schema import DecisionSample
+from harness.dataset.transforms import load_jsonl
 
 DATA_DIR = Path(__file__).resolve().parent / "data"
 RAW_DIR = DATA_DIR / "raw"
@@ -107,7 +107,7 @@ class TrainingDataset(Dataset, ITrainingDataset):
         if isinstance(assembler, str):
             from nanollm.inference.assembler import SlotAssembler
             assembler = SlotAssembler(assembler)
-        from training.dataset.transforms import to_decision_sample
+        from harness.dataset.transforms import to_decision_sample
         return cls([to_decision_sample(item) for item in source.extract()], assembler=assembler)
 
     @classmethod
@@ -123,7 +123,7 @@ class TrainingDataset(Dataset, ITrainingDataset):
         pin_memory: Optional[bool] = None,
     ) -> Union[DataLoader, Tuple[DataLoader, Optional[DataLoader]]]:
         from nanollm.inference.assembler import SlotAssembler
-        from training.dataset.cached_dataset_layer import CachedDatasetLayer
+        from harness.dataset.cached_dataset_layer import CachedDatasetLayer
 
         assembler = SlotAssembler(backbone) if isinstance(backbone, str) else backbone
         pin = pin_memory if pin_memory is not None else torch.cuda.is_available()

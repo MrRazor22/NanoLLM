@@ -2,7 +2,7 @@ import json
 from pathlib import Path
 from typing import Any, Callable, Dict, List, Optional, Set
 from datasets import load_dataset
-from training.dataset.dataset import ADAPTED_DIR, RAW_DIR, IDataSource
+from harness.dataset.training_dataset import ADAPTED_DIR, RAW_DIR, IDataSource
 
 class GenericChoiceSource(IDataSource):
     name = "generic_choice"

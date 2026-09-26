@@ -1,7 +1,7 @@
 from typing import Any, Optional, Sequence
 import time
 import torch
-from nanollm.inference.engine import IDecisionEngine
+from nanollm.inference.decision_engine import IDecisionEngine
 from nanollm.inference.schema import DecisionResult, Question
 
 class DecisionEngineLayer(IDecisionEngine):

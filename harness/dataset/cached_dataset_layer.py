@@ -3,9 +3,9 @@ from typing import Any, Optional, Union
 import torch
 from torch.utils.data import DataLoader
 
-from training.dataset.collator import IBatchCollator
-from training.dataset.dataset import ITrainingDataset
-from training.dataset.schema import DecisionSample
+from harness.dataset.collator import IBatchCollator
+from harness.dataset.training_dataset import ITrainingDataset
+from harness.dataset.schema import DecisionSample
 
 class CachedDatasetLayer(ITrainingDataset):
     """ATA Composable Layer: transparently decorates ITrainingDataset to cache batch groupings to disk."""

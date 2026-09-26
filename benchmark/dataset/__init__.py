@@ -1,4 +1,4 @@
-from benchmark.dataset.dataset import (
+from benchmark.dataset.benchmark_dataset import (
     ADAPTED_DIR,
     BenchmarkDataset,
     DATA_DIR,

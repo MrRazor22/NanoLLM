@@ -8,7 +8,7 @@ from benchmark.dataset import (
 )
 from benchmark.runner import BenchmarkRunner
 from benchmark.scorecard_layer import ScorecardLayer
-from nanollm.inference.engine import DEFAULT_CHECKPOINT
+from nanollm.inference.decision_engine import DEFAULT_CHECKPOINT
 
 SUITE_SOURCES: dict[str, type[IDataSource]] = {
     "agentic": AgenticSource,

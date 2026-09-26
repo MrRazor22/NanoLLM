@@ -1,9 +1,9 @@
-﻿from dataclasses import asdict
+from dataclasses import asdict
 import json
 from pathlib import Path
 from typing import Any, Callable, List, Optional, Union
 from torch.utils.data import DataLoader
-from nanollm.training.trainer import EpochStats, ITrainer
+from nanollm.training.epoch_trainer import EpochStats, ITrainer
 
 class MetricsLayer(ITrainer):
     """ATA Composable Layer: captures training history, persists metrics to disk, and routes telemetry to a pluggable sink."""

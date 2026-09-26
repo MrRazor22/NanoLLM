@@ -5,8 +5,8 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 import torch
 from nanollm.model import ModelConfig, NanoModel
 from nanollm.inference import ByteTokenizer, SlotAssembler
-from nanollm.training import (
-    CalibratedLoss,
+from nanollm.training import CalibratedLoss
+from harness.dataset import (
     DecisionSample,
     MultiQuestionCollator,
     QuestionSpec,

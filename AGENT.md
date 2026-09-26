@@ -9,32 +9,41 @@ NanoLLM is a high-performance micro-decision engine designed for ultra-low laten
 ```text
 d:/CodeBase/NanoLLM/
 ├── cli.py                     # User-facing inference CLI
-├── train.py                   # External training runner
+├── train.py                   # External training runner (invokes harness)
+├── harness/                   # External training orchestration boundary (outside nanollm)
+│   ├── runner.py              # TrainingRunner primitive (P)
+│   ├── __main__.py            # python -m harness runner
+│   └── dataset/               # Training dataset boundary
+│       ├── training_dataset.py# TrainingDataset primitive (P)
+│       ├── build.py           # Dataset curriculum builder & adapter
+│       ├── sources/           # Dataset source adapters (Glaive, Generic, Typed)
+│       ├── collator.py        # MultiQuestionCollator policy (π)
+│       ├── cached_dataset_layer.py # CachedDatasetLayer (λ)
+│       └── data/
+│           ├── raw/           # Raw unadapted corpora & source drops (*.jsonl)
+│           ├── adapted/       # 11 individual adapted source files (*.jsonl)
+│           └── splits/        # Production multi-task splits (train.jsonl, val.jsonl)
 ├── nanollm/                   # Core production library
-│   ├── model/                 # NanoModel primitive, ModelConfig, neural checkpoints
+│   ├── model/
+│   │   ├── nano_model.py      # NanoModel primitive (P), ModelConfig
 │   │   └── checkpoints/       # checkpoint_champion_v4.pt (production weights)
-│   ├── inference/             # DecisionEngine primitive
-│   │   ├── policies/          # SlotAssembler, DecisionResolver, SubwordTokenizer
-│   │   ├── layers/            # ProfilingLayer, HierarchicalLayer
+│   ├── inference/
+│   │   ├── decision_engine.py # DecisionEngine primitive (P)
+│   │   ├── assembler.py       # SlotAssembler policy (π)
+│   │   ├── profiling_layer.py # ProfilingLayer (λ)
 │   │   └── schema.py          # Choice, Noul, Score, DecisionResult
-│   └── training/              # EpochTrainer primitive
-│       ├── checkpointing_layer.py
-│       └── dataset/
-│           ├── dataset.py     # TrainingDataset primitive
-│           ├── build.py       # Dataset curriculum adapter & builder
-│           ├── sources/       # Pluggable dataset source adapters (Glaive, Generic, Typed)
-│           └── data/
-│               ├── raw/       # Raw unadapted corpora & source drops (*.jsonl)
-│               ├── adapted/   # 11 individual adapted source files (*.jsonl)
-│               └── splits/    # Production multi-task splits (train.jsonl, val.jsonl)
+│   └── training/              # Core neural training engine
+│       ├── epoch_trainer.py   # EpochTrainer primitive (P)
+│       ├── loss.py            # CalibratedLoss policy (π)
+│       ├── checkpointing_layer.py # CheckpointingLayer (λ)
+│       └── metrics_layer.py   # MetricsLayer (λ)
 └── benchmark/                 # Independent verification boundary (outside nanollm)
-    ├── evaluator.py           # ModelEvaluator primitive
-    ├── profiling_layer.py     # ProfilingEvaluatorLayer (λ)
-    ├── reporting_layer.py     # ReportingEvaluatorLayer (λ)
-    ├── baselines/             # Baseline scores & competitor data
+    ├── runner.py              # BenchmarkRunner primitive (P)
+    ├── scorecard_layer.py     # ScorecardLayer (λ)
+    ├── competitor/            # Competitor baselines & scorecard printer
     ├── __main__.py            # python -m benchmark runner
-    └── dataset/               # Benchmark dataset boundary (mirrors training/dataset)
-        ├── dataset.py         # BenchmarkDataset primitive & IDataSource contract
+    └── dataset/               # Benchmark dataset boundary (fully decoupled)
+        ├── benchmark_dataset.py # BenchmarkDataset primitive (P) & IDataSource contract
         ├── sources/           # Suite source extraction adapters (Agentic, Laya, etc.)
         └── data/
             ├── raw/           # Raw unadapted evaluation slices (slice_*.jsonl)
@@ -51,11 +60,12 @@ d:/CodeBase/NanoLLM/
   ```
 * **Build / Adapt Training Dataset (from raw & sources):**
   ```bash
-  python -m training.dataset.build
+  python -m harness.dataset.build
   ```
 * **Run Training (1-Epoch Adaptation):**
   ```bash
-  python -m training --epochs 1 --lr 2e-5
+  python train.py --epochs 1 --lr 2e-5
+  # or: python -m harness --epochs 1 --lr 2e-5
   ```
 * **Run Benchmark (Full 2,400-case Laya / Jev Head-to-Head):**
   ```bash

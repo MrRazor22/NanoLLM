@@ -6,7 +6,10 @@ DATA_DIR = Path(__file__).resolve().parent / "data"
 RAW_DIR = DATA_DIR / "raw"
 ADAPTED_DIR = DATA_DIR / "adapted"
 
-from training.dataset.dataset import IDataSource
+class IDataSource(Protocol):
+    """Universal strategy contract for dataset extraction."""
+    name: str
+    def extract(self) -> List[Dict[str, Any]]: ...
 
 class IBenchmarkDataset(Protocol):
     """Primitive contract for benchmark dataset loading."""
@@ -39,4 +42,4 @@ class BenchmarkDataset(IBenchmarkDataset):
             json.dump(items, f, indent=2)
         return items[:limit] if limit else items
 
-__all__ = ["IDataSource", "IBenchmarkDataset", "BenchmarkDataset", "DATA_DIR"]
+__all__ = ["IDataSource", "IBenchmarkDataset", "BenchmarkDataset", "DATA_DIR", "RAW_DIR", "ADAPTED_DIR"]

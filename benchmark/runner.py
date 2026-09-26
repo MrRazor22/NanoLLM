@@ -3,7 +3,7 @@ from typing import Any, Dict, List, Mapping, Optional, Protocol, Sequence, Union
 import numpy as np
 import torch
 
-from nanollm.inference.engine import DEFAULT_CHECKPOINT, DecisionEngine
+from nanollm.inference.decision_engine import DEFAULT_CHECKPOINT, DecisionEngine
 from nanollm.inference.profiling_layer import ProfilingLayer
 from nanollm.inference.schema import Choice
 from benchmark.dataset import BenchmarkDataset

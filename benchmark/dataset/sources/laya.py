@@ -2,7 +2,7 @@ import json
 from pathlib import Path
 from typing import Any, Dict, List
 from datasets import load_dataset
-from benchmark.dataset.dataset import ADAPTED_DIR, RAW_DIR, IDataSource
+from benchmark.dataset.benchmark_dataset import ADAPTED_DIR, RAW_DIR, IDataSource
 
 class LayaSource(IDataSource):
     name = "laya"

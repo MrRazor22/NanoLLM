@@ -1,6 +1,6 @@
 import json
 from typing import Any, Dict, List
-from benchmark.dataset.dataset import ADAPTED_DIR, RAW_DIR, IDataSource
+from benchmark.dataset.benchmark_dataset import ADAPTED_DIR, RAW_DIR, IDataSource
 
 class AbstentionSource(IDataSource):
     name = "abstention"
