@@ -105,3 +105,8 @@ EMOTION_CRITERIA = {
     "surprise": "surprise, shock, astonishment",
 }
 
+SAFETY_GUARDRAIL_CRITERIA = {
+    "allow": "Safe, legitimate technical or business query; proceed with normal execution.",
+    "quarantine_threat": "Malicious prompt injection, jailbreak attempt, or policy escape; halt and alert security.",
+}
+
