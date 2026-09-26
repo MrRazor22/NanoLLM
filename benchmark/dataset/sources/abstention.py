@@ -16,20 +16,20 @@ class AbstentionSource(IDataSource):
             with open(local_file, "r", encoding="utf-8") as f:
                 return json.load(f)
 
+        raw_file = RAW_DIR / "abstention.jsonl"
         items = []
-        for fn in ("slice_missing_option.jsonl", "slice_distant_oos.jsonl"):
-            fp = RAW_DIR / fn
-            if not fp.exists():
-                continue
-            with open(fp, "r", encoding="utf-8") as f:
+        if raw_file.exists():
+            with open(raw_file, "r", encoding="utf-8") as f:
                 for line in f:
                     line = line.strip()
                     if not line:
                         continue
                     r = json.loads(line)
+                    sub = r.get("abstention_subtype", "")
+                    cat = f"slice_{sub}" if sub else "abstention"
                     items.append({
                         "id": r.get("id", ""),
-                        "category": fp.stem,
+                        "category": cat,
                         "state": r.get("text", ""),
                         "questions": {
                             "intent": {

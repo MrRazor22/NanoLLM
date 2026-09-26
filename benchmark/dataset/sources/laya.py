@@ -2,7 +2,7 @@ import json
 from pathlib import Path
 from typing import Any, Dict, List
 from datasets import load_dataset
-from benchmark.dataset.dataset import ADAPTED_DIR, IDataSource
+from benchmark.dataset.dataset import ADAPTED_DIR, RAW_DIR, IDataSource
 
 class LayaSource(IDataSource):
     name = "laya"
@@ -21,6 +21,19 @@ class LayaSource(IDataSource):
         if local_file.exists():
             with open(local_file, "r", encoding="utf-8") as f:
                 return json.load(f)
+
+        raw_file = RAW_DIR / "laya.jsonl"
+        if raw_file.exists():
+            items = []
+            with open(raw_file, "r", encoding="utf-8") as f:
+                for line in f:
+                    if line.strip():
+                        items.append(json.loads(line))
+            if items:
+                ADAPTED_DIR.mkdir(parents=True, exist_ok=True)
+                with open(local_file, "w", encoding="utf-8") as f:
+                    json.dump(items, f, indent=2)
+                return items
 
         items: List[Dict[str, Any]] = []
 
@@ -123,6 +136,10 @@ class LayaSource(IDataSource):
             })
 
         if items:
+            RAW_DIR.mkdir(parents=True, exist_ok=True)
+            with open(raw_file, "w", encoding="utf-8") as f:
+                for it in items:
+                    f.write(json.dumps(it) + "\n")
             ADAPTED_DIR.mkdir(parents=True, exist_ok=True)
             with open(local_file, "w", encoding="utf-8") as f:
                 json.dump(items, f, indent=2)
