@@ -60,12 +60,19 @@ class AdaptationCurriculum:
         support = self._build_choice_set("Tobi-Bueck/customer-support-tickets", None, "train", lambda r: f"Subject: {r.get('subject', '')}\n\nBody: {(r.get('body') or '')[:2000]}", "queue", "queue", "Which support queue should handle this ticket?", 5000, opts_dict=SUPPORT_QUEUES, filter_fn=lambda r: r.get("language") == "en" and r.get("body"), per_class_limit=500)
         emotion = self._build_choice_set("dair-ai/emotion", "split", "train", "text", "label", "emotion", "Which emotion is most strongly expressed in text?", 3000, opts_dict=EMOTION_CRITERIA)
         banking = self._build_choice_set("mteb/banking77", None, "train", "text", "label_text", "intent", "What is the primary customer inquiry or banking request?", 6000)
-        safety = self._build_choice_set(
+        safety_deepset = self._build_choice_set(
             "deepset/prompt-injections", None, "train", "text",
             lambda r: "quarantine_threat" if int(r.get("label", 0)) == 1 else "allow",
             "guardrail_action", "Determine the safety policy action for this user input.",
+            1000, opts_dict=SAFETY_GUARDRAIL_CRITERIA
+        )
+        safety_jailbreak = self._build_choice_set(
+            "jackhhao/jailbreak-classification", None, "train", "prompt",
+            lambda r: "quarantine_threat" if str(r.get("type", "")).lower() == "jailbreak" else "allow",
+            "guardrail_action", "Determine the safety policy action for this user input.",
             1500, opts_dict=SAFETY_GUARDRAIL_CRITERIA
         )
+        safety = safety_deepset + safety_jailbreak
 
         foundation_path = self.data_dir / "train.jsonl"
         replay = []

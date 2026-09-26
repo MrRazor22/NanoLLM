@@ -17,3 +17,5 @@ __pycache__/
 venv/
 .venv/
 .vs/
+*.cache
+/nanollm/training/data/val_adapt.val.cache
