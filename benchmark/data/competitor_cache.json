@@ -17,6 +17,15 @@
         "safety_guardrails": 0.76,
         "triage_incident": 0.45
       }
+    },
+    "TypeSafe Jev (API)": {
+      "overall": null,
+      "slices": {
+        "agent_tool_routing": null,
+        "negative_constraints": null,
+        "safety_guardrails": null,
+        "triage_incident": null
+      }
     }
   },
   "abstention": {
@@ -32,6 +41,13 @@
       "slices": {
         "slice_missing_option": 0.2,
         "slice_distant_oos": 0.19
+      }
+    },
+    "TypeSafe Jev (API)": {
+      "overall": null,
+      "slices": {
+        "slice_missing_option": null,
+        "slice_distant_oos": null
       }
     }
   },
@@ -52,6 +68,15 @@
         "customer_service": 0.764,
         "invoice_processing": 0.804,
         "security_incidents": 0.766
+      }
+    },
+    "TypeSafe Jev (API)": {
+      "overall": 0.727,
+      "slices": {
+        "agent_trace_observability": null,
+        "customer_service": null,
+        "invoice_processing": null,
+        "security_incidents": null
       }
     }
   },
@@ -77,6 +102,22 @@
         "app.email_spam": 0.933,
         "app.phishing": 0.958
       }
+    },
+    "TypeSafe Jev (API)": {
+      "overall": 0.753,
+      "slices": {
+        "jev.ag_news": 0.91,
+        "jev.emotion": 0.48,
+        "jev.banking77_full": 0.87,
+        "app.support_triage": null,
+        "app.email_spam": null,
+        "app.phishing": null
+      }
     }
+  },
+  "p50_latencies_ms": {
+    "Verdict 2.0 (151M)": 38.0,
+    "Laya (421M)": 35.0,
+    "TypeSafe Jev (API)": 256.0
   }
 }
