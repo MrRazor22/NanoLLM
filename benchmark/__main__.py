@@ -2,20 +2,23 @@ import argparse
 import torch
 
 from nanollm.inference.engine import DEFAULT_CHECKPOINT, DecisionEngine
+from nanollm.inference.profiling_layer import ProfilingLayer
 from benchmark.dataset import (
-    AbstentionPolicy,
-    AgenticPolicy,
+    AbstentionSource,
+    AgenticSource,
     BenchmarkDataset,
     ISuiteSourcePolicy,
-    LayaPolicy,
-    TypedDecisionsPolicy,
+    LayaSource,
+    TypedDecisionsSource,
 )
+from benchmark.evaluator import ModelEvaluator
+from benchmark.reporting_layer import ReportingEvaluatorLayer
 
 SUITE_POLICIES: dict[str, type[ISuiteSourcePolicy]] = {
-    "agentic": AgenticPolicy,
-    "abstention": AbstentionPolicy,
-    "typed_decisions": TypedDecisionsPolicy,
-    "laya": LayaPolicy,
+    "agentic": AgenticSource,
+    "abstention": AbstentionSource,
+    "typed_decisions": TypedDecisionsSource,
+    "laya": LayaSource,
 }
 
 def main() -> None:
@@ -31,21 +34,22 @@ def main() -> None:
     args = parser.parse_args()
 
     device = "cuda" if torch.cuda.is_available() else "cpu"
-    engine = DecisionEngine.from_checkpoint(args.checkpoint, device=device)
-    evaluator = ModelEvaluator.from_engine("NanoLLM Champion", engine, log_interval=args.log_interval) | ProfilingEvaluatorLayer(warmup_runs=5)
+    # Profile inference latency directly through the inference engine layer
+    engine = DecisionEngine.from_checkpoint(args.checkpoint, device=device) | ProfilingLayer()
+    base_evaluator = ModelEvaluator.from_engine("NanoLLM Champion", engine, log_interval=args.log_interval)
 
     if args.suite == "all":
         reports = {}
         for name, suite_cls in suites.items():
             print(f"\n{'='*70}\n>>> Running Benchmark Suite: {name.upper().replace('_', ' ')}\n{'='*70}", flush=True)
-            reports[name] = evaluator.evaluate(BenchmarkDataset(suite_cls()), limit=args.limit)
-        print_consolidated_scorecard(reports)
+            reports[name] = base_evaluator.evaluate(BenchmarkDataset(suite_cls()), limit=args.limit)
+        ReportingEvaluatorLayer.render_scorecard(reports, track="all")
     else:
         suite_cls = suites.get(args.suite)
         if suite_cls is None:
             raise ValueError(f"Unknown benchmark suite: '{args.suite}'. Available: {list(suites.keys())}")
-        report = evaluator.evaluate(BenchmarkDataset(suite_cls()), limit=args.limit)
-        print_scorecard(report, track=args.suite)
+        evaluator = base_evaluator | ReportingEvaluatorLayer(track=args.suite)
+        evaluator.evaluate(BenchmarkDataset(suite_cls()), limit=args.limit)
 
 if __name__ == "__main__":
     main()

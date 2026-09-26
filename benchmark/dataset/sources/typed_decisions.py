@@ -2,7 +2,7 @@ import json
 from typing import Any, Dict, List
 from benchmark.dataset import ISuiteSourcePolicy
 
-class TypedDecisionsPolicy(ISuiteSourcePolicy):
+class TypedDecisionsSource(ISuiteSourcePolicy):
     name = "typed_decisions"
 
     def extract(self) -> List[Dict[str, Any]]:
@@ -33,4 +33,4 @@ class TypedDecisionsPolicy(ISuiteSourcePolicy):
             })
         return items
 
-__all__ = ["TypedDecisionsPolicy"]
+__all__ = ["TypedDecisionsSource"]

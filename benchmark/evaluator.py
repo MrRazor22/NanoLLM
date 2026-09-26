@@ -22,7 +22,7 @@ class ModelEvaluator:
                 opts = spec.get("options") or spec.get("criteria", {})
                 qs.append(Choice(qid, opts, instruction=spec.get("instructions")))
             res = engine.decide(state, qs)
-            return {
+            answers = {
                 qid: {
                     "choice": str(res.answers[qid].choice),
                     "confidence": getattr(res.answers[qid], "confidence", 0.0),
@@ -30,6 +30,9 @@ class ModelEvaluator:
                 }
                 for qid in questions if qid in res.answers
             }
+            if hasattr(res, "latency_ms") and res.latency_ms is not None:
+                answers["__latency_ms__"] = res.latency_ms
+            return answers
         return cls(name, decide, log_interval=log_interval)
 
     def __or__(self, layer: Any) -> Any:
@@ -41,12 +44,15 @@ class ModelEvaluator:
         all_hits: List[float] = []
         all_confs: List[float] = []
         all_briers: List[float] = []
+        all_latencies: List[float] = []
 
         for i, item in enumerate(items):
             cat = item.get("category", "general")
             if cat not in stats:
                 stats[cat] = {"correct": 0, "total": 0}
             preds = self.decide_fn(item["state"], item["questions"])
+            if "__latency_ms__" in preds:
+                all_latencies.append(preds.pop("__latency_ms__"))
 
             for qid, gold in item["gold"].items():
                 if qid not in preds:
@@ -71,7 +77,7 @@ class ModelEvaluator:
         total_eval = sum(s["total"] for s in stats.values())
         overall_acc = (total_correct / total_eval) if total_eval > 0 else 0.0
 
-        return {
+        report: Dict[str, Any] = {
             "evaluator": self.name,
             "overall_acc": overall_acc,
             "total_correct": total_correct,
@@ -88,5 +94,9 @@ class ModelEvaluator:
                 for c, s in stats.items()
             }
         }
+        if all_latencies:
+            report["p50_ms"] = float(np.median(all_latencies))
+            report["p90_ms"] = float(np.percentile(all_latencies, 90))
+        return report
 
 __all__ = ["IEvaluator", "ModelEvaluator", "DecideFn"]

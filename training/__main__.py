@@ -1,18 +1,18 @@
-﻿import argparse
+import argparse
 from pathlib import Path
 import torch
 
 from nanollm.inference.assembler_policy import SlotAssembler
 from nanollm.model import NanoModel
-from nanollm.training import CalibratedLoss, EpochTrainer
-from training.dataset import TrainingDataset
-from training.layers import CheckpointingLayer
+from nanollm.training import CalibratedLoss, CheckpointingLayer, EpochTrainer
+from training.dataset import CachedDatasetLayer, TrainingDataset
 
 ROOT = Path(__file__).resolve().parent.parent
 DEFAULT_DATA_DIR = Path(__file__).resolve().parent / "dataset" / "data"
 DEFAULT_TRAIN = DEFAULT_DATA_DIR / "train_adapt.jsonl"
 DEFAULT_VAL = DEFAULT_DATA_DIR / "val_adapt.jsonl"
 DEFAULT_OUTPUT = ROOT / "checkpoints" / "checkpoint_trained.pt"
+DEFAULT_CACHE_DIR = ROOT / "checkpoints" / "cache"
 DEFAULT_BACKBONE = "answerdotai/ModernBERT-base"
 
 def main() -> None:
@@ -21,6 +21,7 @@ def main() -> None:
     parser.add_argument("--train-data", type=str, default=str(DEFAULT_TRAIN), help="Path to training jsonl")
     parser.add_argument("--val-data", type=str, default=str(DEFAULT_VAL), help="Path to validation jsonl")
     parser.add_argument("--output", type=str, default=str(DEFAULT_OUTPUT), help="Output checkpoint path")
+    parser.add_argument("--cache-dir", type=str, default=str(DEFAULT_CACHE_DIR), help="Cache directory for batch splits")
     parser.add_argument("--init-checkpoint", type=str, default=None, help="Initial checkpoint path")
     parser.add_argument("--epochs", type=int, default=1, help="Number of training epochs")
     parser.add_argument("--batch-size", type=int, default=16)
@@ -39,9 +40,15 @@ def main() -> None:
     assembler = SlotAssembler(args.backbone)
     pin = device.type == "cuda"
 
-    # 1. Dataset primitives loaded with assembler
-    train_dataset = TrainingDataset.from_jsonl(args.train_data, assembler=assembler)
-    val_dataset = TrainingDataset.from_jsonl(args.val_data, assembler=assembler)
+    # 1. Dataset primitives composed with CachedDatasetLayer (ATA pipeline decorator)
+    train_dataset = (
+        TrainingDataset.from_jsonl(args.train_data, assembler=assembler)
+        | CachedDatasetLayer(cache_dir=args.cache_dir)
+    )
+    val_dataset = (
+        TrainingDataset.from_jsonl(args.val_data, assembler=assembler)
+        | CachedDatasetLayer(cache_dir=args.cache_dir)
+    )
 
     # 2. Dataset yields PyTorch DataLoaders directly with seed passed from CLI
     train_loader = train_dataset.get_loader(

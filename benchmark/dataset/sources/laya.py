@@ -3,7 +3,7 @@ from typing import Any, Dict, List
 from datasets import load_dataset
 from benchmark.dataset import DATA_DIR, ISuiteSourcePolicy
 
-class LayaPolicy(ISuiteSourcePolicy):
+class LayaSource(ISuiteSourcePolicy):
     name = "laya"
 
     def extract(self) -> List[Dict[str, Any]]:
@@ -109,4 +109,4 @@ class LayaPolicy(ISuiteSourcePolicy):
 
         return items
 
-__all__ = ["LayaPolicy"]
+__all__ = ["LayaSource"]

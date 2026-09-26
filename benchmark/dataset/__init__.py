@@ -1,14 +1,14 @@
-﻿from benchmark.dataset.dataset import (
+from benchmark.dataset.dataset import (
     BenchmarkDataset,
     DATA_DIR,
     IBenchmarkDataset,
     ISuiteSourcePolicy,
 )
 from benchmark.dataset.sources import (
-    AbstentionPolicy,
-    AgenticPolicy,
-    LayaPolicy,
-    TypedDecisionsPolicy,
+    AbstentionSource,
+    AgenticSource,
+    LayaSource,
+    TypedDecisionsSource,
 )
 
 __all__ = [
@@ -18,8 +18,8 @@ __all__ = [
     "DATA_DIR",
     # Policies
     "ISuiteSourcePolicy",
-    "AgenticPolicy",
-    "AbstentionPolicy",
-    "TypedDecisionsPolicy",
-    "LayaPolicy",
+    "AbstentionSource",
+    "AgenticSource",
+    "LayaSource",
+    "TypedDecisionsSource",
 ]

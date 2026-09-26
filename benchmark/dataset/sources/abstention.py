@@ -2,7 +2,7 @@ import json
 from typing import Any, Dict, List
 from benchmark.dataset import DATA_DIR, ISuiteSourcePolicy
 
-class AbstentionPolicy(ISuiteSourcePolicy):
+class AbstentionSource(ISuiteSourcePolicy):
     name = "abstention"
 
     def extract(self) -> List[Dict[str, Any]]:
@@ -32,4 +32,4 @@ class AbstentionPolicy(ISuiteSourcePolicy):
                     })
         return items
 
-__all__ = ["AbstentionPolicy"]
+__all__ = ["AbstentionSource"]

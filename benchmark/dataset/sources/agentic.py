@@ -2,7 +2,7 @@ import json
 from typing import Any, Dict, List
 from benchmark.dataset import DATA_DIR, ISuiteSourcePolicy
 
-class AgenticPolicy(ISuiteSourcePolicy):
+class AgenticSource(ISuiteSourcePolicy):
     name = "agentic"
 
     def extract(self) -> List[Dict[str, Any]]:
@@ -10,4 +10,4 @@ class AgenticPolicy(ISuiteSourcePolicy):
         with open(raw_path, "r", encoding="utf-8") as f:
             return json.load(f)
 
-__all__ = ["AgenticPolicy"]
+__all__ = ["AgenticSource"]
