@@ -1,8 +1,8 @@
 import json
 from pathlib import Path
-from typing import Any, Callable, Dict, List, Optional, Set
 from datasets import load_dataset
 from harness.dataset.training_dataset import ADAPTED_DIR, RAW_DIR, IDataSource
+from harness.dataset.transforms import load_raw_jsonl, save_jsonl
 
 class GenericChoiceSource(IDataSource):
     name = "generic_choice"
@@ -40,30 +40,15 @@ class GenericChoiceSource(IDataSource):
     def extract(self) -> List[Dict[str, Any]]:
         adapted_path = ADAPTED_DIR / f"{self.name}.jsonl"
         if adapted_path.exists():
-            records = []
-            with open(adapted_path, "r", encoding="utf-8") as f:
-                for line in f:
-                    if line.strip():
-                        records.append(json.loads(line))
-            return records
+            return load_raw_jsonl(adapted_path)
 
         raw_path = RAW_DIR / f"{self.name}.jsonl"
         if raw_path.exists():
-            rows = []
-            with open(raw_path, "r", encoding="utf-8") as f:
-                for line in f:
-                    if line.strip():
-                        rows.append(json.loads(line))
-            ds = rows
-            feat = None
+            ds, feat = load_raw_jsonl(raw_path), None
         else:
             ds = load_dataset(self.path, self.sub, split=self.split) if self.sub else load_dataset(self.path, split=self.split)
             feat = ds.features.get(self.label_extractor) if isinstance(self.label_extractor, str) else None
-            # Cache raw download
-            RAW_DIR.mkdir(parents=True, exist_ok=True)
-            with open(raw_path, "w", encoding="utf-8") as f:
-                for row in ds:
-                    f.write(json.dumps(row, default=str) + "\n")
+            save_jsonl(raw_path, ds)
         if self.opts_dict:
             criteria = self.opts_dict
         elif feat and hasattr(feat, "names"):
@@ -111,10 +96,7 @@ class GenericChoiceSource(IDataSource):
             })
             count += 1
 
-        ADAPTED_DIR.mkdir(parents=True, exist_ok=True)
-        with open(adapted_path, "w", encoding="utf-8") as f:
-            for r in records:
-                f.write(json.dumps(r) + "\n")
+        save_jsonl(adapted_path, records)
         return records
 
 __all__ = ["GenericChoiceSource"]

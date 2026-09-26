@@ -1,5 +1,5 @@
 from pathlib import Path
-from typing import Any, Optional, Protocol, Sequence, Union
+from typing import Any, Optional, Protocol, Sequence, Union, runtime_checkable
 import torch
 from transformers import AutoModel
 from pipeline import PipelineComposable
@@ -10,6 +10,7 @@ from nanollm.model import ModelConfig, NanoModel
 
 DEFAULT_CHECKPOINT = Path(__file__).resolve().parent.parent.parent / "checkpoints" / "checkpoint_champion_v4.pt"
 
+@runtime_checkable
 class IDecisionEngine(Protocol):
     def decide(self, state: str, questions: Sequence[Question]) -> DecisionResult: ...
 
@@ -23,6 +24,10 @@ class DecisionEngine(PipelineComposable, IDecisionEngine):
         device: torch.device,
         resolver: Optional[IDecisionResolver] = None,
     ):
+        if not isinstance(assembler, ISlotAssembler):
+            raise TypeError(f"assembler must implement ISlotAssembler, got {type(assembler).__name__}")
+        if resolver is not None and not isinstance(resolver, IDecisionResolver):
+            raise TypeError(f"resolver must implement IDecisionResolver, got {type(resolver).__name__}")
         self.model = model
         self.assembler = assembler
         self.device = device

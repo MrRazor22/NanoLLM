@@ -17,18 +17,22 @@ def to_decision_sample(item: Dict[str, Any]) -> DecisionSample:
     ]
     return DecisionSample(state=item["state"], questions=specs)
 
+def load_raw_jsonl(path: Union[str, Path]) -> List[Dict[str, Any]]:
+    p = Path(path)
+    if not p.exists():
+        return []
+    with open(p, "r", encoding="utf-8") as f:
+        return [json.loads(line) for line in f if line.strip()]
+
 def load_jsonl(path: Union[str, Path]) -> List[DecisionSample]:
-    samples = []
-    with open(path, "r", encoding="utf-8") as f:
-        for line in f:
-            if line.strip():
-                samples.append(to_decision_sample(json.loads(line)))
-    return samples
+    return [to_decision_sample(row) for row in load_raw_jsonl(path)]
 
 def save_jsonl(path: Union[str, Path], records: Sequence[Dict[str, Any]]) -> None:
-    with open(path, "w", encoding="utf-8") as f:
+    p = Path(path)
+    p.parent.mkdir(parents=True, exist_ok=True)
+    with open(p, "w", encoding="utf-8") as f:
         for r in records:
-            f.write(json.dumps(r) + "\n")
+            f.write(json.dumps(r, default=str) + "\n")
 
 def inject_abstention(
     records: List[Dict[str, Any]],

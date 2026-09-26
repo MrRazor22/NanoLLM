@@ -14,6 +14,8 @@ class CheckpointingLayer(PipelineComposable, ITrainer):
         output_path: Optional[str] = None,
         save_optimizer: bool = False,
     ):
+        if inner is not None and not isinstance(inner, ITrainer):
+            raise TypeError(f"inner must implement ITrainer, got {type(inner).__name__}")
         self.inner = inner
         self.output_path = Path(output_path) if output_path else None
         self.save_optimizer = save_optimizer
@@ -21,6 +23,8 @@ class CheckpointingLayer(PipelineComposable, ITrainer):
         self.val_loader: Optional[DataLoader] = None
 
     def attach(self, inner: ITrainer) -> "CheckpointingLayer":
+        if not isinstance(inner, ITrainer):
+            raise TypeError(f"inner must implement ITrainer, got {type(inner).__name__}")
         self.inner = inner
         return self
 

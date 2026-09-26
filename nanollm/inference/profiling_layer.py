@@ -8,9 +8,13 @@ from nanollm.inference.schema import DecisionResult, Question
 class DecisionEngineLayer(PipelineComposable, IDecisionEngine):
     """ATA Composable Layer Contract (λ: P -> P) for DecisionEngine."""
     def __init__(self, inner: Optional[IDecisionEngine] = None):
+        if inner is not None and not isinstance(inner, IDecisionEngine):
+            raise TypeError(f"inner must implement IDecisionEngine, got {type(inner).__name__}")
         self.inner = inner
 
     def attach(self, inner: IDecisionEngine) -> "DecisionEngineLayer":
+        if not isinstance(inner, IDecisionEngine):
+            raise TypeError(f"inner must implement IDecisionEngine, got {type(inner).__name__}")
         self.inner = inner
         return self
 

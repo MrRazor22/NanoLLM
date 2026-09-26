@@ -16,6 +16,8 @@ class MetricsLayer(PipelineComposable, ITrainer):
         sink: Optional[Callable[[str], None]] = print,
         prefix: str = "",
     ):
+        if inner is not None and not isinstance(inner, ITrainer):
+            raise TypeError(f"inner must implement ITrainer, got {type(inner).__name__}")
         self.inner = inner
         self.output_path = Path(output_path) if output_path else None
         self.sink = sink
@@ -23,6 +25,8 @@ class MetricsLayer(PipelineComposable, ITrainer):
         self.history: List[EpochStats] = []
 
     def attach(self, inner: ITrainer) -> "MetricsLayer":
+        if not isinstance(inner, ITrainer):
+            raise TypeError(f"inner must implement ITrainer, got {type(inner).__name__}")
         self.inner = inner
         return self
 

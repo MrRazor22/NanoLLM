@@ -1,11 +1,11 @@
 from dataclasses import dataclass
-from typing import Any, Iterator, Optional, Protocol
+from typing import Any, Iterator, Optional, Protocol, Union, runtime_checkable
 import time
 import torch
 from torch.utils.data import DataLoader
 from pipeline import PipelineComposable
 from nanollm.model import NanoModel
-from nanollm.training.loss import CalibratedLoss
+from nanollm.training.loss import CalibratedLoss, ILoss
 
 @dataclass(frozen=True)
 class EpochStats:
@@ -15,6 +15,7 @@ class EpochStats:
     val_loss: Optional[float]
     elapsed_sec: float
 
+@runtime_checkable
 class ITrainer(Protocol):
     def fit(self, train_loader: DataLoader, val_loader: Optional[DataLoader] = None, epochs: int = 1) -> float: ...
     def fit_iter(
@@ -26,10 +27,12 @@ class EpochTrainer(PipelineComposable, ITrainer):
         self,
         model: NanoModel,
         optimizer: torch.optim.Optimizer,
-        loss_fn: CalibratedLoss,
+        loss_fn: Union[CalibratedLoss, ILoss],
         device: torch.device,
         accum_steps: int = 2,
     ):
+        if not isinstance(loss_fn, ILoss):
+            raise TypeError(f"loss_fn must implement ILoss, got {type(loss_fn).__name__}")
         self.model = model
         self.optimizer = optimizer
         self.loss_fn = loss_fn

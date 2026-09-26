@@ -14,11 +14,6 @@ class TypedDecisionsSource(IDataSource):
     }
 
     def extract(self) -> List[Dict[str, Any]]:
-        local_file = ADAPTED_DIR / "typed_decisions.json"
-        if local_file.exists():
-            with open(local_file, "r", encoding="utf-8") as f:
-                return json.load(f)
-
         from datasets import load_dataset
         ds = load_dataset("LocalLLaMA/typed-decisions", "all", split="test")
         items = []
@@ -44,12 +39,6 @@ class TypedDecisionsSource(IDataSource):
                 "questions": norm_qs,
                 "gold": json.loads(row["gold"]) if isinstance(row["gold"], str) else row["gold"],
             })
-
-        if items:
-            ADAPTED_DIR.mkdir(parents=True, exist_ok=True)
-            with open(local_file, "w", encoding="utf-8") as f:
-                json.dump(items, f, indent=2)
-
         return items
 
 __all__ = ["TypedDecisionsSource"]

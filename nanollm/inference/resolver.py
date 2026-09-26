@@ -1,8 +1,9 @@
-from typing import Dict, List, Protocol, Sequence
+from typing import Dict, List, Protocol, Sequence, runtime_checkable
 import torch
 import torch.nn.functional as F
 from nanollm.inference.schema import Answer, Choice, ChoiceResult, Noul, NoulResult, Question, Score, ScoreResult
 
+@runtime_checkable
 class IDecisionResolver(Protocol):
     """ATA Policy Contract: Decodes raw slot logits into typed domain Answers."""
     def resolve(

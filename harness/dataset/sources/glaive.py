@@ -5,6 +5,7 @@ import re
 from typing import Any, Dict, List, Optional
 from datasets import load_dataset
 from harness.dataset.training_dataset import ADAPTED_DIR, RAW_DIR, IDataSource
+from harness.dataset.transforms import load_raw_jsonl, save_jsonl
 
 class GlaiveToolSource(IDataSource):
     name = "glaive_tools"
@@ -15,33 +16,19 @@ class GlaiveToolSource(IDataSource):
     def extract(self) -> List[Dict[str, Any]]:
         adapted_path = ADAPTED_DIR / f"{self.name}.jsonl"
         if adapted_path.exists():
-            records = []
-            with open(adapted_path, "r", encoding="utf-8") as f:
-                for line in f:
-                    if line.strip():
-                        records.append(json.loads(line))
-            return records
+            return load_raw_jsonl(adapted_path)
 
         raw_path = RAW_DIR / f"{self.name}.jsonl"
         if raw_path.exists():
-            rows = []
-            with open(raw_path, "r", encoding="utf-8") as f:
-                for line in f:
-                    if line.strip():
-                        rows.append(json.loads(line))
-            streaming_ds = rows
+            streaming_ds = load_raw_jsonl(raw_path)
         else:
-            streaming_ds = load_dataset("glaiveai/glaive-function-calling-v2", split="train", streaming=True)
-            RAW_DIR.mkdir(parents=True, exist_ok=True)
-            cached_rows = []
-            for row in streaming_ds:
-                cached_rows.append(row)
-                if len(cached_rows) >= self.limit:
+            ds = load_dataset("glaiveai/glaive-function-calling-v2", split="train", streaming=True)
+            streaming_ds = []
+            for row in ds:
+                streaming_ds.append(row)
+                if len(streaming_ds) >= self.limit:
                     break
-            with open(raw_path, "w", encoding="utf-8") as f:
-                for r in cached_rows:
-                    f.write(json.dumps(r, default=str) + "\n")
-            streaming_ds = cached_rows
+            save_jsonl(raw_path, streaming_ds)
         raw, tool_registry = [], {}
         for row in streaming_ds:
             if len(raw) >= self.limit:
@@ -83,10 +70,7 @@ class GlaiveToolSource(IDataSource):
                 "gold": {"tool": {"type": "choice", "label": gold_tool}},
             })
 
-        ADAPTED_DIR.mkdir(parents=True, exist_ok=True)
-        with open(adapted_path, "w", encoding="utf-8") as f:
-            for rec in records:
-                f.write(json.dumps(rec) + "\n")
+        save_jsonl(adapted_path, records)
         return records
 
 __all__ = ["GlaiveToolSource"]

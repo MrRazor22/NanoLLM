@@ -11,11 +11,6 @@ class AbstentionSource(IDataSource):
     }
 
     def extract(self) -> List[Dict[str, Any]]:
-        local_file = ADAPTED_DIR / "abstention.json"
-        if local_file.exists():
-            with open(local_file, "r", encoding="utf-8") as f:
-                return json.load(f)
-
         items = []
         for fn in ("slice_missing_option.jsonl", "slice_distant_oos.jsonl"):
             fp = RAW_DIR / fn
@@ -40,10 +35,6 @@ class AbstentionSource(IDataSource):
                         },
                         "gold": {"intent": {"label": r.get("target_id", "__insufficient_evidence__")}},
                     })
-        if items:
-            ADAPTED_DIR.mkdir(parents=True, exist_ok=True)
-            with open(local_file, "w", encoding="utf-8") as f:
-                json.dump(items, f, indent=2)
         return items
 
 __all__ = ["AbstentionSource"]

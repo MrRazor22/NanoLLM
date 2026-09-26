@@ -1,8 +1,8 @@
-from dataclasses import dataclass
-from typing import Any, Dict, List, Optional, Protocol, Sequence, Tuple, Union
+from typing import Any, Dict, List, Optional, Protocol, Sequence, Tuple, Union, runtime_checkable
 import torch
 from transformers import AutoTokenizer
 
+@runtime_checkable
 class ISlotAssembler(Protocol):
     def assemble(self, samples: Union[Any, Sequence[Any]], device: Optional[torch.device] = None) -> Dict[str, Any]: ...
 

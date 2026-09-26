@@ -1,8 +1,9 @@
-from typing import Any, List, Protocol
+from typing import Any, List, Protocol, runtime_checkable
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
+@runtime_checkable
 class ILoss(Protocol):
     def compute(self, scores: torch.Tensor, batch_meta: Any, device: torch.device) -> torch.Tensor: ...
 

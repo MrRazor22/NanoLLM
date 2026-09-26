@@ -1,16 +1,18 @@
 import json
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Protocol
+from typing import Any, Dict, List, Optional, Protocol, runtime_checkable
 
 DATA_DIR = Path(__file__).resolve().parent / "data"
 RAW_DIR = DATA_DIR / "raw"
 ADAPTED_DIR = DATA_DIR / "adapted"
 
+@runtime_checkable
 class IDataSource(Protocol):
     """Universal strategy contract for dataset extraction."""
     name: str
     def extract(self) -> List[Dict[str, Any]]: ...
 
+@runtime_checkable
 class IBenchmarkDataset(Protocol):
     """Primitive contract for benchmark dataset loading."""
     def load(self, limit: Optional[int] = None) -> List[Dict[str, Any]]: ...
@@ -18,6 +20,8 @@ class IBenchmarkDataset(Protocol):
 class BenchmarkDataset(IBenchmarkDataset):
     """Benchmark dataset primitive managing item loading and slicing."""
     def __init__(self, source: IDataSource, data_dir: Optional[Path] = None):
+        if not isinstance(source, IDataSource):
+            raise TypeError(f"source must implement IDataSource, got {type(source).__name__}")
         self.source = source
         self.data_dir = data_dir or ADAPTED_DIR
         self.dataset_path = self.data_dir / f"{self.source.name}.json"

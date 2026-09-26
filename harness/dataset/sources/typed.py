@@ -3,6 +3,7 @@ from pathlib import Path
 from typing import Any, Dict, List
 from datasets import load_dataset
 from harness.dataset.training_dataset import ADAPTED_DIR, RAW_DIR, IDataSource
+from harness.dataset.transforms import load_raw_jsonl, save_jsonl
 
 class TypedDecisionsSource(IDataSource):
     name = "typed_decisions"
@@ -12,27 +13,14 @@ class TypedDecisionsSource(IDataSource):
     def extract(self) -> List[Dict[str, Any]]:
         adapted_path = ADAPTED_DIR / f"{self.name}.jsonl"
         if adapted_path.exists():
-            records = []
-            with open(adapted_path, "r", encoding="utf-8") as f:
-                for line in f:
-                    if line.strip():
-                        records.append(json.loads(line))
-            return records
+            return load_raw_jsonl(adapted_path)
 
         raw_path = RAW_DIR / f"{self.name}.jsonl"
         if raw_path.exists():
-            rows = []
-            with open(raw_path, "r", encoding="utf-8") as f:
-                for line in f:
-                    if line.strip():
-                        rows.append(json.loads(line))
-            ds = rows
+            ds = load_raw_jsonl(raw_path)
         else:
             ds = load_dataset("LocalLLaMA/typed-decisions", "all", split="train")
-            RAW_DIR.mkdir(parents=True, exist_ok=True)
-            with open(raw_path, "w", encoding="utf-8") as f:
-                for row in ds:
-                    f.write(json.dumps(row, default=str) + "\n")
+            save_jsonl(raw_path, ds)
 
         records = []
         for row in ds:
@@ -56,11 +44,7 @@ class TypedDecisionsSource(IDataSource):
                     "gold": {q["id"]: {"type": "choice", "label": q["gold"]} for q in qs},
                 })
         final_records = records * self.repeat
-
-        ADAPTED_DIR.mkdir(parents=True, exist_ok=True)
-        with open(adapted_path, "w", encoding="utf-8") as f:
-            for r in final_records:
-                f.write(json.dumps(r) + "\n")
+        save_jsonl(adapted_path, final_records)
         return final_records
 
 __all__ = ["TypedDecisionsSource"]

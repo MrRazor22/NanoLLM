@@ -1,6 +1,6 @@
 from pathlib import Path
 import random
-from typing import Any, Dict, List, Optional, Protocol, Sequence, Tuple, Union
+from typing import Any, Dict, List, Optional, Protocol, Sequence, Tuple, Union, runtime_checkable
 import torch
 from torch.utils.data import DataLoader, Dataset
 
@@ -14,11 +14,13 @@ RAW_DIR = DATA_DIR / "raw"
 ADAPTED_DIR = DATA_DIR / "adapted"
 SPLITS_DIR = DATA_DIR / "splits"
 
+@runtime_checkable
 class IDataSource(Protocol):
     """Universal strategy contract for dataset extraction."""
     name: str
     def extract(self) -> List[Dict[str, Any]]: ...
 
+@runtime_checkable
 class ITrainingDataset(Protocol):
     """Primitive contract for training dataset."""
     def __len__(self) -> int: ...
@@ -45,6 +47,8 @@ class TrainingDataset(PipelineComposable, Dataset, ITrainingDataset):
         self.samples = list(samples)
         self.assembler = assembler
         self.collator = collator or (MultiQuestionCollator(assembler) if assembler is not None else None)
+        if self.collator is not None and not isinstance(self.collator, IBatchCollator):
+            raise TypeError(f"collator must implement IBatchCollator, got {type(self.collator).__name__}")
 
     def __len__(self) -> int:
         return len(self.samples)

@@ -13,18 +13,8 @@ class AgenticSource(IDataSource):
     }
 
     def extract(self) -> List[Dict[str, Any]]:
-        local_file = ADAPTED_DIR / "agentic.json"
-        if local_file.exists():
-            with open(local_file, "r", encoding="utf-8") as f:
-                return json.load(f)
-
         raw_file = RAW_DIR / "agentic.json"
         with open(raw_file, "r", encoding="utf-8") as f:
-            items = json.load(f)
-
-        ADAPTED_DIR.mkdir(parents=True, exist_ok=True)
-        with open(local_file, "w", encoding="utf-8") as f:
-            json.dump(items, f, indent=2)
-        return items
+            return json.load(f)
 
 __all__ = ["AgenticSource"]
