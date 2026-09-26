@@ -1,14 +1,15 @@
-import json
-from typing import Any, Dict, List, Optional
-from benchmark.suites.base_policy import ITrackPolicy
+﻿import json
+from typing import Any, Dict, List
+from benchmark.suites.base_policy import BaseSuitePolicy
 
-class TypedDecisionsPolicy(ITrackPolicy):
-    def load(self, limit: Optional[int] = None) -> List[Dict[str, Any]]:
+class TypedDecisionsPolicy(BaseSuitePolicy):
+    name = "typed_decisions"
+
+    def extract(self) -> List[Dict[str, Any]]:
         from datasets import load_dataset
         ds = load_dataset("LocalLLaMA/typed-decisions", "all", split="test")
-        n = len(ds) if limit is None else min(len(ds), limit)
         items = []
-        for i in range(n):
+        for i in range(len(ds)):
             row = ds[i]
             q_defs = json.loads(row["questions"]) if isinstance(row["questions"], str) else row["questions"]
             norm_qs = {}
@@ -31,3 +32,5 @@ class TypedDecisionsPolicy(ITrackPolicy):
                 "gold": json.loads(row["gold"]) if isinstance(row["gold"], str) else row["gold"],
             })
         return items
+
+__all__ = ["TypedDecisionsPolicy"]

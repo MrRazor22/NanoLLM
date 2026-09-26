@@ -1,10 +1,16 @@
-from typing import Any, Dict, List, Optional
+﻿from pathlib import Path
+from typing import Any, Dict, List
 from datasets import load_dataset
-from benchmark.suites.base_policy import ITrackPolicy
+from benchmark.suites.base_policy import BaseSuitePolicy, DATA_DIR
 
-class LayaPolicy(ITrackPolicy):
-    def load(self, limit: Optional[int] = None) -> List[Dict[str, Any]]:
-        per_suite_limit = limit // 6 if limit else 400
+class LayaPolicy(BaseSuitePolicy):
+    name = "laya"
+
+    @property
+    def cache_path(self) -> Path:
+        return DATA_DIR / "laya_benchmark.json"
+
+    def extract(self) -> List[Dict[str, Any]]:
         items: List[Dict[str, Any]] = []
 
         # 1. AG News
@@ -17,7 +23,7 @@ class LayaPolicy(ITrackPolicy):
             "sci_tech": "science and technology"
         }
         for row in ds_ag:
-            if len([x for x in items if x["category"] == "jev.ag_news"]) >= per_suite_limit: break
+            if len([x for x in items if x["category"] == "jev.ag_news"]) >= 400: break
             lbl = int(row["label"])
             if 0 <= lbl < len(ag_classes):
                 items.append({
@@ -32,7 +38,7 @@ class LayaPolicy(ITrackPolicy):
         emo_classes = ["sadness", "joy", "love", "anger", "fear", "surprise"]
         emo_criteria = {k: f"expressing {k}" for k in emo_classes}
         for row in ds_emo:
-            if len([x for x in items if x["category"] == "jev.emotion"]) >= per_suite_limit: break
+            if len([x for x in items if x["category"] == "jev.emotion"]) >= 400: break
             lbl = int(row["label"])
             if 0 <= lbl < len(emo_classes):
                 items.append({
@@ -46,7 +52,7 @@ class LayaPolicy(ITrackPolicy):
         ds_b77 = load_dataset("mteb/banking77", split="test")
         b77_opts = {str(n).replace("_", " "): str(n).replace("_", " ") for n in ds_b77.features["label"].names}
         for row in ds_b77:
-            if len([x for x in items if x["category"] == "jev.banking77_full"]) >= per_suite_limit: break
+            if len([x for x in items if x["category"] == "jev.banking77_full"]) >= 400: break
             lbl_name = str(row.get("label_text", "")).replace("_", " ")
             items.append({
                 "category": "jev.banking77_full",
@@ -70,7 +76,7 @@ class LayaPolicy(ITrackPolicy):
             "General Inquiry": "anything else"
         }
         for row in ds_sup:
-            if len([x for x in items if x["category"] == "app.support_triage"]) >= per_suite_limit: break
+            if len([x for x in items if x["category"] == "app.support_triage"]) >= 400: break
             if row.get("language") != "en" or not row.get("body") or row.get("queue") not in sup_criteria: continue
             items.append({
                 "category": "app.support_triage",
@@ -83,7 +89,7 @@ class LayaPolicy(ITrackPolicy):
         ds_spam = load_dataset("SetFit/enron_spam", split="test")
         spam_crit = {"true": "unsolicited spam or promotional email", "false": "legitimate email communication"}
         for row in ds_spam:
-            if len([x for x in items if x["category"] == "app.email_spam"]) >= per_suite_limit: break
+            if len([x for x in items if x["category"] == "app.email_spam"]) >= 400: break
             is_sp = "true" if int(row.get("label", 0)) == 1 else "false"
             items.append({
                 "category": "app.email_spam",
@@ -96,7 +102,7 @@ class LayaPolicy(ITrackPolicy):
         ds_phish = load_dataset("zefang-liu/phishing-email-dataset", split="train")
         phish_crit = {"true": "phishing, scam, or fraudulent email", "false": "legitimate safe email"}
         for row in ds_phish:
-            if len([x for x in items if x["category"] == "app.phishing"]) >= per_suite_limit: break
+            if len([x for x in items if x["category"] == "app.phishing"]) >= 400: break
             is_ph = "true" if row.get("Email Type") == "Phishing Email" else "false"
             items.append({
                 "category": "app.phishing",
@@ -105,4 +111,6 @@ class LayaPolicy(ITrackPolicy):
                 "gold": {"is_phishing": {"type": "choice", "label": is_ph}}
             })
 
-        return items[:limit] if limit else items
+        return items
+
+__all__ = ["LayaPolicy"]

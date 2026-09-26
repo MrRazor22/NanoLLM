@@ -5,17 +5,20 @@ from nanollm.inference.engine import DEFAULT_CHECKPOINT, DecisionEngine
 from benchmark.evaluator import ModelEvaluator
 from benchmark.profiling_layer import ProfilingEvaluatorLayer
 from benchmark.reporter import print_consolidated_scorecard, print_scorecard
-from benchmark.suites import SUITES, get_suite
+import benchmark.suites
+from benchmark.suites.base_policy import BaseSuitePolicy
+
+def get_available_suites() -> dict[str, type[BaseSuitePolicy]]:
+    return {cls.name: cls for cls in BaseSuitePolicy.__subclasses__()}
 
 def main() -> None:
+    suites = get_available_suites()
     parser = argparse.ArgumentParser(description="NanoLLM Honest Benchmark")
     parser.add_argument("--checkpoint", type=str, default=str(DEFAULT_CHECKPOINT), help="Path to checkpoint")
-    parser.add_argument("--suite", "--track", type=str, default="all", dest="suite", help="Benchmark suite to run (all, agentic, abstention, typed_decisions, laya)")
+    parser.add_argument("--suite", "--track", type=str, default="all", dest="suite", choices=["all"] + list(suites.keys()), help="Benchmark suite to run")
     parser.add_argument("--all", action="store_const", dest="suite", const="all", help="Run all suites")
-    parser.add_argument("--agentic", action="store_const", dest="suite", const="agentic", help="Run agentic suite")
-    parser.add_argument("--abstention", action="store_const", dest="suite", const="abstention", help="Run abstention suite")
-    parser.add_argument("--laya", action="store_const", dest="suite", const="laya", help="Run laya suite")
-    parser.add_argument("--typed-decisions", "--verdict", action="store_const", dest="suite", const="typed_decisions", help="Run typed decisions suite")
+    for name in suites:
+        parser.add_argument(f"--{name.replace('_', '-')}", action="store_const", dest="suite", const=name, help=f"Run {name} suite")
     parser.add_argument("--limit", type=int, default=None, help="Optional case limit for quick validation")
     parser.add_argument("--log-interval", type=int, default=100, help="Live step logging interval")
     args = parser.parse_args()
@@ -26,13 +29,15 @@ def main() -> None:
 
     if args.suite == "all":
         reports = {}
-        for name in ["agentic", "abstention", "typed_decisions", "laya"]:
+        for name, suite_cls in suites.items():
             print(f"\n{'='*70}\n>>> Running Benchmark Suite: {name.upper().replace('_', ' ')}\n{'='*70}", flush=True)
-            reports[name] = evaluator.evaluate(get_suite(name), limit=args.limit)
+            reports[name] = evaluator.evaluate(suite_cls(), limit=args.limit)
         print_consolidated_scorecard(reports)
     else:
-        suite = get_suite(args.suite)
-        report = evaluator.evaluate(suite, limit=args.limit)
+        suite_cls = suites.get(args.suite)
+        if suite_cls is None:
+            raise ValueError(f"Unknown benchmark suite: '{args.suite}'. Available: {list(suites.keys())}")
+        report = evaluator.evaluate(suite_cls(), limit=args.limit)
         print_scorecard(report, track=args.suite)
 
 if __name__ == "__main__":
