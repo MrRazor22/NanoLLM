@@ -2,6 +2,7 @@ import json
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Protocol, runtime_checkable
 import numpy as np
+import torch
 from nanollm.inference.schema import Choice
 from benchmark.report.renderer import ConsoleScorecardRenderer, IReportRenderer
 

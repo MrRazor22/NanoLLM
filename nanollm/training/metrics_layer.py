@@ -67,7 +67,8 @@ class MetricsLayer(PipelineComposable, ITrainer):
                         vram_gb = torch.cuda.memory_allocated() / (1024 ** 3)
                         gpu_str = f" | VRAM: {vram_gb:.2f}GB"
                     lr_str = f" | LR: {s.lr:.1e}" if s.lr > 0 else ""
-                    line = f"  Ep {s.epoch}/{s.total_epochs} | Step [{s.step:5d}{total_str}] Loss: {s.loss:.4f} | Speed: {s.elapsed_ms:.1f}ms/step{eta_str}{lr_str}{gpu_str}"
+                    batch_str = f" (Batch {s.batch}/{s.total_batches})" if s.total_batches > 0 else ""
+                    line = f"  Ep {s.epoch}/{s.total_epochs} | Step [{s.step:5d}{total_str}]{batch_str} Loss: {s.loss:.4f} | Speed: {s.elapsed_ms:.1f}ms/step{eta_str}{lr_str}{gpu_str}"
                     if s.val_loss is not None:
                         line += f" | Val Loss: {s.val_loss:.4f}"
                     self.sink(line)

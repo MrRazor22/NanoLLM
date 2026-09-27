@@ -10,6 +10,8 @@ from harness.dataset.taxonomies import (
     AG_NEWS_TOPICS,
     BANKING77_CRITERIA,
     EMOTION_CRITERIA,
+    INCIDENT_TRIAGE_CRITERIA,
+    NEGATIVE_CONSTRAINTS_CRITERIA,
     PHISHING_CRITERIA,
     SAFETY_GUARDRAIL_CRITERIA,
     SPAM_CRITERIA,
@@ -20,7 +22,7 @@ from harness.dataset.transforms import inject_abstention, load_raw_jsonl, save_j
 def get_default_sources(rng: Optional[random.Random] = None) -> List[IDataSource]:
     gen = rng or random.Random(42)
     return [
-        TypedDecisionsSource(repeat=3),
+        TypedDecisionsSource(repeat=5),
         GlaiveToolSource(limit=5000, rng=gen),
         GenericChoiceSource("mteb/amazon_massive_intent", "en", "train", "text", "label_text", "action", "What is the user's intent in this utterance?", 6000, name="massive_intent"),
         GenericChoiceSource("fancyzhx/ag_news", None, "train", "text", "label", "label", "What is the topic of the article?", 6000, per_class_limit=1500, opts_dict=AG_NEWS_TOPICS, name="ag_news"),

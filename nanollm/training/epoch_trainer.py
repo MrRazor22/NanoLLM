@@ -16,6 +16,8 @@ class StepStats:
     elapsed_ms: float
     lr: float = 0.0
     val_loss: Optional[float] = None  # set on final step of each epoch
+    batch: int = 0
+    total_batches: int = 0
 
 Batch = Mapping[str, Any]
 
@@ -107,7 +109,7 @@ class EpochTrainer(PipelineComposable, ITrainer):
                     is_last = (total_steps > 0 and opt_step >= total_steps)
                     val_loss = self.evaluate(val_batches) if (is_last and val_batches is not None) else None
                     cur_lr = self.optimizer.param_groups[0]["lr"] if self.optimizer.param_groups else 0.0
-                    yield StepStats(epoch, epochs, opt_step, total_steps, (total_loss / (n + 1)).item(), (now - last_t) * 1000.0 / self.accum_steps, cur_lr, val_loss)
+                    yield StepStats(epoch, epochs, opt_step, total_steps, (total_loss / (n + 1)).item(), (now - last_t) * 1000.0 / self.accum_steps, cur_lr, val_loss, batch=n + 1, total_batches=total_batches)
                     last_t = now
             # flush leftover accumulation if total batches not divisible by accum_steps
             remainder = (len(list(range(0))) if not total_batches else total_batches) % self.accum_steps
@@ -118,6 +120,6 @@ class EpochTrainer(PipelineComposable, ITrainer):
                 opt_step += 1
                 cur_lr = self.optimizer.param_groups[0]["lr"] if self.optimizer.param_groups else 0.0
                 val_loss = self.evaluate(val_batches) if val_batches is not None else None
-                yield StepStats(epoch, epochs, opt_step, total_steps or opt_step, (total_loss / max(1, total_batches)).item(), 0.0, cur_lr, val_loss)
+                yield StepStats(epoch, epochs, opt_step, total_steps or opt_step, (total_loss / max(1, total_batches)).item(), 0.0, cur_lr, val_loss, batch=total_batches, total_batches=total_batches)
 
 __all__ = ["StepStats", "ITrainer", "EpochTrainer", "Batch"]

@@ -57,13 +57,19 @@ class GlaiveToolSource(IDataSource):
                         candidates[d] = tool_registry[d]
             opt_keys = list(candidates.keys())
             self.rng.shuffle(opt_keys)
+            prompt_variations = [
+                "Which function or tool should be invoked to handle this request?",
+                "Which production tool must the agent select to resolve this situation?",
+                "Select the appropriate tool or function for this task:",
+            ]
+            instr = prompt_variations[len(records) % len(prompt_variations)]
             records.append({
                 "category": "agent_tool_routing",
                 "state": query,
                 "questions": {
                     "tool": {
                         "type": "choice",
-                        "instructions": "Which function or tool should be invoked to handle this request?",
+                        "instructions": instr,
                         "criteria": {k: candidates[k] for k in opt_keys},
                     }
                 },
