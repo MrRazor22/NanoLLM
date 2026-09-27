@@ -59,6 +59,7 @@ class EpochTrainer(PipelineComposable, ITrainer):
         device: Optional[torch.device] = None,
         accum_steps: int = 2,
         init_checkpoint: Optional[str] = None,
+        compile: bool = False,
     ) -> "EpochTrainer":
         dev = device or torch.device("cuda" if torch.cuda.is_available() else "cpu")
         model = NanoModel.from_backbone(backbone_name).to(dev)
@@ -66,6 +67,8 @@ class EpochTrainer(PipelineComposable, ITrainer):
             ckpt = torch.load(init_checkpoint, map_location=dev)
             state_dict = ckpt.get("model_state_dict", ckpt) if isinstance(ckpt, dict) and "model_state_dict" in ckpt else ckpt
             model.load_state_dict(state_dict)
+        if compile and hasattr(torch, "compile") and dev.type == "cuda":
+            model = torch.compile(model)
         optimizer = torch.optim.AdamW(model.parameters(), lr=lr, fused=dev.type == "cuda")
         return cls(model, optimizer, CalibratedLoss(), dev, accum_steps=accum_steps)
 

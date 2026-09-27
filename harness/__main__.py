@@ -22,11 +22,12 @@ def main() -> None:
     parser.add_argument("--metrics-output", type=str, default=str(DEFAULT_METRICS), help="Metrics JSON output path")
     parser.add_argument("--init-checkpoint", type=str, default=None, help="Initial checkpoint path")
     parser.add_argument("--epochs", type=int, default=1, help="Number of training epochs")
-    parser.add_argument("--batch-size", type=int, default=16)
-    parser.add_argument("--max-tokens", type=int, default=4000, help="Max tokens per batch for dynamic batching")
+    parser.add_argument("--batch-size", type=int, default=32)
+    parser.add_argument("--max-tokens", type=int, default=8000, help="Max tokens per batch for dynamic batching")
     parser.add_argument("--lr", type=float, default=1.5e-5)
-    parser.add_argument("--accum-steps", type=int, default=2)
+    parser.add_argument("--accum-steps", type=int, default=1)
     parser.add_argument("--seed", type=int, default=42, help="Random seed for reproducibility")
+    parser.add_argument("--compile", action="store_true", help="Compile model with torch.compile for peak CUDA speed")
     args = parser.parse_args()
 
     if torch.cuda.is_available():
@@ -38,6 +39,7 @@ def main() -> None:
         lr=args.lr,
         accum_steps=args.accum_steps,
         init_checkpoint=args.init_checkpoint,
+        compile=args.compile,
     )
     if args.metrics_output:
         trainer = trainer | MetricsLayer(output_path=args.metrics_output, sink=lambda msg: print(msg, flush=True))

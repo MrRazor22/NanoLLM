@@ -80,12 +80,17 @@ class SlotAssembler(ISlotAssembler):
             batch_meta.append(meta)
 
         max_len = max(len(ids) for ids in all_ids)
-        padded = [ids + [self.pad_id] * (max_len - len(ids)) for ids in all_ids]
-        masks = [[1] * len(ids) + [0] * (max_len - len(ids)) for ids in all_ids]
+        bsz = len(all_ids)
+        input_ids = torch.full((bsz, max_len), self.pad_id, dtype=torch.long, device=dev)
+        mask = torch.zeros((bsz, max_len), dtype=torch.float, device=dev)
+        for i, ids in enumerate(all_ids):
+            sz = len(ids)
+            input_ids[i, :sz] = torch.as_tensor(ids, dtype=torch.long)
+            mask[i, :sz] = 1.0
 
         return {
-            "input_ids": torch.tensor(padded, dtype=torch.long, device=dev),
-            "mask": torch.tensor(masks, dtype=torch.float, device=dev),
+            "input_ids": input_ids,
+            "mask": mask,
             "slots": [item[1] for item in batch_meta[0]] if is_single else [[item[1] for item in m] for m in batch_meta],
             "meta": batch_meta,
         }
