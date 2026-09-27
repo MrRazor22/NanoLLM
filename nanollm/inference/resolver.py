@@ -35,8 +35,8 @@ class DecisionResolver(IDecisionResolver):
                 prob = float(torch.sigmoid(raw_scores[slot_indices[0]]).item())
                 answers[q.name] = NoulResult(value=prob >= 0.5, probability=prob)
             elif isinstance(q, Score):
-                val = float(raw_scores[slot_indices[0]].item())
-                norm = max(0.0, min(1.0, (val - q.min_value) / max(1e-5, (q.max_value - q.min_value))))
+                norm = float(torch.sigmoid(raw_scores[slot_indices[0]]).item())
+                val = q.min_value + norm * (q.max_value - q.min_value)
                 answers[q.name] = ScoreResult(score=val, normalized=norm)
         return answers
 

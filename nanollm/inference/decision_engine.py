@@ -3,12 +3,22 @@ from typing import Any, Optional, Protocol, Sequence, Union, runtime_checkable
 import torch
 from transformers import AutoModel
 from pipeline import PipelineComposable
+from nanollm.checkpoint_resolver import get_latest_checkpoint
 from nanollm.inference.assembler import ISlotAssembler, SlotAssembler
 from nanollm.inference.resolver import DecisionResolver, IDecisionResolver
 from nanollm.inference.schema import DecisionResult, Question
 from nanollm.model import ModelConfig, NanoModel
 
-DEFAULT_CHECKPOINT = Path(__file__).resolve().parent.parent.parent / "checkpoints" / "checkpoint_champion_v8.pt"
+def _resolve_default_checkpoint() -> Path:
+    latest, _ = get_latest_checkpoint()
+    if latest and latest.exists():
+        return latest
+    fallback = Path(__file__).resolve().parent.parent.parent / "checkpoints" / "checkpoint_champion_v10.pt"
+    if fallback.exists():
+        return fallback
+    return Path(__file__).resolve().parent.parent.parent / "checkpoints" / "checkpoint_champion_v8.pt"
+
+DEFAULT_CHECKPOINT = _resolve_default_checkpoint()
 
 @runtime_checkable
 class IDecisionEngine(Protocol):
@@ -50,7 +60,7 @@ class DecisionEngine(PipelineComposable, IDecisionEngine):
         device: Optional[str] = None,
         resolver: Optional[IDecisionResolver] = None,
     ) -> "DecisionEngine":
-        ckpt_path = Path(checkpoint_path) if checkpoint_path else DEFAULT_CHECKPOINT
+        ckpt_path = Path(checkpoint_path) if checkpoint_path else _resolve_default_checkpoint()
         dev = torch.device(device if device else ("cuda" if torch.cuda.is_available() else "cpu"))
         assembler = SlotAssembler(backbone_name)
         backbone = AutoModel.from_pretrained(backbone_name)

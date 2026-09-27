@@ -20,6 +20,10 @@ from nanollm.inference import (
     SlotAssembler,
 )
 
+from nanollm.checkpoint_resolver import (
+    get_latest_checkpoint,
+    list_all_checkpoints,
+)
 from nanollm.training import (
     CalibratedLoss,
     CheckpointingLayer,
@@ -48,6 +52,10 @@ __all__ = [
     "Score",
     "ScoreResult",
     "SlotAssembler",
+
+    # Checkpoints
+    "get_latest_checkpoint",
+    "list_all_checkpoints",
 
     # Training
     "CalibratedLoss",
