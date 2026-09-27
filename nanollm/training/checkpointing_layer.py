@@ -30,12 +30,34 @@ class CheckpointingLayer(PipelineComposable, ITrainer):
     def model(self) -> Any:
         return getattr(self.inner, "model")
 
-    def _save(self, path: Path) -> None:
+    def _save(self, path: Path, stats: Optional[StepStats] = None) -> None:
+        import json, time
         path.parent.mkdir(parents=True, exist_ok=True)
-        payload = {"model_state_dict": self.model.state_dict()}
+        meta = {
+            "saved_at": time.strftime("%Y-%m-%d %H:%M:%S"),
+            "checkpoint": path.name,
+            "epoch": stats.epoch if stats else 1,
+            "train_loss": round(stats.loss, 6) if stats else None,
+            "val_loss": round(stats.val_loss, 6) if stats and stats.val_loss is not None else None,
+            "lr": stats.lr if stats else None,
+            "step": stats.step if stats else None,
+            "total_steps": stats.total_steps if stats else None,
+        }
+        payload = {"model_state_dict": self.model.state_dict(), "meta": meta}
         if self.save_optimizer and hasattr(self.inner, "optimizer"):
             payload["optimizer_state_dict"] = getattr(self.inner, "optimizer").state_dict()
         torch.save(payload, str(path))
+
+        # Update persistent manifest
+        manifest_path = path.parent / "manifest.json"
+        manifest = {}
+        if manifest_path.exists():
+            try:
+                manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+            except Exception:
+                manifest = {}
+        manifest[path.name] = meta
+        manifest_path.write_text(json.dumps(manifest, indent=2), encoding="utf-8")
 
     def evaluate(self, batches: Iterable[Batch]) -> float:
         if self.inner is None:
@@ -54,7 +76,7 @@ class CheckpointingLayer(PipelineComposable, ITrainer):
             if s.val_loss is not None and self.output_path:
                 if s.val_loss < self.best_val_loss:
                     self.best_val_loss = s.val_loss
-                    self._save(self.output_path)
+                    self._save(self.output_path, stats=s)
             yield s
 
 __all__ = ["CheckpointingLayer"]
