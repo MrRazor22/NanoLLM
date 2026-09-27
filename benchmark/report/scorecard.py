@@ -35,6 +35,10 @@ class Scorecard(IScorecard):
         latencies: List[float] = []
         hits: List[float] = []
 
+        import time
+        start_eval_t = time.perf_counter()
+        total_items = len(items) if hasattr(items, "__len__") else 0
+
         for i, item in enumerate(items):
             cat = item.get("category", "general")
             if cat not in stats:
@@ -62,7 +66,20 @@ class Scorecard(IScorecard):
 
             if log_interval > 0 and (i + 1) % log_interval == 0:
                 cur_acc = 100.0 * (sum(hits) / len(hits)) if hits else 0.0
-                print(f"  [{i + 1:5d}] running acc: {cur_acc:.1f}%", flush=True)
+                elapsed = time.perf_counter() - start_eval_t
+                avg_ms = (elapsed * 1000.0) / (i + 1)
+                rem = (total_items - (i + 1)) if total_items else 0
+                if rem > 0 and avg_ms > 0:
+                    total_sec = int((rem * avg_ms) / 1000.0)
+                    mins, secs = divmod(total_sec, 60)
+                    eta_str = f" | ETA: {mins}m {secs:02d}s" if mins > 0 else f" | ETA: {secs}s"
+                else:
+                    eta_str = ""
+                gpu_str = ""
+                if torch.cuda.is_available():
+                    vram_gb = torch.cuda.memory_allocated() / (1024 ** 3)
+                    gpu_str = f" | VRAM: {vram_gb:.2f}GB"
+                print(f"  [{i + 1:5d}/{total_items}] running acc: {cur_acc:.1f}% | {avg_ms:.1f}ms/item{gpu_str}{eta_str}", flush=True)
 
         total_correct = sum(s["correct"] for s in stats.values())
         total_eval = sum(s["total"] for s in stats.values())

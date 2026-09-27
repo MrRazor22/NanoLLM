@@ -43,10 +43,12 @@ class TrainingDataset(PipelineComposable, Dataset, ITrainingDataset):
         samples: Sequence[DecisionSample],
         assembler: Optional[Any] = None,
         collator: Optional[IBatchCollator] = None,
+        source_path: Optional[Union[str, Path]] = None,
     ):
         self.samples = list(samples)
         self.assembler = assembler
         self.collator = collator or (MultiQuestionCollator(assembler) if assembler is not None else None)
+        self.source_path = Path(source_path) if source_path else None
         if self.collator is not None and not isinstance(self.collator, IBatchCollator):
             raise TypeError(f"collator must implement IBatchCollator, got {type(self.collator).__name__}")
 
@@ -71,8 +73,38 @@ class TrainingDataset(PipelineComposable, Dataset, ITrainingDataset):
 
         assembler = getattr(active_collator, "assembler", self.assembler)
         if assembler is not None and max_tokens > 0:
-            lens = [len(assembler.render_sample(s.state, s.questions)[0]) for s in self.samples]
-            indices = sorted(range(len(self.samples)), key=lambda i: lens[i])
+            import time as _time
+            total_samples = len(self.samples)
+            lens = None
+            cache_file = None
+            if self.source_path and self.source_path.exists():
+                mtime = int(self.source_path.stat().st_mtime)
+                cache_file = self.source_path.parent / f".cache_{self.source_path.stem}_{mtime}_lens.json"
+                if cache_file.exists():
+                    try:
+                        import json as _json
+                        cached_lens = _json.loads(cache_file.read_text(encoding="utf-8"))
+                        if len(cached_lens) == total_samples:
+                            lens = cached_lens
+                    except Exception:
+                        lens = None
+
+            if lens is None:
+                print(f"Tokenizing {total_samples} samples...", flush=True)
+                lens, last_report = [], _time.perf_counter()
+                for i, s in enumerate(self.samples):
+                    lens.append(len(assembler.render_sample(s.state, s.questions)[0]))
+                    now = _time.perf_counter()
+                    if now - last_report >= 5.0:
+                        print(f"  {i}/{total_samples} tokenized ({i * 100 // total_samples}%)...", flush=True)
+                        last_report = now
+                if cache_file:
+                    try:
+                        import json as _json
+                        cache_file.write_text(_json.dumps(lens), encoding="utf-8")
+                    except Exception:
+                        pass
+            indices = sorted(range(total_samples), key=lambda i: lens[i])
             batches, cur_b, cur_toks = [], [], 0
             for i in indices:
                 if (cur_toks + lens[i] > max_tokens and cur_b) or (batch_size > 0 and len(cur_b) >= batch_size):
@@ -82,6 +114,7 @@ class TrainingDataset(PipelineComposable, Dataset, ITrainingDataset):
                 cur_toks += lens[i]
             if cur_b:
                 batches.append(cur_b)
+            print(f"Grouped {total_samples} samples into {len(batches)} batches.", flush=True)
         else:
             batches = [list(range(i, min(i + batch_size, len(self.samples)))) for i in range(0, len(self.samples), batch_size)]
 
@@ -95,7 +128,7 @@ class TrainingDataset(PipelineComposable, Dataset, ITrainingDataset):
         if isinstance(assembler, str):
             from nanollm.inference.assembler import SlotAssembler
             assembler = SlotAssembler(assembler)
-        return cls(load_jsonl(path), assembler=assembler)
+        return cls(load_jsonl(path), assembler=assembler, source_path=path)
 
     @classmethod
     def from_source(cls, source: IDataSource, assembler: Optional[Any] = None) -> "TrainingDataset":

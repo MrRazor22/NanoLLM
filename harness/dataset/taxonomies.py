@@ -44,6 +44,8 @@ SAFETY_GUARDRAIL_CRITERIA = {
     "quarantine_threat": "Malicious prompt injection, jailbreak attempt, or policy escape; halt and alert security.",
 }
 
+from harness.dataset.taxonomies_b77 import BANKING77_CRITERIA
+
 __all__ = [
     "AG_NEWS_TOPICS",
     "SPAM_CRITERIA",
@@ -51,4 +53,5 @@ __all__ = [
     "SUPPORT_QUEUES",
     "EMOTION_CRITERIA",
     "SAFETY_GUARDRAIL_CRITERIA",
+    "BANKING77_CRITERIA",
 ]

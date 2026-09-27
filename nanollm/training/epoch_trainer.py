@@ -1,5 +1,5 @@
-from dataclasses import dataclass, field
-from typing import Any, Iterable, Iterator, List, Mapping, Optional, Protocol, Union, runtime_checkable
+from dataclasses import dataclass
+from typing import Any, Iterable, Iterator, Mapping, Optional, Protocol, Union, runtime_checkable
 import time
 import torch
 from pipeline import PipelineComposable
@@ -8,31 +8,26 @@ from nanollm.training.loss import CalibratedLoss, ILoss
 
 @dataclass(frozen=True)
 class StepStats:
+    epoch: int
+    total_epochs: int
     step: int
     total_steps: int  # 0 = unknown
     loss: float
     elapsed_ms: float
-
-@dataclass
-class EpochStats:
-    epoch: int
-    total_epochs: int
-    train_loss: float
-    val_loss: Optional[float]
-    elapsed_sec: float
-    step_stats: List[StepStats] = field(default_factory=list)
+    lr: float = 0.0
+    val_loss: Optional[float] = None  # set on final step of each epoch
 
 Batch = Mapping[str, Any]
 
 @runtime_checkable
 class ITrainer(Protocol):
-    """ATA Root Contract: streaming training and standalone evaluation."""
+    """ATA Root Contract: fit streams one StepStats per optimizer step."""
     def fit(
         self,
         train_batches: Iterable[Batch],
         val_batches: Optional[Iterable[Batch]] = None,
         epochs: int = 1,
-    ) -> Iterator[EpochStats]: ...
+    ) -> Iterator[StepStats]: ...
 
     def evaluate(self, batches: Iterable[Batch]) -> float: ...
 
@@ -87,17 +82,15 @@ class EpochTrainer(PipelineComposable, ITrainer):
         train_batches: Iterable[Batch],
         val_batches: Optional[Iterable[Batch]] = None,
         epochs: int = 1,
-    ) -> Iterator[EpochStats]:
-        total_steps = len(train_batches) if hasattr(train_batches, "__len__") else 0  # type: ignore[arg-type]
+    ) -> Iterator[StepStats]:
+        total_batches = len(train_batches) if hasattr(train_batches, "__len__") else 0
+        total_steps = total_batches // self.accum_steps if total_batches else 0
         for epoch in range(1, epochs + 1):
-            t0 = time.perf_counter()
-
-            # --- train ---
             self.model.train()
             total_loss = torch.tensor(0.0, device=self.device)
-            step_stats: List[StepStats] = []
             self.optimizer.zero_grad(set_to_none=True)
-            last_t, n = t0, 0
+            last_t = time.perf_counter()
+            opt_step = 0
             for n, batch in enumerate(train_batches):
                 ids = batch["input_ids"].to(self.device, non_blocking=True)
                 mask = batch["mask"].to(self.device, non_blocking=True)
@@ -109,18 +102,22 @@ class EpochTrainer(PipelineComposable, ITrainer):
                     self.scaler.step(self.optimizer)
                     self.scaler.update()
                     self.optimizer.zero_grad(set_to_none=True)
+                    opt_step += 1
                     now = time.perf_counter()
-                    step_stats.append(StepStats(n + 1, total_steps, (total_loss / (n + 1)).item(), (now - last_t) * 1000.0 / self.accum_steps))
+                    is_last = (total_steps > 0 and opt_step >= total_steps)
+                    val_loss = self.evaluate(val_batches) if (is_last and val_batches is not None) else None
+                    cur_lr = self.optimizer.param_groups[0]["lr"] if self.optimizer.param_groups else 0.0
+                    yield StepStats(epoch, epochs, opt_step, total_steps, (total_loss / (n + 1)).item(), (now - last_t) * 1000.0 / self.accum_steps, cur_lr, val_loss)
                     last_t = now
-            if (n + 1) % self.accum_steps != 0:
+            # flush leftover accumulation if total batches not divisible by accum_steps
+            remainder = (len(list(range(0))) if not total_batches else total_batches) % self.accum_steps
+            if total_batches and total_batches % self.accum_steps != 0:
                 self.scaler.step(self.optimizer)
                 self.scaler.update()
                 self.optimizer.zero_grad(set_to_none=True)
-            train_loss = (total_loss / max(1, n + 1)).item()
+                opt_step += 1
+                cur_lr = self.optimizer.param_groups[0]["lr"] if self.optimizer.param_groups else 0.0
+                val_loss = self.evaluate(val_batches) if val_batches is not None else None
+                yield StepStats(epoch, epochs, opt_step, total_steps or opt_step, (total_loss / max(1, total_batches)).item(), 0.0, cur_lr, val_loss)
 
-            # --- eval ---
-            val_loss = self.evaluate(val_batches) if val_batches is not None else None
-
-            yield EpochStats(epoch, epochs, train_loss, val_loss, time.perf_counter() - t0, step_stats)
-
-__all__ = ["StepStats", "EpochStats", "ITrainer", "EpochTrainer", "Batch"]
+__all__ = ["StepStats", "ITrainer", "EpochTrainer", "Batch"]

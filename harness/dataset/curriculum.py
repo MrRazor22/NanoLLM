@@ -8,6 +8,7 @@ from harness.dataset.sources.glaive import GlaiveToolSource
 from harness.dataset.sources.typed import TypedDecisionsSource
 from harness.dataset.taxonomies import (
     AG_NEWS_TOPICS,
+    BANKING77_CRITERIA,
     EMOTION_CRITERIA,
     PHISHING_CRITERIA,
     SAFETY_GUARDRAIL_CRITERIA,
@@ -27,7 +28,7 @@ def get_default_sources(rng: Optional[random.Random] = None) -> List[IDataSource
         GenericChoiceSource("zefang-liu/phishing-email-dataset", None, "train", lambda r: f"Email:\n{(r.get('Email Text') or '')[:2000]}", lambda r: "true" if r.get("Email Type") == "Phishing Email" else "false", "is_phishing", "Is this email a phishing or scam attempt?", 3000, opts_dict=PHISHING_CRITERIA, name="phishing_email"),
         GenericChoiceSource("Tobi-Bueck/customer-support-tickets", None, "train", lambda r: f"Subject: {r.get('subject', '')}\n\nBody: {(r.get('body') or '')[:2000]}", "queue", "queue", "Which support queue should handle this ticket?", 5000, filter_fn=lambda r: r.get("language") == "en" and r.get("body"), per_class_limit=500, opts_dict=SUPPORT_QUEUES, name="customer_support"),
         GenericChoiceSource("dair-ai/emotion", "split", "train", "text", "label", "emotion", "Which emotion is most strongly expressed in text?", 3000, opts_dict=EMOTION_CRITERIA, name="emotion"),
-        GenericChoiceSource("mteb/banking77", None, "train", "text", lambda r: str(r.get("label_text", "")).replace("_", " "), "intent", "What is the primary customer inquiry or banking request?", 6000, name="banking77"),
+        GenericChoiceSource("mteb/banking77", None, "train", "text", lambda r: str(r.get("label_text", "")).replace("_", " "), "intent", "What is the primary customer inquiry or banking request?", 6000, opts_dict=BANKING77_CRITERIA, name="banking77"),
         GenericChoiceSource("deepset/prompt-injections", None, "train", "text", lambda r: "quarantine_threat" if int(r.get("label", 0)) == 1 else "allow", "guardrail_action", "Determine the safety policy action for this user input.", 1000, opts_dict=SAFETY_GUARDRAIL_CRITERIA, name="prompt_injections"),
         GenericChoiceSource("jackhhao/jailbreak-classification", None, "train", "prompt", lambda r: "quarantine_threat" if str(r.get("type", "")).lower() == "jailbreak" else "allow", "guardrail_action", "Determine the safety policy action for this user input.", 1500, opts_dict=SAFETY_GUARDRAIL_CRITERIA, name="jailbreak_classification"),
     ]

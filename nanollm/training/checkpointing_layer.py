@@ -2,10 +2,10 @@ from pathlib import Path
 from typing import Any, Iterable, Iterator, Optional
 import torch
 from pipeline import PipelineComposable
-from nanollm.training.epoch_trainer import Batch, EpochStats, ITrainer
+from nanollm.training.epoch_trainer import Batch, ITrainer, StepStats
 
 class CheckpointingLayer(PipelineComposable, ITrainer):
-    """ATA Composable Layer: transparently decorates ITrainer to save checkpoints on epoch improvement."""
+    """ATA Layer: saves checkpoint at each epoch-end (when val_loss is populated in the stream)."""
 
     def __init__(
         self,
@@ -30,7 +30,7 @@ class CheckpointingLayer(PipelineComposable, ITrainer):
     def model(self) -> Any:
         return getattr(self.inner, "model")
 
-    def save_checkpoint(self, path: Path) -> None:
+    def _save(self, path: Path) -> None:
         path.parent.mkdir(parents=True, exist_ok=True)
         payload = {"model_state_dict": self.model.state_dict()}
         if self.save_optimizer and hasattr(self.inner, "optimizer"):
@@ -39,7 +39,7 @@ class CheckpointingLayer(PipelineComposable, ITrainer):
 
     def evaluate(self, batches: Iterable[Batch]) -> float:
         if self.inner is None:
-            raise RuntimeError("CheckpointingLayer is not attached to an inner trainer.")
+            raise RuntimeError("CheckpointingLayer has no inner trainer.")
         return self.inner.evaluate(batches)
 
     def fit(
@@ -47,17 +47,14 @@ class CheckpointingLayer(PipelineComposable, ITrainer):
         train_batches: Iterable[Batch],
         val_batches: Optional[Iterable[Batch]] = None,
         epochs: int = 1,
-    ) -> Iterator[EpochStats]:
+    ) -> Iterator[StepStats]:
         if self.inner is None:
-            raise RuntimeError("CheckpointingLayer is not attached to an inner trainer.")
-        for stats in self.inner.fit(train_batches, val_batches=val_batches, epochs=epochs):
-            if stats.val_loss is not None:
-                if stats.val_loss < self.best_val_loss:
-                    self.best_val_loss = stats.val_loss
-                    if self.output_path:
-                        self.save_checkpoint(self.output_path)
-            elif self.output_path:
-                self.save_checkpoint(self.output_path)
-            yield stats
+            raise RuntimeError("CheckpointingLayer has no inner trainer.")
+        for s in self.inner.fit(train_batches, val_batches=val_batches, epochs=epochs):
+            if s.val_loss is not None and self.output_path:
+                if s.val_loss < self.best_val_loss:
+                    self.best_val_loss = s.val_loss
+                    self._save(self.output_path)
+            yield s
 
 __all__ = ["CheckpointingLayer"]

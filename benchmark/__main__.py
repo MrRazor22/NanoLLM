@@ -35,6 +35,9 @@ def main() -> None:
 
     target_suites = suites if args.suite == "all" else {args.suite: suites[args.suite]}
     dev = "cuda" if torch.cuda.is_available() else "cpu"
+    if torch.cuda.is_available():
+        torch.set_float32_matmul_precision("high")
+        torch.backends.cudnn.benchmark = True
     engine = DecisionEngine.from_checkpoint(args.checkpoint, device=dev) | ProfilingLayer()
     scorecard: IScorecard = Scorecard()
 

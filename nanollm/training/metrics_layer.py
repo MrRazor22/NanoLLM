@@ -1,27 +1,26 @@
-from dataclasses import asdict
 import json
+import time
 from pathlib import Path
 from typing import Any, Callable, Iterable, Iterator, List, Optional, Union
+import torch
 from pipeline import PipelineComposable
-from nanollm.training.epoch_trainer import Batch, EpochStats, ITrainer, StepStats
+from nanollm.training.epoch_trainer import Batch, ITrainer, StepStats
 
 class MetricsLayer(PipelineComposable, ITrainer):
-    """ATA Composable Layer: logs step + epoch stats, persists metrics to disk."""
+    """ATA Layer: time-based logging over the StepStats stream from the primitive."""
 
     def __init__(
         self,
         inner: Optional[ITrainer] = None,
         output_path: Optional[Union[str, Path]] = None,
-        sink: Optional[Callable[[str], None]] = print,
-        prefix: str = "",
-        log_every_n_steps: int = 50,
+        sink: Optional[Callable[[str], None]] = None,
+        log_interval_sec: float = 10.0,
     ):
         self.inner = inner
         self.output_path = Path(output_path) if output_path else None
-        self.sink = sink
-        self.prefix = prefix
-        self.log_every_n_steps = log_every_n_steps
-        self.history: List[EpochStats] = []
+        self.sink = sink if sink is not None else (lambda msg: print(msg, flush=True))
+        self.log_interval_sec = log_interval_sec
+        self.history: List[StepStats] = []
 
     def attach(self, inner: ITrainer) -> "MetricsLayer":
         self.inner = inner
@@ -33,7 +32,7 @@ class MetricsLayer(PipelineComposable, ITrainer):
 
     def evaluate(self, batches: Iterable[Batch]) -> float:
         if self.inner is None:
-            raise RuntimeError("MetricsLayer is not attached to an inner trainer.")
+            raise RuntimeError("MetricsLayer has no inner trainer.")
         return self.inner.evaluate(batches)
 
     def fit(
@@ -41,24 +40,43 @@ class MetricsLayer(PipelineComposable, ITrainer):
         train_batches: Iterable[Batch],
         val_batches: Optional[Iterable[Batch]] = None,
         epochs: int = 1,
-    ) -> Iterator[EpochStats]:
+    ) -> Iterator[StepStats]:
         if self.inner is None:
-            raise RuntimeError("MetricsLayer is not attached to an inner trainer.")
-        pfx = f"[{self.prefix}] " if self.prefix else ""
-        for stats in self.inner.fit(train_batches, val_batches=val_batches, epochs=epochs):
+            raise RuntimeError("MetricsLayer has no inner trainer.")
+        seen_epochs: set = set()
+        last_log_t = time.perf_counter()
+        for s in self.inner.fit(train_batches, val_batches=val_batches, epochs=epochs):
+            self.history.append(s)
             if self.sink:
-                total = stats.step_stats[-1].total_steps if stats.step_stats else 0
-                total_str = f"/{total}" if total else ""
-                for s in stats.step_stats:
-                    if s.step % self.log_every_n_steps == 0 or s.step == total:
-                        self.sink(f"{pfx}  Step [{s.step:5d}{total_str}] Loss: {s.loss:.4f} | {s.elapsed_ms:.0f}ms/step")
-                val_info = f" | Val Loss: {stats.val_loss:.4f}" if stats.val_loss is not None else ""
-                self.sink(f"{pfx}Epoch {stats.epoch:2d}/{stats.total_epochs:2d} | Train Loss: {stats.train_loss:.4f}{val_info} | Elapsed: {stats.elapsed_sec:.1f}s")
-            self.history.append(stats)
-            if self.output_path:
+                total_str = f"/{s.total_steps}" if s.total_steps else ""
+                if s.epoch not in seen_epochs:
+                    seen_epochs.add(s.epoch)
+                    self.sink(f"Epoch {s.epoch}/{s.total_epochs} - first step done, training live.")
+                    last_log_t = time.perf_counter()
+                now = time.perf_counter()
+                if now - last_log_t >= self.log_interval_sec or s.val_loss is not None:
+                    remaining = s.total_steps - s.step if s.total_steps else 0
+                    if remaining > 0 and s.elapsed_ms > 0:
+                        total_sec = int((remaining * s.elapsed_ms) / 1000.0)
+                        mins, secs = divmod(total_sec, 60)
+                        eta_str = f" | ETA: {mins}m {secs:02d}s" if mins > 0 else f" | ETA: {secs}s"
+                    else:
+                        eta_str = ""
+                    gpu_str = ""
+                    if torch.cuda.is_available():
+                        vram_gb = torch.cuda.memory_allocated() / (1024 ** 3)
+                        gpu_str = f" | VRAM: {vram_gb:.2f}GB"
+                    lr_str = f" | LR: {s.lr:.1e}" if s.lr > 0 else ""
+                    line = f"  Ep {s.epoch}/{s.total_epochs} | Step [{s.step:5d}{total_str}] Loss: {s.loss:.4f} | Speed: {s.elapsed_ms:.1f}ms/step{eta_str}{lr_str}{gpu_str}"
+                    if s.val_loss is not None:
+                        line += f" | Val Loss: {s.val_loss:.4f}"
+                    self.sink(line)
+                    last_log_t = now
+            if self.output_path and s.val_loss is not None:
                 self.output_path.parent.mkdir(parents=True, exist_ok=True)
-                with open(self.output_path, "w", encoding="utf-8") as f:
-                    json.dump([{**asdict(s), "step_stats": []} for s in self.history], f, indent=2)
-            yield stats
+                self.output_path.write_text(json.dumps(
+                    [{"epoch": x.epoch, "train_loss": x.loss, "val_loss": x.val_loss}
+                     for x in self.history if x.val_loss is not None], indent=2))
+            yield s
 
 __all__ = ["MetricsLayer"]

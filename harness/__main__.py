@@ -40,10 +40,11 @@ def main() -> None:
         init_checkpoint=args.init_checkpoint,
     )
     if args.metrics_output:
-        trainer = trainer | MetricsLayer(output_path=args.metrics_output, sink=print)
+        trainer = trainer | MetricsLayer(output_path=args.metrics_output, sink=lambda msg: print(msg, flush=True))
     if args.output:
         trainer = trainer | CheckpointingLayer(output_path=args.output)
 
+    print(f"Preparing datasets (Train: {args.train_data}, Val: {args.val_data})...", flush=True)
     train_batches, val_batches = TrainingDataset.loaders(
         train_data=args.train_data,
         val_data=args.val_data,
@@ -52,6 +53,8 @@ def main() -> None:
         max_tokens=args.max_tokens,
         seed=args.seed,
     )
+    print(f"Batches prepared: {len(train_batches)} train batches, {len(val_batches) if val_batches is not None else 0} val batches.", flush=True)
+    print(f"Beginning training for {args.epochs} epoch(s)...", flush=True)
 
     for _ in trainer.fit(train_batches, val_batches=val_batches, epochs=args.epochs):
         pass
