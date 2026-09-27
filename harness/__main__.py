@@ -42,7 +42,7 @@ def main() -> None:
         compile=args.compile,
     )
     if args.metrics_output:
-        trainer = trainer | MetricsLayer(output_path=args.metrics_output, sink=lambda msg: print(msg, flush=True))
+        trainer = trainer | MetricsLayer(output_path=args.metrics_output, sink=lambda msg: print(msg, flush=True), log_interval_sec=5.0)
     if args.output:
         trainer = trainer | CheckpointingLayer(output_path=args.output)
 
