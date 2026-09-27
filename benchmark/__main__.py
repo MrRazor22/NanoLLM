@@ -13,6 +13,8 @@ from benchmark.report import IScorecard, Scorecard
 from nanollm.inference.decision_engine import DEFAULT_CHECKPOINT, DecisionEngine
 from nanollm.inference.profiling_layer import ProfilingLayer
 
+from nanollm.checkpoint_resolver import get_latest_checkpoint
+
 SUITE_SOURCES: dict[str, type[IDataSource]] = {
     "agentic": AgenticSource,
     "abstention": AbstentionSource,
@@ -22,8 +24,11 @@ SUITE_SOURCES: dict[str, type[IDataSource]] = {
 
 def main() -> None:
     suites = SUITE_SOURCES
+    latest_ckpt, _ = get_latest_checkpoint()
+    default_ckpt = str(latest_ckpt) if latest_ckpt else str(DEFAULT_CHECKPOINT)
+
     parser = argparse.ArgumentParser(description="NanoLLM Honest Benchmark")
-    parser.add_argument("--checkpoint", type=str, default=str(DEFAULT_CHECKPOINT), help="Path to checkpoint")
+    parser.add_argument("--checkpoint", type=str, default=default_ckpt, help=f"Path to checkpoint (default: {default_ckpt})")
     parser.add_argument("--suite", "--track", type=str, default="all", dest="suite", choices=["all"] + list(suites.keys()), help="Benchmark suite to run")
     parser.add_argument("--all", action="store_const", dest="suite", const="all", help="Run all suites")
     for name in suites:

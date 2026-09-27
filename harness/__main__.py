@@ -13,19 +13,25 @@ DEFAULT_OUTPUT = ROOT / "checkpoints" / "checkpoint_trained.pt"
 DEFAULT_METRICS = ROOT / "checkpoints" / "metrics.json"
 DEFAULT_BACKBONE = "answerdotai/ModernBERT-base"
 
+from nanollm.checkpoint_resolver import get_latest_checkpoint, get_next_checkpoint_path
+
 def main() -> None:
+    latest_ckpt, latest_ver = get_latest_checkpoint()
+    default_init = str(latest_ckpt) if latest_ckpt else None
+    default_out = str(get_next_checkpoint_path())
+
     parser = argparse.ArgumentParser(description="Train NanoLLM")
     parser.add_argument("--backbone", type=str, default=DEFAULT_BACKBONE, help="HuggingFace backbone model")
     parser.add_argument("--train-data", type=str, default=str(DEFAULT_TRAIN), help="Path to training jsonl")
     parser.add_argument("--val-data", type=str, default=str(DEFAULT_VAL), help="Path to validation jsonl")
-    parser.add_argument("--output", type=str, default=str(DEFAULT_OUTPUT), help="Output checkpoint path")
+    parser.add_argument("--output", type=str, default=default_out, help=f"Output checkpoint path (default: {default_out})")
     parser.add_argument("--metrics-output", type=str, default=str(DEFAULT_METRICS), help="Metrics JSON output path")
-    parser.add_argument("--init-checkpoint", type=str, default=None, help="Initial checkpoint path")
+    parser.add_argument("--init-checkpoint", type=str, default=default_init, help=f"Initial checkpoint path (default: {default_init})")
     parser.add_argument("--epochs", type=int, default=1, help="Number of training epochs")
-    parser.add_argument("--batch-size", type=int, default=32)
-    parser.add_argument("--max-tokens", type=int, default=8000, help="Max tokens per batch for dynamic batching")
-    parser.add_argument("--lr", type=float, default=1.5e-5)
-    parser.add_argument("--accum-steps", type=int, default=1)
+    parser.add_argument("--batch-size", type=int, default=16)
+    parser.add_argument("--max-tokens", type=int, default=3600, help="Max tokens per batch for dynamic batching")
+    parser.add_argument("--lr", type=float, default=1.2e-5)
+    parser.add_argument("--accum-steps", type=int, default=2)
     parser.add_argument("--seed", type=int, default=42, help="Random seed for reproducibility")
     parser.add_argument("--compile", action="store_true", help="Compile model with torch.compile for peak CUDA speed")
     args = parser.parse_args()

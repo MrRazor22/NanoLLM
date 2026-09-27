@@ -107,7 +107,7 @@ class TrainingDataset(PipelineComposable, Dataset, ITrainingDataset):
             indices = sorted(range(total_samples), key=lambda i: lens[i])
             batches, cur_b, cur_toks = [], [], 0
             for i in indices:
-                if (cur_toks + lens[i] > max_tokens and cur_b) or (batch_size > 0 and len(cur_b) >= batch_size):
+                if (cur_toks + lens[i] > max_tokens and cur_b) or len(cur_b) >= batch_size:
                     batches.append(cur_b)
                     cur_b, cur_toks = [], 0
                 cur_b.append(i)
