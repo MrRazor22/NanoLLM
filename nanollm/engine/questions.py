@@ -14,11 +14,13 @@ class Choice:
     options: Union[Sequence[str], Mapping[str, str]]
     instruction: Optional[str] = None
     clusters: Optional[Mapping[str, Mapping[str, str]]] = None
+    target: Optional[Union[str, int]] = None
 
 @dataclass(frozen=True)
 class Noul:
     name: str
     instruction: Optional[str] = None
+    target: Optional[Union[bool, float, int]] = None
 
 @dataclass(frozen=True)
 class Score:
@@ -26,6 +28,7 @@ class Score:
     min_value: float = 0.0
     max_value: float = 100.0
     instruction: Optional[str] = None
+    target: Optional[float] = None
 
 Question = Union[Choice, Noul, Score]
 
@@ -53,27 +56,30 @@ class DecisionResult:
     latency_ms: float = 0.0
 
 @dataclass(frozen=True)
+class SlotIndices:
+    positions: Sequence[int]
+
+@dataclass(frozen=True)
 class TokenLayout:
-    input_ids: Sequence[Sequence[int]]
-    mask: Sequence[Sequence[float]]
-    slot_indices: Sequence[Sequence[int]]
+    input_ids: Sequence[int]
+    mask: Sequence[float]
+    slots: Sequence[SlotIndices]
+
+    @property
+    def slot_indices(self) -> Sequence[Sequence[int]]:
+        return [s.positions for s in self.slots]
 
 @dataclass(frozen=True)
 class ScoreLayout:
-    scores: Sequence[Sequence[float]]
+    scores: Sequence[float]
 
-@dataclass(frozen=True)
-class QuestionSpec:
-    name: str
-    q_type: str
-    target: Union[str, bool, float, int]
-    options: Optional[Sequence[str]] = None
-    instruction: Optional[str] = None
+# Backwards-compatible alias for unified schema
+QuestionSpec = Question
 
 @dataclass(frozen=True)
 class DecisionSample:
     state: DecisionState
-    questions: Sequence[QuestionSpec]
+    questions: Sequence[Question]
 
 # ==========================================
 # Colocated Pure DTO Transforms

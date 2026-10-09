@@ -42,22 +42,17 @@ class DecisionEngine(IDecisionEngine):
         ckpt_path = Path(checkpoint_path) if checkpoint_path else resolve_default_checkpoint()
         dev = torch.device(device if device else ("cuda" if torch.cuda.is_available() else "cpu"))
         tokenizer = AutoTokenizer.from_pretrained(backbone_name)
-        backbone = AutoModel.from_pretrained(backbone_name)
-        model = _ScoringHead(backbone).to(dev)
-        ckpt = torch.load(str(ckpt_path), map_location=dev)
-        state_dict = ckpt.get("model_state_dict", ckpt) if isinstance(ckpt, dict) and "model_state_dict" in ckpt else ckpt
-        model.load_state_dict(state_dict)
-        model.eval()
+        scorer = TorchScorer.from_backbone(backbone_name, checkpoint_path=str(ckpt_path), device=dev)
+        scorer.model.eval()
 
         encoder = SlotEncoder(tokenizer, max_state_tokens=max_state_tokens)
-        scorer = TorchScorer(model, dev)
         resolver = DecisionResolver()
         return cls(encoder, scorer, resolver)
 
     def decide(self, state: DecisionState, questions: Sequence[Question]) -> DecisionResult:
         layout = self.encoder.encode(state, questions)
         score_layout = self.scorer.score(layout)
-        answers = self.resolver.resolve(questions, layout.slot_indices, score_layout.scores[0])
+        answers = self.resolver.resolve(questions, layout.slot_indices, score_layout.scores)
         return DecisionResult(answers=answers)
 
     def decide_batch(

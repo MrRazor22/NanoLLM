@@ -4,7 +4,7 @@ import torch
 import torch.nn as nn
 from transformers import AutoModel
 
-from nanollm.engine.policies.torch_scorer import _ScoringHead
+from nanollm.engine.policies.torch_scorer import TorchScorer, _ScoringHead
 from nanollm.trainer.layers.checkpointing_layer import CheckpointingLayer
 from nanollm.trainer.batches import StepStats, TrainingBatch
 from nanollm.trainer.policies.calibrated_loss import CalibratedLoss, ILoss
@@ -43,10 +43,10 @@ class EpochTrainer(ITrainer):
         device: Optional[torch.device] = None,
         accum_steps: int = 2,
     ):
-        self.model = model
+        self.device = device or torch.device("cuda" if torch.cuda.is_available() else "cpu")
+        self.model = model.to(self.device)
         self.optimizer = optimizer
         self.loss_fn = loss_fn or CalibratedLoss()
-        self.device = device or torch.device("cuda" if torch.cuda.is_available() else "cpu")
         self.accum_steps = accum_steps
         self.scaler = torch.amp.GradScaler("cuda", enabled=self.device.type == "cuda")
 
@@ -61,16 +61,9 @@ class EpochTrainer(ITrainer):
         compile: bool = False,
     ) -> "EpochTrainer":
         dev = device or torch.device("cuda" if torch.cuda.is_available() else "cpu")
-        backbone = AutoModel.from_pretrained(backbone_name)
-        model = _ScoringHead(backbone).to(dev)
-        if init_checkpoint:
-            ckpt = torch.load(init_checkpoint, map_location=dev)
-            state_dict = ckpt.get("model_state_dict", ckpt) if isinstance(ckpt, dict) and "model_state_dict" in ckpt else ckpt
-            model.load_state_dict(state_dict)
-        if compile and hasattr(torch, "compile"):
-            model = torch.compile(model)
-        optimizer = torch.optim.AdamW(model.parameters(), lr=lr, fused=dev.type == "cuda")
-        return cls(model, optimizer, device=dev, accum_steps=accum_steps)
+        scorer = TorchScorer.from_backbone(backbone_name, checkpoint_path=init_checkpoint, device=dev, compile=compile)
+        optimizer = torch.optim.AdamW(scorer.model.parameters(), lr=lr, fused=dev.type == "cuda")
+        return cls(scorer.model, optimizer, device=dev, accum_steps=accum_steps)
 
     def evaluate(self, batches: Iterable[TrainingBatch]) -> float:
         self.model.eval()
@@ -79,10 +72,12 @@ class EpochTrainer(ITrainer):
             for m, batch in enumerate(batches):
                 raw_ids = batch["input_ids"] if isinstance(batch, dict) or hasattr(batch, "__getitem__") else batch.input_ids
                 raw_mask = batch["mask"] if isinstance(batch, dict) or hasattr(batch, "__getitem__") else batch.mask
-                meta = batch["meta"] if isinstance(batch, dict) or hasattr(batch, "__getitem__") else batch.meta
+                meta = batch["targets"] if (isinstance(batch, dict) or hasattr(batch, "__getitem__")) and "targets" in batch else (batch.targets if hasattr(batch, "targets") else batch["meta"])
                 ids = torch.as_tensor(raw_ids, dtype=torch.long, device=self.device)
                 mask = torch.as_tensor(raw_mask, dtype=torch.float, device=self.device)
-                val_total += self.loss_fn.compute(self.model(ids, mask), meta, self.device)
+                scores = self.model(ids, mask)
+                loss = self.loss_fn.loss_tensor(scores, meta) if hasattr(self.loss_fn, "loss_tensor") else self.loss_fn.forward(scores, meta)
+                val_total += loss
         return (val_total / max(1, m + 1)).item()
 
     def fit(
@@ -102,11 +97,13 @@ class EpochTrainer(ITrainer):
             for n, batch in enumerate(train_batches):
                 raw_ids = batch["input_ids"] if isinstance(batch, dict) or hasattr(batch, "__getitem__") else batch.input_ids
                 raw_mask = batch["mask"] if isinstance(batch, dict) or hasattr(batch, "__getitem__") else batch.mask
-                meta = batch["meta"] if isinstance(batch, dict) or hasattr(batch, "__getitem__") else batch.meta
+                meta = batch["targets"] if (isinstance(batch, dict) or hasattr(batch, "__getitem__")) and "targets" in batch else (batch.targets if hasattr(batch, "targets") else batch["meta"])
                 ids = torch.as_tensor(raw_ids, dtype=torch.long, device=self.device)
                 mask = torch.as_tensor(raw_mask, dtype=torch.float, device=self.device)
                 with torch.amp.autocast("cuda", enabled=self.device.type == "cuda"):
-                    loss = self.loss_fn.compute(self.model(ids, mask), meta, self.device) / self.accum_steps
+                    scores = self.model(ids, mask)
+                    loss_node = self.loss_fn.loss_tensor(scores, meta) if hasattr(self.loss_fn, "loss_tensor") else self.loss_fn.forward(scores, meta)
+                    loss = loss_node / self.accum_steps
                 self.scaler.scale(loss).backward()
                 total_loss += loss.detach() * self.accum_steps
                 if (n + 1) % self.accum_steps == 0:

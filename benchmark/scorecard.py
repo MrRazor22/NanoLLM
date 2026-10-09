@@ -1,8 +1,8 @@
 import json
 from pathlib import Path
 import time
-from typing import Any, Dict, List, Optional
-from nanollm import Choice
+from typing import Any, Dict, List, Mapping, Optional, Sequence
+from nanollm import Choice, IDecisionEngine
 
 DEFAULT_BASELINES = Path(__file__).resolve().parent / "baselines" / "competitor_cache.json"
 
@@ -15,7 +15,12 @@ class Scorecard:
         self.baselines = {k: v for k, v in raw.items() if k != "p50_latencies_ms"}
         self.p50s = raw.get("p50_latencies_ms", {})
 
-    def evaluate(self, engine: Any, items: List[Dict[str, Any]], log_interval: int = 100) -> Dict[str, Any]:
+    def evaluate(
+        self,
+        engine: IDecisionEngine,
+        items: Sequence[Mapping[str, Any]],
+        log_interval: int = 100,
+    ) -> Dict[str, Any]:
         stats: Dict[str, Dict[str, int]] = {}
         latencies, hits = [], []
         t0 = time.perf_counter()

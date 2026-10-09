@@ -6,18 +6,28 @@ from typing import Optional, Sequence, Tuple, Union
 # ==========================================
 
 @dataclass(frozen=True)
+class TargetSlot:
+    target_type: str
+    indices: Sequence[int]
+    value: Union[int, float]
+
+@dataclass(frozen=True)
+class SampleTargets:
+    slots: Sequence[TargetSlot]
+
+@dataclass(frozen=True)
 class TrainingBatch:
     input_ids: Sequence[Sequence[int]]
     mask: Sequence[Sequence[float]]
-    meta: Sequence[Sequence[Tuple[str, Sequence[int], Union[int, float]]]]
+    targets: Sequence[SampleTargets]
 
-    def __getitem__(self, key: str) -> Union[Sequence[Sequence[int]], Sequence[Sequence[float]], Sequence[Sequence[Tuple[str, Sequence[int], Union[int, float]]]]]:
+    def __getitem__(self, key: str) -> Union[Sequence[Sequence[int]], Sequence[Sequence[float]], Sequence[SampleTargets]]:
         if key == "input_ids":
             return self.input_ids
         if key == "mask":
             return self.mask
-        if key == "meta":
-            return self.meta
+        if key in ("targets", "meta"):
+            return self.targets
         raise KeyError(key)
 
 @dataclass(frozen=True)
@@ -33,4 +43,4 @@ class StepStats:
     batch: int = 0
     total_batches: int = 0
 
-__all__ = ["TrainingBatch", "StepStats"]
+__all__ = ["TargetSlot", "SampleTargets", "TrainingBatch", "StepStats"]

@@ -5,7 +5,7 @@ from typing import Any, Dict, List, Optional, Protocol, Sequence, Tuple, Union, 
 import torch
 from torch.utils.data import DataLoader, Dataset
 from harness.dataset.slot_assembler import SlotAssembler
-from nanollm import DecisionSample, QuestionSpec
+from nanollm import Choice, DecisionSample, Noul, Question, Score
 
 DATA_DIR = Path(__file__).resolve().parent / "data"
 
@@ -20,11 +20,18 @@ def to_decision_sample(item: Dict[str, Any]) -> DecisionSample:
     if isinstance(qs, dict):
         for name, spec in qs.items():
             opts = spec.get("options") or spec.get("criteria", {})
-            opt_keys = list(opts.keys()) if isinstance(opts, dict) else list(opts)
+            ins = spec.get("instructions")
+            q_type = spec.get("type", "choice" if opts else "noul")
             g = gold.get(name, {})
-            lbl = g.get("label") if isinstance(g, dict) else str(g)
-            target = opt_keys.index(lbl) if lbl in opt_keys else 0
-            specs.append(QuestionSpec(name=name, q_type=spec.get("type", "choice"), target=target, options=opts, instruction=spec.get("instructions")))
+            lbl = g.get("label") if isinstance(g, dict) else g
+            if q_type == "choice" and opts:
+                opt_keys = list(opts.keys()) if isinstance(opts, dict) else list(opts)
+                target = opt_keys.index(str(lbl)) if str(lbl) in opt_keys else 0
+                specs.append(Choice(name=name, options=opts, instruction=ins, target=target))
+            elif q_type == "score":
+                specs.append(Score(name=name, instruction=ins, target=float(lbl) if lbl is not None else 0.0))
+            else:
+                specs.append(Noul(name=name, instruction=ins, target=bool(lbl) if lbl is not None else False))
     return DecisionSample(state=state, questions=specs)
 
 class TrainingDataset(Dataset):

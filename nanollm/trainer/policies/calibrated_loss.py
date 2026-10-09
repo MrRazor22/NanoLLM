@@ -1,7 +1,8 @@
-from typing import Protocol, Sequence, Tuple, Union, runtime_checkable
+from typing import Optional, Protocol, Sequence, Tuple, Union, runtime_checkable
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
+from nanollm.trainer.batches import SampleTargets, TargetSlot
 
 @runtime_checkable
 class ILoss(Protocol):
@@ -9,10 +10,9 @@ class ILoss(Protocol):
 
     def compute(
         self,
-        scores: torch.Tensor,
-        batch_meta: Sequence[Sequence[Tuple[str, Sequence[int], Union[int, float]]]],
-        device: torch.device,
-    ) -> torch.Tensor:
+        scores: Sequence[Sequence[float]],
+        batch_targets: Sequence[SampleTargets],
+    ) -> float:
         ...
 
 class CalibratedLoss(nn.Module, ILoss):
@@ -24,24 +24,28 @@ class CalibratedLoss(nn.Module, ILoss):
 
     def compute(
         self,
-        scores: torch.Tensor,
-        batch_meta: Sequence[Sequence[Tuple[str, Sequence[int], Union[int, float]]]],
-        device: torch.device,
-    ) -> torch.Tensor:
-        return self.forward(scores, batch_meta, device)
+        scores: Sequence[Sequence[float]],
+        batch_targets: Sequence[SampleTargets],
+    ) -> float:
+        t_scores = torch.as_tensor(scores, dtype=torch.float)
+        return float(self.loss_tensor(t_scores, batch_targets).item())
 
-    def forward(
+    def loss_tensor(
         self,
         scores: torch.Tensor,
-        batch_meta: Sequence[Sequence[Tuple[str, Sequence[int], Union[int, float]]]],
-        device: torch.device,
+        batch_meta: Union[Sequence[SampleTargets], Sequence[Sequence[Union[TargetSlot, Tuple[str, Sequence[int], Union[int, float]]]]]],
     ) -> torch.Tensor:
+        device = scores.device
         choice_logits, choice_targets = [], []
         bce_logits, bce_targets = [], []
         score_logits, score_targets = [], []
 
-        for b_idx, sample_meta in enumerate(batch_meta):
-            for q_type, positions, target in sample_meta:
+        for b_idx, sample in enumerate(batch_meta):
+            items = sample.slots if isinstance(sample, SampleTargets) else sample
+            for item in items:
+                q_type = item.target_type if isinstance(item, TargetSlot) else item[0]
+                positions = item.indices if isinstance(item, TargetSlot) else item[1]
+                target = item.value if isinstance(item, TargetSlot) else item[2]
                 if q_type == "choice":
                     choice_logits.append(scores[b_idx, positions])
                     choice_targets.append(int(target))
@@ -75,5 +79,13 @@ class CalibratedLoss(nn.Module, ILoss):
 
         total_q = len(choice_logits) + len(bce_logits) + len(score_logits)
         return torch.sum(torch.stack(losses)) / max(1, total_q) if losses else torch.tensor(0.0, device=device)
+
+    def forward(
+        self,
+        scores: torch.Tensor,
+        batch_meta: Sequence[Sequence[Union[TargetSlot, Tuple[str, Sequence[int], Union[int, float]]]]],
+        device: Optional[torch.device] = None,
+    ) -> torch.Tensor:
+        return self.loss_tensor(scores, batch_meta)
 
 __all__ = ["ILoss", "CalibratedLoss"]

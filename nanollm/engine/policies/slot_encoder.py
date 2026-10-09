@@ -1,5 +1,5 @@
 from typing import List, Protocol, Sequence, runtime_checkable
-from nanollm.engine.questions import DecisionState, Question, TokenLayout, format_state
+from nanollm.engine.questions import DecisionState, Question, SlotIndices, TokenLayout, format_state
 
 @runtime_checkable
 class ITokenizer(Protocol):
@@ -53,9 +53,9 @@ class SlotEncoder(ILayoutEncoder):
                 slots.append([len(ids) - 1])
 
         return TokenLayout(
-            input_ids=[ids],
-            mask=[[1.0] * len(ids)],
-            slot_indices=slots,
+            input_ids=ids,
+            mask=[1.0] * len(ids),
+            slots=[SlotIndices(positions=s) for s in slots],
         )
 
 __all__ = ["ITokenizer", "ILayoutEncoder", "SlotEncoder"]

@@ -1,11 +1,14 @@
-from typing import Any, Dict, List, Optional, Protocol, Sequence, Tuple, Union, runtime_checkable
+from typing import Dict, List, Optional, Protocol, Sequence, Tuple, Union, runtime_checkable
 import torch
 from transformers import AutoTokenizer
+from nanollm.engine.policies.slot_encoder import ITokenizer
+from nanollm.engine.questions import DecisionState, Question, format_state
+from nanollm.trainer.batches import TargetSlot
 
 class SlotAssembler:
     """Renders domain state and question slots into token indices and builds collated batch tensors."""
 
-    def __init__(self, tokenizer_or_name: Any):
+    def __init__(self, tokenizer_or_name: Union[str, ITokenizer]):
         if isinstance(tokenizer_or_name, str):
             tok = AutoTokenizer.from_pretrained(tokenizer_or_name)
         elif hasattr(tokenizer_or_name, "encode"):
@@ -17,11 +20,8 @@ class SlotAssembler:
         self.sep_id = getattr(tok, "sep_token_id", getattr(tok, "eos_token_id", 50282))
         self.pad_id = getattr(tok, "pad_token_id", 50283)
 
-    def render_sample(self, state: Any, questions: Sequence[Any]) -> Tuple[List[int], List[Tuple[str, List[int], Any]]]:
-        if isinstance(state, dict):
-            text = " | ".join(f"{k}: {v}" for k, v in state.items())
-        else:
-            text = str(state)
+    def render_sample(self, state: DecisionState, questions: Sequence[Question]) -> Tuple[List[int], List[TargetSlot]]:
+        text = format_state(state)
         state_ids = self.tokenizer.encode(text)
         ids = state_ids[:384] if len(state_ids) > 384 else list(state_ids)
         meta = []
@@ -40,13 +40,17 @@ class SlotAssembler:
                     ids.append(self.mask_id)
                     pos.append(len(ids) - 1)
                     ids.extend(self.tokenizer.encode(f" {k}: {v}" if v else f" {k}"))
-                meta.append((q_type, pos, int(target) if target is not None else 0))
+                meta.append(TargetSlot(q_type, pos, int(target) if target is not None else 0))
             else:
                 ids.append(self.mask_id)
-                meta.append((q_type, [len(ids) - 1], float(target) if target is not None else 0.0))
+                meta.append(TargetSlot(q_type, [len(ids) - 1], float(target) if target is not None else 0.0))
         return ids, meta
 
-    def assemble_batch(self, items: Sequence[Tuple[List[int], List[Any]]], device: Optional[torch.device] = None) -> Dict[str, Any]:
+    def assemble_batch(
+        self,
+        items: Sequence[Tuple[List[int], List[TargetSlot]]],
+        device: Optional[torch.device] = None,
+    ) -> Dict[str, Any]:
         dev = device or torch.device("cpu")
         all_ids = [it[0] for it in items]
         batch_meta = [it[1] for it in items]

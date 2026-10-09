@@ -22,7 +22,7 @@ from nanollm.engine.questions import (
     TokenLayout,
     format_state,
 )
-from nanollm.trainer.batches import StepStats, TrainingBatch
+from nanollm.trainer.batches import SampleTargets, StepStats, TargetSlot, TrainingBatch
 from nanollm.trainer.layers.checkpointing_layer import CheckpointingLayer
 from nanollm.trainer.layers.metrics_layer import MetricsLayer
 from nanollm.trainer.policies.calibrated_loss import CalibratedLoss, ILoss
