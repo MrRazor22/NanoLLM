@@ -21,15 +21,6 @@ class TrainingBatch:
     mask: Sequence[Sequence[float]]
     targets: Sequence[SampleTargets]
 
-    def __getitem__(self, key: str) -> Union[Sequence[Sequence[int]], Sequence[Sequence[float]], Sequence[SampleTargets]]:
-        if key == "input_ids":
-            return self.input_ids
-        if key == "mask":
-            return self.mask
-        if key in ("targets", "meta"):
-            return self.targets
-        raise KeyError(key)
-
 @dataclass(frozen=True)
 class StepStats:
     epoch: int

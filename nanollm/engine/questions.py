@@ -65,16 +65,12 @@ class DecisionResult:
     latency_ms: float = 0.0
 
 @dataclass(frozen=True)
-class SlotIndices:
-    positions: Sequence[int]
-
-@dataclass(frozen=True)
 class TokenLayout:
     input_ids: Sequence[int]
     mask: Sequence[float]
-    slots: Sequence[SlotIndices]
+    slots: Sequence[Sequence[int]]
     @property
-    def slot_indices(self) -> Sequence[Sequence[int]]: return [s.positions for s in self.slots]
+    def slot_indices(self) -> Sequence[Sequence[int]]: return self.slots
 
 @dataclass(frozen=True)
 class ScoreLayout:
@@ -84,6 +80,8 @@ class ScoreLayout:
 class DecisionSample:
     state: DecisionState
     questions: Sequence[Question]
+    category: str = "general"
+    gold: Optional[Mapping[str, str]] = None
 
 class Composable:
     """Layer decorator composition mixin (lambda: P -> P)."""

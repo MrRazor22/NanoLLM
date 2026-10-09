@@ -3,20 +3,11 @@ import json
 from pathlib import Path
 import time
 from typing import Dict, Mapping, Optional, Protocol, Sequence, runtime_checkable
-from nanollm import IDecisionEngine, Question
+from nanollm import IDecisionEngine, Question, DecisionSample
 
 DEFAULT_BASELINES = Path(__file__).resolve().parent / "baselines" / "competitor_cache.json"
 
-# ==========================================
-# Pure Passive DTOs & Contracts
-# ==========================================
-
-@dataclass(frozen=True)
-class BenchmarkItem:
-    state: str
-    questions: Sequence[Question]
-    category: str = "general"
-    gold: Optional[Mapping[str, str]] = None
+BenchmarkItem = DecisionSample
 
 @dataclass(frozen=True)
 class BenchmarkReport:

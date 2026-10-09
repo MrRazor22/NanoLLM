@@ -2,10 +2,11 @@ from dataclasses import dataclass
 import json
 from pathlib import Path
 import random
-from typing import Iterator, List, Optional, Protocol, Sequence, Tuple, Union, runtime_checkable
+from typing import Iterator, List, Mapping, Optional, Protocol, Sequence, Tuple, Union, runtime_checkable
 from torch.utils.data import DataLoader, Dataset
+from transformers import AutoTokenizer
 from nanollm import Choice, DecisionSample, Noul, Score
-from harness.policies.slot_assembler import SlotAssembler
+from nanollm.engine.policies.slot_encoder import SlotEncoder
 
 DATA_DIR = Path(__file__).resolve().parent / "data"
 
@@ -18,26 +19,20 @@ class IDataset(Protocol):
 
 class TrainingDataset(Dataset, IDataset):
     """Sovereign core primitive: encapsulates decision samples and native batch collation."""
+    def __init__(self, samples: Sequence[DecisionSample], encoder: Optional[SlotEncoder] = None):
+        self.samples, self.encoder = list(samples), encoder
 
-    def __init__(self, samples: Sequence[DecisionSample], assembler: Optional[SlotAssembler] = None):
-        self.samples = list(samples)
-        self.assembler = assembler
-
-    def __len__(self) -> int:
-        return len(self.samples)
-
-    def __getitem__(self, idx: int) -> DecisionSample:
-        return self.samples[idx]
+    def __len__(self) -> int: return len(self.samples)
+    def __getitem__(self, idx: int) -> DecisionSample: return self.samples[idx]
 
     @classmethod
-    def from_jsonl(cls, path: Union[str, Path], assembler: Optional[SlotAssembler] = None) -> "TrainingDataset":
+    def from_jsonl(cls, path: Union[str, Path], encoder: Optional[SlotEncoder] = None) -> "TrainingDataset":
         p = Path(path)
-        return cls(load_raw_jsonl(p) if p.exists() else [], assembler=assembler)
+        return cls(load_raw_jsonl(p) if p.exists() else [], encoder=encoder)
 
     def get_loader(self, batch_size: int = 16, shuffle: bool = True) -> DataLoader:
-        if self.assembler is None:
-            raise ValueError("TrainingDataset requires an assembler policy to construct DataLoader.")
-        collator = lambda batch: self.assembler.assemble_batch([self.assembler.render_sample(s.state, s.questions) for s in batch])
+        if self.encoder is None: raise ValueError("TrainingDataset requires an encoder policy to construct DataLoader.")
+        collator = lambda batch: self.encoder.collate_batch([self.encoder.encode_with_targets(s.state, s.questions)[0::2] for s in batch])
         return DataLoader(self, batch_size=batch_size, shuffle=shuffle, collate_fn=collator)
 
     @classmethod
@@ -45,9 +40,9 @@ class TrainingDataset(Dataset, IDataset):
         cls, train_data: str, val_data: Optional[str] = None, backbone: str = "answerdotai/ModernBERT-base",
         batch_size: int = 16, seed: int = 42,
     ) -> Tuple[DataLoader, Optional[DataLoader]]:
-        assembler = SlotAssembler(backbone)
-        t_loader = cls.from_jsonl(train_data, assembler=assembler).get_loader(batch_size=batch_size, shuffle=True)
-        v_loader = cls.from_jsonl(val_data, assembler=assembler).get_loader(batch_size=batch_size, shuffle=False) if val_data else None
+        enc = SlotEncoder(AutoTokenizer.from_pretrained(backbone))
+        t_loader = cls.from_jsonl(train_data, encoder=enc).get_loader(batch_size=batch_size, shuffle=True)
+        v_loader = cls.from_jsonl(val_data, encoder=enc).get_loader(batch_size=batch_size, shuffle=False) if val_data else None
         return t_loader, v_loader
 
 def to_decision_sample(raw: Mapping[str, object]) -> DecisionSample:
@@ -67,7 +62,8 @@ def to_decision_sample(raw: Mapping[str, object]) -> DecisionSample:
                 specs.append(Score(name=name, instruction=ins, target=float(lbl) if lbl is not None else 0.0))
             else:
                 specs.append(Noul(name=name, instruction=ins, target=bool(lbl) if lbl is not None else False))
-    return DecisionSample(state=state, questions=specs)
+    clean_gold = {k: str(v.get("label") if isinstance(v, dict) else v) for k, v in gold.items()} if isinstance(gold, dict) else None
+    return DecisionSample(state=state, questions=specs, category=str(raw.get("category", "general")), gold=clean_gold)
 
 def load_raw_jsonl(path: Union[str, Path]) -> List[DecisionSample]:
     p = Path(path)

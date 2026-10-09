@@ -1,5 +1,6 @@
-from typing import List, Optional, Protocol, Sequence, Tuple, Union, runtime_checkable
-from nanollm.engine.questions import DecisionState, Question, SlotIndices, TokenLayout, format_state
+import torch
+from typing import Dict, List, Optional, Protocol, Sequence, Tuple, Union, runtime_checkable
+from nanollm.engine.questions import DecisionState, Question, TokenLayout, format_state
 from nanollm.trainer.batches import TargetSlot
 
 @runtime_checkable
@@ -8,6 +9,7 @@ class ITokenizer(Protocol):
     mask_token_id: int
     sep_token_id: int
     eos_token_id: int
+    pad_token_id: int
     def encode(self, text: str) -> Sequence[int]: ...
 
 @runtime_checkable
@@ -22,10 +24,11 @@ class SlotEncoder(ILayoutEncoder):
         self.max_state_tokens = max_state_tokens
         self.mask_id = getattr(tokenizer, "mask_token_id", 50281)
         self.sep_id = getattr(tokenizer, "sep_token_id", getattr(tokenizer, "eos_token_id", 50282))
+        self.pad_id = getattr(tokenizer, "pad_token_id", 50283)
 
     def encode(self, state: DecisionState, questions: Sequence[Question]) -> TokenLayout:
         ids, slots, _ = self.encode_with_targets(state, questions)
-        return TokenLayout(input_ids=ids, mask=[1.0] * len(ids), slots=[SlotIndices(positions=s) for s in slots])
+        return TokenLayout(input_ids=ids, mask=[1.0] * len(ids), slots=slots)
 
     def encode_with_targets(self, state: DecisionState, questions: Sequence[Question]) -> Tuple[List[int], List[List[int]], List[TargetSlot]]:
         state_ids = self.tokenizer.encode(format_state(state))
@@ -52,5 +55,17 @@ class SlotEncoder(ILayoutEncoder):
                 slots.append(pos)
                 targets.append(TargetSlot(q_type, pos, float(tgt) if tgt is not None else 0.0))
         return ids, slots, targets
+
+    def collate_batch(self, items: Sequence[Tuple[List[int], List[TargetSlot]]], device: Optional[torch.device] = None) -> Dict[str, Union[torch.Tensor, Sequence[Sequence[int]], Sequence[Sequence[TargetSlot]]]]:
+        dev = device or torch.device("cpu")
+        all_ids, batch_meta = [it[0] for it in items], [it[1] for it in items]
+        max_len, bsz = max(len(ids) for ids in all_ids), len(all_ids)
+        input_ids = torch.full((bsz, max_len), self.pad_id, dtype=torch.long, device=dev)
+        mask = torch.zeros((bsz, max_len), dtype=torch.float, device=dev)
+        for i, ids in enumerate(all_ids):
+            sz = len(ids)
+            input_ids[i, :sz] = torch.as_tensor(ids, dtype=torch.long)
+            mask[i, :sz] = 1.0
+        return {"input_ids": input_ids, "mask": mask, "slots": [[m.indices for m in row] for row in batch_meta], "targets": batch_meta, "meta": batch_meta}
 
 __all__ = ["ITokenizer", "ILayoutEncoder", "SlotEncoder"]

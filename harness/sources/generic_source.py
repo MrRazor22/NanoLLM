@@ -1,7 +1,7 @@
 from typing import List, Optional, Sequence
 from datasets import load_dataset
 from nanollm import Choice, DecisionSample
-from harness.sources.sources import ISource
+from harness.sources import ISource
 
 class GenericSource(ISource):
     """Dynamic HuggingFace text-to-decision adapter: infers label names directly from dataset schema."""

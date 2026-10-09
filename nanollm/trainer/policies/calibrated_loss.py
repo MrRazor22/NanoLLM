@@ -24,9 +24,7 @@ class CalibratedLoss(nn.Module, ILoss):
         for b_idx, sample in enumerate(batch_meta):
             items = sample.slots if hasattr(sample, "slots") else sample
             for item in items:
-                q_type = getattr(item, "target_type", item[0] if isinstance(item, tuple) else None)
-                pos = getattr(item, "indices", item[1] if isinstance(item, tuple) else None)
-                val = getattr(item, "value", item[2] if isinstance(item, tuple) else None)
+                q_type, pos, val = item.target_type, item.indices, item.value
                 if q_type == "choice":
                     c_logits.append(scores[b_idx, pos])
                     c_tgts.append(int(val))

@@ -3,7 +3,7 @@ from pathlib import Path
 from typing import List, Optional, Sequence
 from datasets import load_dataset
 from nanollm import Choice, DecisionSample
-from harness.sources.sources import RAW_DIR, ISource
+from harness.sources import RAW_DIR, ISource, cached_jsonl
 
 class DecisionsSource(ISource):
     """Real Typed-Decisions dataset extractor: loads multi-question typed decision benchmarks."""
@@ -13,22 +13,10 @@ class DecisionsSource(ISource):
         self.repeat = repeat
 
     def load(self, limit: Optional[int] = None) -> Sequence[DecisionSample]:
-        RAW_DIR.mkdir(parents=True, exist_ok=True)
-        raw_fp = RAW_DIR / f"{self.name}.jsonl"
-
-        rows = []
-        if raw_fp.exists():
-            with open(raw_fp, "r", encoding="utf-8") as f:
-                rows = [json.loads(line) for line in f if line.strip()]
-        else:
-            try:
-                ds = load_dataset("LocalLLaMA/typed-decisions", "all", split="train")
-                rows = list(ds)
-                with open(raw_fp, "w", encoding="utf-8") as f:
-                    for r in rows:
-                        f.write(json.dumps(r) + "\n")
-            except Exception:
-                return []
+        rows = cached_jsonl(
+            RAW_DIR / f"{self.name}.jsonl",
+            lambda: list(load_dataset("LocalLLaMA/typed-decisions", "all", split="train"))
+        )
 
         samples: List[DecisionSample] = []
         for row in rows:

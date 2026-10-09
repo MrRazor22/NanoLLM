@@ -1,4 +1,3 @@
-from harness.policies.slot_assembler import SlotAssembler
 from harness.sources import (
     DATA_DIR,
     RAW_DIR,
@@ -23,7 +22,6 @@ __all__ = [
     "RAW_DIR",
     "IDataset",
     "TrainingDataset",
-    "SlotAssembler",
     "ISource",
     "GlaiveSource",
     "DecisionsSource",

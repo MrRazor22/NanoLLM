@@ -5,7 +5,7 @@ import re
 from typing import Dict, List, Optional, Sequence
 from datasets import load_dataset
 from nanollm import Choice, DecisionSample
-from harness.sources.sources import RAW_DIR, ISource
+from harness.sources import RAW_DIR, ISource, cached_jsonl
 
 class GlaiveSource(ISource):
     """Real Glaive function-calling extractor: parses tool calls and injects negative distractors."""
@@ -17,25 +17,17 @@ class GlaiveSource(ISource):
 
     def load(self, limit: Optional[int] = None) -> Sequence[DecisionSample]:
         max_items = limit or self.limit
-        RAW_DIR.mkdir(parents=True, exist_ok=True)
-        raw_fp = RAW_DIR / f"{self.name}.jsonl"
-
-        rows = []
-        if raw_fp.exists():
-            with open(raw_fp, "r", encoding="utf-8") as f:
-                rows = [json.loads(line) for line in f if line.strip()]
-        else:
+        def _fetch():
             try:
                 ds = load_dataset("glaiveai/glaive-function-calling-v2", split="train", streaming=True)
+                res = []
                 for item in ds:
-                    rows.append(item)
-                    if len(rows) >= max_items * 2:
-                        break
-                with open(raw_fp, "w", encoding="utf-8") as f:
-                    for r in rows:
-                        f.write(json.dumps(r) + "\n")
-            except Exception:
-                return []
+                    res.append(item)
+                    if len(res) >= max_items * 2: break
+                return res
+            except Exception: return []
+
+        rows = cached_jsonl(RAW_DIR / f"{self.name}.jsonl", _fetch)
 
         raw_pairs, tool_registry = [], {}
         for row in rows:
