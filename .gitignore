@@ -5,8 +5,11 @@
 **/checkpoint*/
 
 
-# Data directories (training, benchmarking, raw, adapted, splits)
-**/data/
+# Data stores and large files
+data/raw/
+data/adapted/
+data/corpus/
+data/splits/
 
 # Ephemeral caches and temp data
 *.cache
