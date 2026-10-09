@@ -10,7 +10,7 @@ from piqo import (
     get_latest_checkpoint,
     get_next_checkpoint_path,
 )
-from harness.integrity import IntegrityGuard
+from harness.policies import ILeakagePolicy, NGramLeakagePolicy
 from harness.training_dataset import DATA_DIR, TrainingDataset, load_raw_jsonl
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -61,15 +61,16 @@ def main() -> None:
         trainer = trainer | CheckpointingLayer(output_path=args.output)
 
     if not args.skip_integrity_check:
-        guard = IntegrityGuard()
+        policy: ILeakagePolicy = NGramLeakagePolicy(13)
         t_samples = load_raw_jsonl(args.train_data)
         v_samples = load_raw_jsonl(args.val_data) if args.val_data else []
-        if v_samples:
-            guard.verify(t_samples, v_samples, strict=True)
+        if v_samples and policy.find_leaks(t_samples, v_samples):
+            raise ValueError("Contamination invariant violated: train split leaks validation.")
         if args.holdout_data:
             h_samples = load_raw_jsonl(args.holdout_data)
-            guard.verify(t_samples, h_samples, strict=True)
-        print(f"Dataset integrity verified: zero contamination across {len(t_samples)} training samples.", flush=True)
+            if policy.find_leaks(t_samples, h_samples):
+                raise ValueError("Contamination invariant violated: training set leaks evaluation holdout.")
+        print(f"Dataset integrity verified: zero 13-gram leakage across {len(t_samples)} training samples.", flush=True)
 
     print(f"Preparing datasets (Train: {args.train_data}, Val: {args.val_data})...", flush=True)
     train_batches, val_batches = TrainingDataset.loaders(

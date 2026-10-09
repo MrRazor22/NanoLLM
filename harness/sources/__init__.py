@@ -33,9 +33,9 @@ def build_curriculum(
     abstention_rate: float = 0.15,
     val_ratio: float = 0.08,
     holdouts: Optional[Sequence[DecisionSample]] = None,
-    guard: Optional[IIntegrityGuard] = None,
+    policy: Optional[ILeakagePolicy] = None,
 ) -> Tuple[List[DecisionSample], List[DecisionSample]]:
-    from harness.integrity import IIntegrityGuard, IntegrityGuard
+    from harness.policies.leakage import ILeakagePolicy, NGramLeakagePolicy
     from harness.training_dataset import inject_abstention, save_jsonl, split_train_val
 
     rng = random.Random(seed)
@@ -56,15 +56,16 @@ def build_curriculum(
     samples = inject_abstention(samples, rate=abstention_rate, rng=rng)
     train_recs, val_recs = split_train_val(samples, val_ratio=val_ratio, rng=rng)
 
-    active_guard: IIntegrityGuard = guard or IntegrityGuard()
+    active_policy: ILeakagePolicy = policy or NGramLeakagePolicy(13)
     if holdouts:
-        active_guard.verify(train_recs, holdouts, strict=True)
-        active_guard.verify(val_recs, holdouts, strict=True)
-    active_guard.verify(train_recs, val_recs, strict=True)
+        if active_policy.find_leaks(train_recs, holdouts) or active_policy.find_leaks(val_recs, holdouts):
+            raise ValueError("Contamination invariant violated: curriculum leaks holdouts.")
+    if active_policy.find_leaks(train_recs, val_recs):
+        raise ValueError("Contamination invariant violated: train split leaks validation.")
 
     save_jsonl(dest_dir / "train.jsonl", train_recs)
     save_jsonl(dest_dir / "val.jsonl", val_recs)
-    print(f"Curriculum adapted: {len(train_recs)} train, {len(val_recs)} val records written (zero contamination verified).")
+    print(f"Curriculum adapted: {len(train_recs)} train, {len(val_recs)} val records written (zero leakage verified).")
     return train_recs, val_recs
 
 __all__ = [

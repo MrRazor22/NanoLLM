@@ -1,11 +1,4 @@
-from harness.integrity import (
-    CollisionRecord,
-    ContaminationError,
-    IIntegrityGuard,
-    IntegrityGuard,
-    IntegrityLayer,
-    IntegrityReport,
-)
+from harness.policies import ILeakagePolicy, NGramLeakagePolicy
 from harness.sources import (
     DATA_DIR,
     RAW_DIR,
@@ -40,10 +33,6 @@ __all__ = [
     "save_jsonl",
     "split_train_val",
     "to_decision_sample",
-    "CollisionRecord",
-    "IntegrityReport",
-    "ContaminationError",
-    "IIntegrityGuard",
-    "IntegrityGuard",
-    "IntegrityLayer",
+    "ILeakagePolicy",
+    "NGramLeakagePolicy",
 ]
