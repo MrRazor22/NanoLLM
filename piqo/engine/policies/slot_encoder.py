@@ -1,7 +1,7 @@
 import torch
 from typing import Dict, List, Optional, Protocol, Sequence, Tuple, Union, runtime_checkable
-from nanollm.engine.questions import DecisionState, Question, TokenLayout, format_state
-from nanollm.trainer.batches import TargetSlot
+from piqo.engine.questions import DecisionState, Question, TokenLayout, format_state
+from piqo.trainer.batches import TargetSlot
 
 @runtime_checkable
 class ITokenizer(Protocol):

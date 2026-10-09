@@ -1,7 +1,7 @@
 from typing import Optional, Protocol, runtime_checkable
 import torch
 import torch.nn as nn
-from nanollm.engine.questions import ScoreLayout, TokenLayout
+from piqo.engine.questions import ScoreLayout, TokenLayout
 
 @runtime_checkable
 class IScorer(Protocol):

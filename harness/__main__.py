@@ -2,7 +2,7 @@ import argparse
 from pathlib import Path
 import torch
 
-from nanollm import (
+from piqo import (
     CheckpointingLayer,
     EpochTrainer,
     ITrainer,
@@ -10,7 +10,8 @@ from nanollm import (
     get_latest_checkpoint,
     get_next_checkpoint_path,
 )
-from harness.training_dataset import DATA_DIR, TrainingDataset
+from harness.integrity import IntegrityGuard
+from harness.training_dataset import DATA_DIR, TrainingDataset, load_raw_jsonl
 
 ROOT = Path(__file__).resolve().parent.parent
 DEFAULT_DATA_DIR = DATA_DIR
@@ -25,10 +26,12 @@ def main() -> None:
     default_init = str(latest_ckpt) if latest_ckpt else None
     default_out = str(get_next_checkpoint_path())
 
-    parser = argparse.ArgumentParser(description="Train NanoLLM")
+    parser = argparse.ArgumentParser(description="Train Piqo")
     parser.add_argument("--backbone", type=str, default=DEFAULT_BACKBONE, help="HuggingFace backbone model")
     parser.add_argument("--train-data", type=str, default=str(DEFAULT_TRAIN), help="Path to training jsonl")
     parser.add_argument("--val-data", type=str, default=str(DEFAULT_VAL), help="Path to validation jsonl")
+    parser.add_argument("--holdout-data", type=str, default=None, help="Holdout evaluation dataset to guard against")
+    parser.add_argument("--skip-integrity-check", action="store_true", help="Skip dataset integrity preflight check")
     parser.add_argument("--output", type=str, default=default_out, help=f"Output checkpoint path (default: {default_out})")
     parser.add_argument("--metrics-output", type=str, default=str(DEFAULT_METRICS), help="Metrics JSON output path")
     parser.add_argument("--init-checkpoint", type=str, default=default_init, help=f"Initial checkpoint path (default: {default_init})")
@@ -56,6 +59,17 @@ def main() -> None:
         trainer = trainer | MetricsLayer(output_path=args.metrics_output, sink=lambda msg: print(msg, flush=True), log_interval_sec=5.0)
     if args.output:
         trainer = trainer | CheckpointingLayer(output_path=args.output)
+
+    if not args.skip_integrity_check:
+        guard = IntegrityGuard()
+        t_samples = load_raw_jsonl(args.train_data)
+        v_samples = load_raw_jsonl(args.val_data) if args.val_data else []
+        if v_samples:
+            guard.verify(t_samples, v_samples, strict=True)
+        if args.holdout_data:
+            h_samples = load_raw_jsonl(args.holdout_data)
+            guard.verify(t_samples, h_samples, strict=True)
+        print(f"Dataset integrity verified: zero contamination across {len(t_samples)} training samples.", flush=True)
 
     print(f"Preparing datasets (Train: {args.train_data}, Val: {args.val_data})...", flush=True)
     train_batches, val_batches = TrainingDataset.loaders(

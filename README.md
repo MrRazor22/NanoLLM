@@ -1,61 +1,106 @@
-# NanoLLM
+# Piqo
 
 Ultra-fast, calibrated micro-decision engine designed with **Primitive-First Design (PFD)**. Evaluates high-cardinality multi-task questions (classification, boolean decisions, calibrated scores) in single-pass sub-40ms inference.
 
 ---
 
-## Architecture at a Glance
+## End-to-End System Map
 
-NanoLLM is built around two irreducible core primitives: **Inference (`engine`)** and **Optimization (`trainer`)**. Each boundary cleanly isolates its internal policies (`policies/`) from outer decorator layers (`layers/`):
+```mermaid
+flowchart TD
+    classDef client fill:#e0f2fe,stroke:#0284c7,stroke-width:2px,color:#0369a1;
+    classDef input fill:#fef3c7,stroke:#d97706,stroke-width:2px,color:#92400e;
+    classDef engine fill:#ecfdf5,stroke:#059669,stroke-width:2px,color:#065f46;
+    classDef output fill:#f0fdf4,stroke:#16a34a,stroke-width:2px,color:#15803d;
+    classDef trainer fill:#faf5ff,stroke:#9333ea,stroke-width:2px,color:#6b21a8;
+    classDef harness fill:#fff1f2,stroke:#e11d48,stroke-width:2px,color:#9f1239;
 
-```
-                          +-------------------------+
-                          |   nanollm (__init__)    |
-                          +------------+------------+
-                                       |
-                +----------------------+----------------------+
-                |                                             |
-                v                                             v
-  +---------------------------+                 +---------------------------+
-  |    nanollm/engine/        |                 |    nanollm/trainer/       |
-  |  [IDecisionEngine (P)]    |                 |      [ITrainer (P)]       |
-  |  + DecisionEngine (Impl)  |                 |  + EpochTrainer (Impl)    |
-  |  + questions.py (DTOs)    |                 |  + batches.py (DTOs)      |
-  +-------------+-------------+                 +-------------+-------------+
-                |                                             |
-       +--------+--------+                           +--------+--------+
-       |                 |                           |                 |
-       v                 v                           v                 v
-+-------------+   +-------------+             +-------------+   +-------------+
-|  policies/  |   |   layers/   |             |  policies/  |   |   layers/   |
-| (Sub-Prim)  |   | (Decorator) |             | (Sub-Prim)  |   | (Decorator) |
-+-------------+   +-------------+             +-------------+   +-------------+
-| IEncoder    |   | Profiling   |             | ILoss       |   | Checkpoint  |
-| IScorer     |   | Layer       |             | (Calibrated)|   | Layer       |
-| IResolver   |   +-------------+             | Registry    |   | Metrics     |
-+-------------+                               +-------------+   | Layer       |
-                                                                +-------------+
+    subgraph Client ["1. Client & Invocation Surfaces"]
+        CLI["CLI: python cli.py"]
+        SDK["Python SDK: from piqo import ..."]
+    end
+
+    subgraph Inputs ["2. Input Bundle"]
+        CTX["Context State: 'Postgres CPU reached 99%, pool exhausted'"]
+        QS["Questions DTO: Choice(...) + Noul(...) + Score(...)"]
+    end
+
+    subgraph InferencePrimitive ["3. Inference Primitive (piqo/engine)"]
+        direction TB
+        DE["DecisionEngine (Contract: IDecisionEngine)"]
+
+        subgraph InfLayers ["Outer Decorators (layers/)"]
+            PROF["ProfilingLayer: Per-stage latency & timing traces"]
+        end
+
+        subgraph InfPolicies ["Irreducible Policies (policies/)"]
+            ENC["SlotEncoder (IEncoder): Packs state + questions into slot layout"]
+            SCORER["TorchScorer (IScorer): Single-pass forward pass (ModernBERT)"]
+            RES["DecisionResolver (IResolver): Calibrated softmax, sigmoid & min-max scale"]
+        end
+    end
+
+    subgraph Outputs ["4. Instant Calibrated Result (sub-40ms)"]
+        RES_OUT["DecisionResult: department='Infra' (0.97), urgent=True (0.99), severity=94.2"]
+    end
+
+    subgraph TrainingPrimitive ["5. Optimization Primitive (piqo/trainer)"]
+        direction TB
+        ET["EpochTrainer (Contract: ITrainer)"]
+
+        subgraph TrainLayers ["Outer Decorators (layers/)"]
+            METRICS["MetricsLayer: Live loss, throughput & step telemetry"]
+            CKPT["CheckpointingLayer: Auto-evaluates & saves champion weights"]
+        end
+
+        subgraph TrainPolicies ["Irreducible Policies (policies/)"]
+            LOSS["CalibratedLoss (ILoss): Multi-task loss registry (CE, BCE, MSE)"]
+        end
+    end
+
+    subgraph DataEngine ["6. Data Harness (harness/)"]
+        SOURCES["12+ Task Sources: Banking, Security, Glaive Tools, Intent, Guardrails"]
+        TDS["TrainingDataset: Streamer & slot-aligned batch generator"]
+    end
+
+    %% Inference Flow
+    Client --> Inputs
+    Inputs --> DE
+    DE --> PROF
+    PROF --> ENC
+    ENC --> SCORER
+    SCORER --> RES
+    RES --> RES_OUT
+
+    %% Training Flow
+    SOURCES --> TDS
+    TDS --> ET
+    ET --> LOSS
+    ET --> METRICS
+    ET --> CKPT
+    CKPT -. "Loads champion weights (.pt)" .-> SCORER
+
+    class CLI,SDK client;
+    class CTX,QS input;
+    class DE,PROF,ENC,SCORER,RES engine;
+    class RES_OUT output;
+    class ET,LOSS,METRICS,CKPT trainer;
+    class SOURCES,TDS harness;
 ```
 
 ---
 
-## Data Pipelines
+## Architectural Topology & Responsibilities
 
-```
-[Inference Pipeline]
-State + Questions ---> [ILayoutEncoder] ---> [IScorer] ---> [IResolver] ---> DecisionResult
-                              |                 |                |
-                              +-----------------+----------------+
-                                                |
-                              Decorated by: [ProfilingLayer]
-
-
-[Training Pipeline]
-Batches -------------> [EpochTrainer] ---> [ILoss] ---> StepStats Stream
-                              |
-              Decorated by:   +---> [MetricsLayer] (Telemetry)
-                              +---> [CheckpointingLayer] (Model Checkpointing)
-```
+| Subsystem | Boundary Contract | Implementation | Role & PFD Discipline |
+| :--- | :--- | :--- | :--- |
+| **Inference** | `IDecisionEngine` | `DecisionEngine` | Orchestrates single-pass micro-decisions; strictly decoupled from frameworks. |
+| **Inference Policies** | `IEncoder`, `IScorer`, `IResolver` | `SlotEncoder`, `TorchScorer`, `DecisionResolver` | Discrete sub-primitives handling slot serialization, transformer scoring, and calibration. |
+| **Inference Layers** | Decorator ($\lambda: P \to P$) | `ProfilingLayer` | Non-invasive instrumentation for sub-millisecond stage tracking. |
+| **Optimization** | `ITrainer` | `EpochTrainer` | Drives multi-epoch model convergence and validation loops. |
+| **Trainer Policies** | `ILoss`, `LossRegistry` | `CalibratedLoss` | Dynamic loss composition tailored to multi-task question heads. |
+| **Trainer Layers** | Decorator ($\lambda: P \to P$) | `MetricsLayer`, `CheckpointingLayer` | Pluggable telemetry monitoring and champion checkpoint persistence. |
+| **Data Harness** | Pure Python Iterators | `TrainingDataset`, Sources | Standardizes 12+ real-world heterogeneous datasets into slot layouts. |
 
 ---
 
@@ -63,7 +108,7 @@ Batches -------------> [EpochTrainer] ---> [ILoss] ---> StepStats Stream
 
 ### 1. Run Inference
 ```python
-from nanollm import DecisionEngine, Choice, Noul, Score, ProfilingLayer
+from piqo import DecisionEngine, Choice, Noul, Score, ProfilingLayer
 
 # Initialize engine decorated with profiling layer
 engine = DecisionEngine.from_checkpoint() | ProfilingLayer()
@@ -85,7 +130,7 @@ for name, ans in result.answers.items():
 
 ### 2. Run Training
 ```python
-from nanollm import EpochTrainer, MetricsLayer, CheckpointingLayer
+from piqo import EpochTrainer, MetricsLayer, CheckpointingLayer
 from harness.dataset import TrainingDataset
 
 # Pipeline composition

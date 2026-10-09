@@ -1,10 +1,10 @@
 import time
 from typing import TYPE_CHECKING, Optional, Sequence
 import torch
-from nanollm.engine.questions import Composable, DecisionResult, DecisionState, Question
+from piqo.engine.questions import Composable, DecisionResult, DecisionState, Question
 
 if TYPE_CHECKING:
-    from nanollm.engine.decision_engine import IDecisionEngine
+    from piqo.engine.decision_engine import IDecisionEngine
 
 class ProfilingLayer(Composable):
     """Layer Decorator (lambda: P -> P): Measures wall-clock decision latency."""

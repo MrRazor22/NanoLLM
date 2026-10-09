@@ -3,11 +3,11 @@ from typing import Optional, Protocol, Sequence, Tuple, Union, runtime_checkable
 import torch
 from transformers import AutoModel, AutoTokenizer
 
-from nanollm.trainer.policies.registry import DEFAULT_CHECKPOINT, resolve_default_checkpoint
-from nanollm.engine.questions import Composable, DecisionResult, DecisionState, Question
-from nanollm.engine.policies.slot_encoder import ILayoutEncoder, SlotEncoder
-from nanollm.engine.policies.decision_resolver import DecisionResolver, IResolver
-from nanollm.engine.policies.torch_scorer import IScorer, TorchScorer
+from piqo.trainer.policies.registry import DEFAULT_CHECKPOINT, resolve_default_checkpoint
+from piqo.engine.questions import Composable, DecisionResult, DecisionState, Question
+from piqo.engine.policies.slot_encoder import ILayoutEncoder, SlotEncoder
+from piqo.engine.policies.decision_resolver import DecisionResolver, IResolver
+from piqo.engine.policies.torch_scorer import IScorer, TorchScorer
 
 @runtime_checkable
 class IDecisionEngine(Protocol):

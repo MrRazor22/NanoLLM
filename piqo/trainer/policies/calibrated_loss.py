@@ -2,7 +2,7 @@ from typing import Optional, Protocol, Sequence, Tuple, Union, runtime_checkable
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from nanollm.trainer.batches import SampleTargets, TargetSlot
+from piqo.trainer.batches import SampleTargets, TargetSlot
 
 @runtime_checkable
 class ILoss(Protocol):

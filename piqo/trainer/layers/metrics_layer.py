@@ -1,11 +1,11 @@
 from pathlib import Path
 import time
 from typing import TYPE_CHECKING, Callable, Iterable, Iterator, Optional, Union
-from nanollm.engine.questions import Composable
-from nanollm.trainer.batches import StepStats, TrainingBatch
+from piqo.engine.questions import Composable
+from piqo.trainer.batches import StepStats, TrainingBatch
 
 if TYPE_CHECKING:
-    from nanollm.trainer.epoch_trainer import ITrainer
+    from piqo.trainer.epoch_trainer import ITrainer
 
 class MetricsLayer(Composable):
     """Layer Decorator (lambda: P -> P): Real-time logging over the StepStats stream."""

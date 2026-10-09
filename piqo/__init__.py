@@ -1,11 +1,11 @@
-"""NanoLLM: Sovereign Entrypoint & Composition Root (PFD)."""
+"""Piqo: Sovereign Entrypoint & Composition Root (PFD)."""
 
-from nanollm.engine.decision_engine import DecisionEngine, IDecisionEngine
-from nanollm.engine.layers.profiling_layer import ProfilingLayer
-from nanollm.engine.policies.slot_encoder import ILayoutEncoder, ITokenizer, SlotEncoder
-from nanollm.engine.policies.decision_resolver import DecisionResolver, IResolver
-from nanollm.engine.policies.torch_scorer import IScorer, TorchScorer
-from nanollm.engine.questions import (
+from piqo.engine.decision_engine import DecisionEngine, IDecisionEngine
+from piqo.engine.layers.profiling_layer import ProfilingLayer
+from piqo.engine.policies.slot_encoder import ILayoutEncoder, ITokenizer, SlotEncoder
+from piqo.engine.policies.decision_resolver import DecisionResolver, IResolver
+from piqo.engine.policies.torch_scorer import IScorer, TorchScorer
+from piqo.engine.questions import (
     Answer,
     Choice,
     ChoiceResult,
@@ -22,11 +22,11 @@ from nanollm.engine.questions import (
     TokenLayout,
     format_state,
 )
-from nanollm.trainer.batches import SampleTargets, StepStats, TargetSlot, TrainingBatch
-from nanollm.trainer.layers.checkpointing_layer import CheckpointingLayer
-from nanollm.trainer.layers.metrics_layer import MetricsLayer
-from nanollm.trainer.policies.calibrated_loss import CalibratedLoss, ILoss
-from nanollm.trainer.policies.registry import (
+from piqo.trainer.batches import SampleTargets, StepStats, TargetSlot, TrainingBatch
+from piqo.trainer.layers.checkpointing_layer import CheckpointingLayer
+from piqo.trainer.layers.metrics_layer import MetricsLayer
+from piqo.trainer.policies.calibrated_loss import CalibratedLoss, ILoss
+from piqo.trainer.policies.registry import (
     CHECKPOINTS_DIR,
     DEFAULT_CHECKPOINT,
     CheckpointInfo,
@@ -34,7 +34,7 @@ from nanollm.trainer.policies.registry import (
     get_next_checkpoint_path,
     list_all_checkpoints,
 )
-from nanollm.trainer.epoch_trainer import EpochTrainer, ITrainer
+from piqo.trainer.epoch_trainer import EpochTrainer, ITrainer
 
 Trainer = EpochTrainer
 

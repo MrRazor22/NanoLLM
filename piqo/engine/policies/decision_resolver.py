@@ -1,6 +1,6 @@
 import math
 from typing import Dict, Mapping, Protocol, Sequence, runtime_checkable
-from nanollm.engine.questions import (
+from piqo.engine.questions import (
     Answer,
     Choice,
     ChoiceResult,

@@ -4,7 +4,7 @@ import random
 import re
 from typing import Dict, List, Optional, Sequence
 from datasets import load_dataset
-from nanollm import Choice, DecisionSample
+from piqo import Choice, DecisionSample
 from harness.sources import RAW_DIR, ISource, cached_jsonl
 
 class GlaiveSource(ISource):

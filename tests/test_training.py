@@ -5,8 +5,14 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 import torch
 import torch.nn as nn
-from nanollm import CalibratedLoss, CheckpointingLayer, EpochTrainer, StepStats
-from harness.dataset import split_train_val
+from piqo import CalibratedLoss, CheckpointingLayer, DecisionSample, EpochTrainer, StepStats
+from harness import (
+    ContaminationError,
+    IntegrityGuard,
+    IntegrityLayer,
+    TrainingDataset,
+    split_train_val,
+)
 
 def test_loss():
     loss_fn = CalibratedLoss()
@@ -44,8 +50,49 @@ def test_checkpointing_pipe():
     if os.path.exists("dummy.pt"):
         os.remove("dummy.pt")
 
+def test_integrity_guard():
+    guard = IntegrityGuard()
+    train_samples = [
+        DecisionSample(state="User wants to transfer money", questions=[]),
+        DecisionSample(state="Cancel my subscription", questions=[]),
+    ]
+    holdouts = [
+        DecisionSample(state="User wants to transfer money", questions=[]),
+    ]
+    # Guard must catch exact/normalized collision and NOT silently filter
+    try:
+        guard.verify(train_samples, holdouts, strict=True)
+        assert False, "Should have raised ContaminationError"
+    except ContaminationError as e:
+        assert e.report.collision_count == 1
+        assert not e.report.is_clean
+        assert e.report.collisions[0].sample_index == 0
+
+    clean_holdouts = [
+        DecisionSample(state="What is the weather today?", questions=[]),
+    ]
+    rep = guard.verify(train_samples, clean_holdouts, strict=True)
+    assert rep.is_clean
+    assert rep.collision_count == 0
+
+def test_integrity_layer():
+    train_samples = [
+        DecisionSample(state="Alpha query", questions=[]),
+    ]
+    holdouts = [
+        DecisionSample(state="Alpha query", questions=[]),
+    ]
+    ds = TrainingDataset(train_samples)
+    try:
+        _ = ds | IntegrityLayer(holdouts=holdouts, strict=True)
+        assert False, "Should have raised ContaminationError"
+    except ContaminationError:
+        pass
+
 if __name__ == "__main__":
     test_loss()
     test_builder_split()
     test_checkpointing_pipe()
+    test_integrity_guard()
+    test_integrity_layer()
     print("Training tests passed!")

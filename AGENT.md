@@ -1,4 +1,4 @@
-# NanoLLM Agent Guidelines
+# Piqo Agent Guidelines
 
 ## 1. Architectural Doctrine: Primitive-First Design (PFD)
 - **Always Apply PFD:** All architecture, boundary definitions, refactorings, and reviews in this repository strictly follow Primitive-First Design (PFD).

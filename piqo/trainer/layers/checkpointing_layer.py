@@ -3,12 +3,12 @@ import time
 from typing import TYPE_CHECKING, Iterable, Iterator, Optional, Union
 import torch
 import torch.nn as nn
-from nanollm.engine.questions import Composable
-from nanollm.trainer.policies.registry import get_next_checkpoint_path
-from nanollm.trainer.batches import StepStats, TrainingBatch
+from piqo.engine.questions import Composable
+from piqo.trainer.policies.registry import get_next_checkpoint_path
+from piqo.trainer.batches import StepStats, TrainingBatch
 
 if TYPE_CHECKING:
-    from nanollm.trainer.epoch_trainer import ITrainer
+    from piqo.trainer.epoch_trainer import ITrainer
 
 class CheckpointingLayer(Composable):
     """Layer Decorator (lambda: P -> P): Saves model checkpoint at epoch-end."""

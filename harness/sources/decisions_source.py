@@ -2,7 +2,7 @@ import json
 from pathlib import Path
 from typing import List, Optional, Sequence
 from datasets import load_dataset
-from nanollm import Choice, DecisionSample
+from piqo import Choice, DecisionSample
 from harness.sources import RAW_DIR, ISource, cached_jsonl
 
 class DecisionsSource(ISource):

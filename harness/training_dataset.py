@@ -5,19 +5,21 @@ import random
 from typing import Iterator, List, Mapping, Optional, Protocol, Sequence, Tuple, Union, runtime_checkable
 from torch.utils.data import DataLoader, Dataset
 from transformers import AutoTokenizer
-from nanollm import Choice, DecisionSample, Noul, Score
-from nanollm.engine.policies.slot_encoder import SlotEncoder
+from piqo import Choice, Composable, DecisionSample, Noul, Score
+from piqo.engine.policies.slot_encoder import SlotEncoder
 
 DATA_DIR = Path(__file__).resolve().parent / "data"
 
 @runtime_checkable
 class IDataset(Protocol):
     """Sovereign primitive contract for decision dataset collections."""
+    @property
+    def samples(self) -> Sequence[DecisionSample]: ...
     def __len__(self) -> int: ...
     def __getitem__(self, idx: int) -> DecisionSample: ...
     def get_loader(self, batch_size: int = 16, shuffle: bool = True) -> DataLoader: ...
 
-class TrainingDataset(Dataset, IDataset):
+class TrainingDataset(Dataset, IDataset, Composable):
     """Sovereign core primitive: encapsulates decision samples and native batch collation."""
     def __init__(self, samples: Sequence[DecisionSample], encoder: Optional[SlotEncoder] = None):
         self.samples, self.encoder = list(samples), encoder

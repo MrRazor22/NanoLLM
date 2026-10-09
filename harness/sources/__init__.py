@@ -1,7 +1,7 @@
 from pathlib import Path
 import random
 from typing import List, Optional, Protocol, Sequence, Tuple, runtime_checkable
-from nanollm import DecisionSample
+from piqo import DecisionSample
 
 DATA_DIR = Path(__file__).resolve().parent.parent / "data"
 RAW_DIR = DATA_DIR / "raw"
@@ -32,7 +32,10 @@ def build_curriculum(
     seed: int = 42,
     abstention_rate: float = 0.15,
     val_ratio: float = 0.08,
+    holdouts: Optional[Sequence[DecisionSample]] = None,
+    guard: Optional[IIntegrityGuard] = None,
 ) -> Tuple[List[DecisionSample], List[DecisionSample]]:
+    from harness.integrity import IIntegrityGuard, IntegrityGuard
     from harness.training_dataset import inject_abstention, save_jsonl, split_train_val
 
     rng = random.Random(seed)
@@ -53,9 +56,15 @@ def build_curriculum(
     samples = inject_abstention(samples, rate=abstention_rate, rng=rng)
     train_recs, val_recs = split_train_val(samples, val_ratio=val_ratio, rng=rng)
 
+    active_guard: IIntegrityGuard = guard or IntegrityGuard()
+    if holdouts:
+        active_guard.verify(train_recs, holdouts, strict=True)
+        active_guard.verify(val_recs, holdouts, strict=True)
+    active_guard.verify(train_recs, val_recs, strict=True)
+
     save_jsonl(dest_dir / "train.jsonl", train_recs)
     save_jsonl(dest_dir / "val.jsonl", val_recs)
-    print(f"Curriculum adapted: {len(train_recs)} train, {len(val_recs)} val records written.")
+    print(f"Curriculum adapted: {len(train_recs)} train, {len(val_recs)} val records written (zero contamination verified).")
     return train_recs, val_recs
 
 __all__ = [

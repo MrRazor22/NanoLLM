@@ -3,7 +3,7 @@ import json
 from pathlib import Path
 import time
 from typing import Dict, Mapping, Optional, Protocol, Sequence, runtime_checkable
-from nanollm import IDecisionEngine, Question, DecisionSample
+from piqo import IDecisionEngine, Question, DecisionSample
 
 DEFAULT_BASELINES = Path(__file__).resolve().parent / "baselines" / "competitor_cache.json"
 
@@ -80,7 +80,7 @@ class Scorecard(IEvaluator):
             slices=slices,
         )
 
-    def render(self, reports: Mapping[str, BenchmarkReport], model_name: str = "NanoLLM") -> None:
+    def render(self, reports: Mapping[str, BenchmarkReport], model_name: str = "Piqo") -> None:
         hdr = f"{'Benchmark Track':<32} | {'Count':>6} | {model_name:>12} | {'Verdict 2.0':>12} | {'Laya (421M)':>12}"
         print("\n" + "=" * len(hdr) + "\n" + hdr + "\n" + "-" * len(hdr))
         for track, rep in reports.items():

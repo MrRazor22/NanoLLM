@@ -4,7 +4,7 @@ from typing import Dict, List, Sequence, Union
 os.environ["TOKENIZERS_PARALLELISM"] = "false"
 warnings.filterwarnings("ignore")
 
-from nanollm import (
+from piqo import (
     CHECKPOINTS_DIR, DEFAULT_CHECKPOINT, Choice, ChoiceResult, DecisionEngine,
     DecisionResult, Noul, NoulResult, ProfilingLayer, Question, Score, ScoreResult,
     get_latest_checkpoint, list_all_checkpoints
@@ -37,7 +37,7 @@ def _parse_q(arg: str, kind: str) -> Question:
 
 def main() -> None:
     latest, _ = get_latest_checkpoint()
-    p = argparse.ArgumentParser(description="NanoLLM Micro-Decision Engine CLI")
+    p = argparse.ArgumentParser(description="Piqo Micro-Decision Engine CLI")
     p.add_argument("state", nargs="?", default=None)
     p.add_argument("--play", "-p", action="store_true")
     p.add_argument("--models", "-m", action="store_true")
@@ -57,7 +57,7 @@ def main() -> None:
     engine = DecisionEngine.from_checkpoint(ckpt, device=args.device) | ProfilingLayer()
 
     if args.play:
-        print(f"NanoLLM Playground [{ckpt.name}]. Enter context (or 'q' to quit):")
+        print(f"Piqo Playground [{ckpt.name}]. Enter context (or 'q' to quit):")
         while (ctx := input("\nContext: ").strip()) and ctx.lower() not in ("q", "quit"):
             opts = [o.strip() for o in input("Choices (comma-separated): ").strip().split(",")]
             render_decision(engine.decide(ctx, [Choice("decision", opts)]), ctx)

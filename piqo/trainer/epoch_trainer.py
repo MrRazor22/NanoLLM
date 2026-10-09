@@ -2,10 +2,10 @@ import time
 from typing import Iterable, Iterator, Optional, Protocol, Sequence, Tuple, Union, runtime_checkable
 import torch
 import torch.nn as nn
-from nanollm.engine.questions import Composable
-from nanollm.engine.policies.torch_scorer import TorchScorer
-from nanollm.trainer.batches import StepStats, TargetSlot, TrainingBatch
-from nanollm.trainer.policies.calibrated_loss import CalibratedLoss, ILoss
+from piqo.engine.questions import Composable
+from piqo.engine.policies.torch_scorer import TorchScorer
+from piqo.trainer.batches import StepStats, TargetSlot, TrainingBatch
+from piqo.trainer.policies.calibrated_loss import CalibratedLoss, ILoss
 
 def _unpack_batch(b: Union[TrainingBatch, dict], dev: torch.device) -> Tuple[torch.Tensor, torch.Tensor, Sequence[Sequence[TargetSlot]]]:
     raw_ids = b["input_ids"] if isinstance(b, dict) else b.input_ids
