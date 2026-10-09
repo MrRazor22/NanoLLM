@@ -4,7 +4,8 @@ from benchmark.scorecard import BenchmarkItem
 
 from harness.training_dataset import load_raw_jsonl
 
-DATA_DIR = Path(__file__).resolve().parent.parent / "data"
+BENCHMARK_DIR = Path(__file__).resolve().parent.parent / "data"
+LOCAL_BENCHMARK_DIR = Path(__file__).resolve().parent.parent / "benchmark" / "data"
 
 @runtime_checkable
 class IBenchmarkSource(Protocol):
@@ -17,7 +18,8 @@ class JsonlBenchmarkSource:
     display_name: str = ""
     file_name: str = ""
     def load(self, limit: Optional[int] = None) -> Sequence[BenchmarkItem]:
-        items = load_raw_jsonl(DATA_DIR / self.file_name)
+        active_dir = LOCAL_BENCHMARK_DIR if LOCAL_BENCHMARK_DIR.exists() else BENCHMARK_DIR
+        items = load_raw_jsonl(active_dir / self.file_name)
         return items[:limit] if limit is not None else items
 
 class LayaSource(JsonlBenchmarkSource, IBenchmarkSource):
