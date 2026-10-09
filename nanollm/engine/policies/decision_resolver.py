@@ -49,7 +49,7 @@ class DecisionResolver(IResolver):
                 )
             elif isinstance(q, Noul):
                 prob = 1.0 / (1.0 + math.exp(-scores[slot_indices[0]]))
-                answers[q.name] = NoulResult(value=prob >= 0.5, probability=prob)
+                answers[q.name] = NoulResult(is_positive=prob >= 0.5, probability=prob)
             elif isinstance(q, Score):
                 norm = 1.0 / (1.0 + math.exp(-scores[slot_indices[0]]))
                 val = q.min_value + norm * (q.max_value - q.min_value)

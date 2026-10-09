@@ -7,85 +7,54 @@ from nanollm.trainer.batches import SampleTargets, TargetSlot
 @runtime_checkable
 class ILoss(Protocol):
     """Injected Opinion Sub-Primitive: Evaluates scalar loss over neural logits and batch targets."""
-
-    def compute(
-        self,
-        scores: Sequence[Sequence[float]],
-        batch_targets: Sequence[SampleTargets],
-    ) -> float:
-        ...
+    def compute(self, scores: Sequence[Sequence[float]], batch_targets: Sequence[SampleTargets]) -> float: ...
 
 class CalibratedLoss(nn.Module, ILoss):
     """Brier-calibrated multi-task loss policy."""
-
     def __init__(self, brier_weight: float = 0.5):
         super().__init__()
         self.brier_weight = brier_weight
 
-    def compute(
-        self,
-        scores: Sequence[Sequence[float]],
-        batch_targets: Sequence[SampleTargets],
-    ) -> float:
-        t_scores = torch.as_tensor(scores, dtype=torch.float)
-        return float(self.loss_tensor(t_scores, batch_targets).item())
+    def compute(self, scores: Sequence[Sequence[float]], batch_targets: Sequence[SampleTargets]) -> float:
+        return float(self.loss_tensor(torch.as_tensor(scores, dtype=torch.float), batch_targets).item())
 
-    def loss_tensor(
-        self,
-        scores: torch.Tensor,
-        batch_meta: Union[Sequence[SampleTargets], Sequence[Sequence[Union[TargetSlot, Tuple[str, Sequence[int], Union[int, float]]]]]],
-    ) -> torch.Tensor:
-        device = scores.device
-        choice_logits, choice_targets = [], []
-        bce_logits, bce_targets = [], []
-        score_logits, score_targets = [], []
-
+    def loss_tensor(self, scores: torch.Tensor, batch_meta: Sequence[Sequence[TargetSlot]]) -> torch.Tensor:
+        dev = scores.device
+        c_logits, c_tgts, b_logits, b_tgts, s_logits, s_tgts = [], [], [], [], [], []
         for b_idx, sample in enumerate(batch_meta):
-            items = sample.slots if isinstance(sample, SampleTargets) else sample
+            items = sample.slots if hasattr(sample, "slots") else sample
             for item in items:
-                q_type = item.target_type if isinstance(item, TargetSlot) else item[0]
-                positions = item.indices if isinstance(item, TargetSlot) else item[1]
-                target = item.value if isinstance(item, TargetSlot) else item[2]
+                q_type = getattr(item, "target_type", item[0] if isinstance(item, tuple) else None)
+                pos = getattr(item, "indices", item[1] if isinstance(item, tuple) else None)
+                val = getattr(item, "value", item[2] if isinstance(item, tuple) else None)
                 if q_type == "choice":
-                    choice_logits.append(scores[b_idx, positions])
-                    choice_targets.append(int(target))
+                    c_logits.append(scores[b_idx, pos])
+                    c_tgts.append(int(val))
                 elif q_type == "noul":
-                    bce_logits.append(scores[b_idx, positions[0]])
-                    bce_targets.append(float(target))
+                    b_logits.append(scores[b_idx, pos[0]])
+                    b_tgts.append(float(val))
                 elif q_type == "score":
-                    score_logits.append(scores[b_idx, positions[0]])
-                    score_targets.append(float(target))
+                    s_logits.append(scores[b_idx, pos[0]])
+                    s_tgts.append(float(val))
 
         losses = []
-        if choice_logits:
-            max_c = max(l.size(0) for l in choice_logits)
-            padded = torch.full((len(choice_logits), max_c), -1e4, device=device)
-            for i, l in enumerate(choice_logits):
-                padded[i, :l.size(0)] = l
-            t = torch.as_tensor(choice_targets, dtype=torch.long, device=device)
-            losses.append(F.cross_entropy(padded, t, reduction="sum"))
-
-        if bce_logits:
-            l = torch.stack(bce_logits)
-            t = torch.as_tensor(bce_targets, dtype=torch.float, device=device)
+        if c_logits:
+            max_c = max(l.size(0) for l in c_logits)
+            pad = torch.full((len(c_logits), max_c), -1e4, device=dev)
+            for i, l in enumerate(c_logits): pad[i, :l.size(0)] = l
+            losses.append(F.cross_entropy(pad, torch.as_tensor(c_tgts, dtype=torch.long, device=dev), reduction="sum"))
+        if b_logits:
+            l, t = torch.stack(b_logits), torch.as_tensor(b_tgts, dtype=torch.float, device=dev)
             prob = torch.sigmoid(l)
-            bce = (1.0 - self.brier_weight) * F.binary_cross_entropy_with_logits(l, t, reduction="sum") + self.brier_weight * torch.sum((prob - t) ** 2)
-            losses.append(bce)
-
-        if score_logits:
-            l = torch.stack(score_logits)
-            t = torch.as_tensor(score_targets, dtype=torch.float, device=device)
+            losses.append((1.0 - self.brier_weight) * F.binary_cross_entropy_with_logits(l, t, reduction="sum") + self.brier_weight * torch.sum((prob - t) ** 2))
+        if s_logits:
+            l, t = torch.stack(s_logits), torch.as_tensor(s_tgts, dtype=torch.float, device=dev)
             losses.append(torch.sum(4.0 * (torch.sigmoid(l) - t) ** 2))
 
-        total_q = len(choice_logits) + len(bce_logits) + len(score_logits)
-        return torch.sum(torch.stack(losses)) / max(1, total_q) if losses else torch.tensor(0.0, device=device)
+        total_q = len(c_logits) + len(b_logits) + len(s_logits)
+        return torch.sum(torch.stack(losses)) / max(1, total_q) if losses else torch.tensor(0.0, device=dev)
 
-    def forward(
-        self,
-        scores: torch.Tensor,
-        batch_meta: Sequence[Sequence[Union[TargetSlot, Tuple[str, Sequence[int], Union[int, float]]]]],
-        device: Optional[torch.device] = None,
-    ) -> torch.Tensor:
+    def forward(self, scores: torch.Tensor, batch_meta: Sequence[Sequence[TargetSlot]], device: Optional[torch.device] = None) -> torch.Tensor:
         return self.loss_tensor(scores, batch_meta)
 
 __all__ = ["ILoss", "CalibratedLoss"]

@@ -1,7 +1,7 @@
 import argparse
 import torch
-from benchmark.scorecard import Scorecard
-from benchmark.tracks import TRACKS
+from benchmark.policies.tracks import TRACKS
+from benchmark.scorecard import IEvaluator, Scorecard
 from nanollm import DEFAULT_CHECKPOINT, DecisionEngine, ProfilingLayer, get_latest_checkpoint
 
 def main() -> None:
@@ -14,14 +14,15 @@ def main() -> None:
 
     dev = "cuda" if torch.cuda.is_available() else "cpu"
     engine = DecisionEngine.from_checkpoint(args.checkpoint, device=dev) | ProfilingLayer()
-    card = Scorecard()
+    card: IEvaluator = Scorecard()
 
     targets = TRACKS if args.suite == "all" else {args.suite: TRACKS[args.suite]}
     reports = {}
     for name, src_cls in targets.items():
         src = src_cls()
         print(f"Running track: {src.display_name}...")
-        reports[name] = card.evaluate(engine, src.load(limit=args.limit))
+        items = src.load(limit=args.limit)
+        reports[name] = card.evaluate(engine, items, track_name=name)
 
     card.render(reports, model_name="NanoLLM")
 

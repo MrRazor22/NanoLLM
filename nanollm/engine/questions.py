@@ -1,10 +1,6 @@
 from dataclasses import dataclass
 import json
-from typing import Mapping, Optional, Sequence, Union
-
-# ==========================================
-# Pure Passive DTOs (Zero Framework Types, Zero Any)
-# ==========================================
+from typing import Mapping, Optional, Protocol, Sequence, Union, runtime_checkable
 
 DecisionState = Union[str, Mapping[str, str]]
 
@@ -31,22 +27,35 @@ class Score:
     target: Optional[float] = None
 
 Question = Union[Choice, Noul, Score]
+QuestionSpec = Question
+
+@runtime_checkable
+class IAnswer(Protocol):
+    """Polymorphic Data Stream Contract: Shared capability for typed answer values."""
+    @property
+    def value(self) -> Union[str, bool, float]: ...
 
 @dataclass(frozen=True)
 class ChoiceResult:
     choice: str
     confidence: float
     probabilities: Mapping[str, float]
+    @property
+    def value(self) -> str: return self.choice
 
 @dataclass(frozen=True)
 class NoulResult:
-    value: bool
+    is_positive: bool
     probability: float
+    @property
+    def value(self) -> bool: return self.is_positive
 
 @dataclass(frozen=True)
 class ScoreResult:
     score: float
     normalized: float
+    @property
+    def value(self) -> float: return self.score
 
 Answer = Union[ChoiceResult, NoulResult, ScoreResult]
 
@@ -64,54 +73,38 @@ class TokenLayout:
     input_ids: Sequence[int]
     mask: Sequence[float]
     slots: Sequence[SlotIndices]
-
     @property
-    def slot_indices(self) -> Sequence[Sequence[int]]:
-        return [s.positions for s in self.slots]
+    def slot_indices(self) -> Sequence[Sequence[int]]: return [s.positions for s in self.slots]
 
 @dataclass(frozen=True)
 class ScoreLayout:
     scores: Sequence[float]
-
-# Backwards-compatible alias for unified schema
-QuestionSpec = Question
 
 @dataclass(frozen=True)
 class DecisionSample:
     state: DecisionState
     questions: Sequence[Question]
 
-# ==========================================
-# Colocated Pure DTO Transforms
-# ==========================================
+class Composable:
+    """Layer decorator composition mixin (lambda: P -> P)."""
+    def add(self, layer: object) -> object:
+        return layer(self) if isinstance(layer, type) else (getattr(layer, "attach")(self) if hasattr(layer, "attach") else layer)
+    def __or__(self, layer: object) -> object:
+        return self.add(layer)
 
 def format_state(state: DecisionState) -> str:
     """Colocated pure transform: formats state string or dictionary for token encoding."""
-    if isinstance(state, dict):
-        return " | ".join(f"{k}: {v}" for k, v in state.items())
+    if isinstance(state, dict): return " | ".join(f"{k}: {v}" for k, v in state.items())
     if isinstance(state, str) and state.startswith("{") and state.endswith("}"):
         try:
             parsed = json.loads(state)
-            if isinstance(parsed, dict):
-                return " | ".join(f"{k}: {v}" for k, v in parsed.items())
-        except Exception:
-            pass
+            if isinstance(parsed, dict): return " | ".join(f"{k}: {v}" for k, v in parsed.items())
+        except Exception: pass
     return str(state)
 
 __all__ = [
-    "DecisionState",
-    "Choice",
-    "Noul",
-    "Score",
-    "Question",
-    "ChoiceResult",
-    "NoulResult",
-    "ScoreResult",
-    "Answer",
-    "DecisionResult",
-    "TokenLayout",
-    "ScoreLayout",
-    "QuestionSpec",
-    "DecisionSample",
-    "format_state",
+    "DecisionState", "Choice", "Noul", "Score", "Question", "QuestionSpec",
+    "IAnswer", "ChoiceResult", "NoulResult", "ScoreResult", "Answer",
+    "DecisionResult", "TokenLayout", "ScoreLayout", "DecisionSample",
+    "Composable", "format_state",
 ]

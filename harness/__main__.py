@@ -10,10 +10,10 @@ from nanollm import (
     get_latest_checkpoint,
     get_next_checkpoint_path,
 )
-from harness.dataset import TrainingDataset
+from harness.training_dataset import DATA_DIR, TrainingDataset
 
 ROOT = Path(__file__).resolve().parent.parent
-DEFAULT_DATA_DIR = Path(__file__).resolve().parent / "dataset" / "data"
+DEFAULT_DATA_DIR = DATA_DIR
 DEFAULT_TRAIN = DEFAULT_DATA_DIR / "splits" / "train.jsonl"
 DEFAULT_VAL = DEFAULT_DATA_DIR / "splits" / "val.jsonl"
 DEFAULT_OUTPUT = ROOT / "checkpoints" / "checkpoint_trained.pt"
@@ -63,7 +63,6 @@ def main() -> None:
         val_data=args.val_data,
         backbone=args.backbone,
         batch_size=args.batch_size,
-        max_tokens=args.max_tokens,
         seed=args.seed,
     )
     print(f"Batches prepared: {len(train_batches)} train batches, {len(val_batches) if val_batches is not None else 0} val batches.", flush=True)
@@ -74,4 +73,3 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
-
