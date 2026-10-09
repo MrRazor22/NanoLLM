@@ -13,7 +13,7 @@ flowchart TD
     classDef engine fill:#ecfdf5,stroke:#059669,stroke-width:2px,color:#065f46;
     classDef output fill:#f0fdf4,stroke:#16a34a,stroke-width:2px,color:#15803d;
     classDef trainer fill:#faf5ff,stroke:#9333ea,stroke-width:2px,color:#6b21a8;
-    classDef harness fill:#fff1f2,stroke:#e11d48,stroke-width:2px,color:#9f1239;
+    classDef curriculum fill:#fff1f2,stroke:#e11d48,stroke-width:2px,color:#9f1239;
 
     subgraph Client ["1. Client & Invocation Surfaces"]
         CLI["CLI: python cli.py"]
@@ -58,7 +58,7 @@ flowchart TD
         end
     end
 
-    subgraph DataEngine ["6. Data Harness (harness/)"]
+    subgraph DataEngine ["3. Data Domain (data/)"]
         SOURCES["12+ Task Sources: Banking, Security, Glaive Tools, Intent, Guardrails"]
         TDS["TrainingDataset: Streamer & slot-aligned batch generator"]
     end
@@ -85,22 +85,23 @@ flowchart TD
     class DE,PROF,ENC,SCORER,RES engine;
     class RES_OUT output;
     class ET,LOSS,METRICS,CKPT trainer;
-    class SOURCES,TDS harness;
+    class SOURCES,TDS data;
 ```
 
 ---
 
 ## Architectural Topology & Responsibilities
 
-| Subsystem | Boundary Contract | Implementation | Role & PFD Discipline |
+| Domain | Boundary Contract | Primary Implementation | Role & PFD Discipline |
 | :--- | :--- | :--- | :--- |
-| **Inference** | `IDecisionEngine` | `DecisionEngine` | Orchestrates single-pass micro-decisions; strictly decoupled from frameworks. |
-| **Inference Policies** | `IEncoder`, `IScorer`, `IResolver` | `SlotEncoder`, `TorchScorer`, `DecisionResolver` | Discrete sub-primitives handling slot serialization, transformer scoring, and calibration. |
+| **Inference (`inference/`)** | `IDecisionEngine` | `DecisionEngine` | Orchestrates single-pass micro-decisions; strictly decoupled from frameworks. |
+| **Inference Policies** | `ILayoutEncoder`, `IScorer`, `IResolver` | `SlotEncoder`, `TorchScorer`, `DecisionResolver` | Discrete sub-primitives handling slot serialization, transformer scoring, and calibration. |
 | **Inference Layers** | Decorator ($\lambda: P \to P$) | `ProfilingLayer` | Non-invasive instrumentation for sub-millisecond stage tracking. |
-| **Optimization** | `ITrainer` | `EpochTrainer` | Drives multi-epoch model convergence and validation loops. |
-| **Trainer Policies** | `ILoss`, `LossRegistry` | `CalibratedLoss` | Dynamic loss composition tailored to multi-task question heads. |
-| **Trainer Layers** | Decorator ($\lambda: P \to P$) | `MetricsLayer`, `CheckpointingLayer` | Pluggable telemetry monitoring and champion checkpoint persistence. |
-| **Data Harness** | Pure Python Iterators | `TrainingDataset`, Sources | Standardizes 12+ real-world heterogeneous datasets into slot layouts. |
+| **Training (`training/`)** | `ITrainer` | `EpochTrainer` | Drives multi-epoch model convergence and validation loops. |
+| **Training Policies** | `ILoss`, `LossRegistry` | `CalibratedLoss` | Dynamic loss composition tailored to multi-task question heads. |
+| **Training Layers** | Decorator ($\lambda: P \to P$) | `MetricsLayer`, `CheckpointingLayer` | Pluggable telemetry monitoring and champion checkpoint persistence. |
+| **Data (`data/`)** | `ICurriculum`, `IDataset` | `Curriculum`, `TrainingDataset` | Clean ingestion, 13-gram leakage policy, and batch collation. |
+| **Evaluation (`evaluation/`)** | `IEvaluator` | `Scorecard` | Evaluates engine accuracy & latency against competitive baselines. |
 
 ---
 
@@ -130,8 +131,8 @@ for name, ans in result.answers.items():
 
 ### 2. Run Training
 ```python
-from piqo import EpochTrainer, MetricsLayer, CheckpointingLayer
-from harness.dataset import TrainingDataset
+from piqo import Curriculum, EpochTrainer, MetricsLayer, CheckpointingLayer, SlotEncoder
+from transformers import AutoTokenizer
 
 # Pipeline composition
 trainer = (
@@ -140,7 +141,10 @@ trainer = (
     | CheckpointingLayer(output_path="checkpoints/checkpoint_champion.pt")
 )
 
-train_loader, val_loader = TrainingDataset.loaders("harness/dataset/data/splits/train.jsonl")
+encoder = SlotEncoder(AutoTokenizer.from_pretrained("answerdotai/ModernBERT-base"))
+train_ds, val_ds = Curriculum.load_splits(encoder=encoder)
+train_loader = train_ds.get_loader(batch_size=16, shuffle=True)
+val_loader = val_ds.get_loader(batch_size=16, shuffle=False) if val_ds else None
 
 # Stream training statistics
 for stats in trainer.fit(train_loader, val_batches=val_loader, epochs=3):
