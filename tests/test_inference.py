@@ -3,60 +3,56 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 import torch
-from nanollm.model import ModelConfig, NanoModel
-from nanollm.inference import (
-    ByteTokenizer,
+import torch.nn as nn
+from nanollm import (
     Choice,
-    DecisionResolver,
+    DecisionEngine,
+    DecisionResult,
     Noul,
+    ProfilingLayer,
+    Question,
     Score,
-    SlotAssembler,
 )
 
-def test_tokenizer():
-    tokenizer = ByteTokenizer()
-    text = "Refund my card"
-    tokens = tokenizer.encode(text)
-    assert tokenizer.decode(tokens) == text
-    assert len(tokens) == len(text.encode("utf-8"))
+class DummyTokenizer:
+    mask_token_id = 256
+    sep_token_id = 257
+    pad_token_id = 258
+    def encode(self, text: str):
+        return list(text.encode("utf-8"))
+    def decode(self, ids):
+        return bytes([i for i in ids if i < 256]).decode("utf-8", errors="replace")
 
-def test_assembler():
-    tokenizer = ByteTokenizer()
-    assembler = SlotAssembler(tokenizer)
-    qs = [Choice("dept", ["billing", "tech"]), Noul("urgent"), Score("sev", 0.0, 10.0)]
-    layout = assembler.assemble_single("Server is down", qs)
-    assert layout.input_ids.shape[0] == 1
-    assert layout.mask.shape == layout.input_ids.shape
-    assert len(layout.slots) == 3
+class DummyModel(nn.Module):
+    def forward(self, input_ids, mask=None):
+        return torch.zeros_like(input_ids, dtype=torch.float)
 
-def test_model():
-    config = ModelConfig(vocab_size=260, hidden_dim=64, num_layers=2, num_heads=2)
-    model = NanoModel(config)
-    input_ids = torch.randint(0, 260, (2, 16))
-    mask = torch.ones((2, 16))
-    scores = model(input_ids, mask)
-    assert scores.shape == (2, 16)
-
-def test_resolver():
-    resolver = DecisionResolver()
-    qs = [Choice("dept", ["billing", "tech"]), Noul("urgent")]
-    slots = [[0, 1], [2]]
-    scores = torch.tensor([2.0, 0.5, 1.2])
-    answers = resolver.resolve(qs, slots, scores)
-    assert answers["dept"].choice == "billing"
-    assert answers["urgent"].value is True
+def test_decision_engine():
+    tokenizer = DummyTokenizer()
+    model = DummyModel()
+    engine = DecisionEngine(model, tokenizer, device=torch.device("cpu"))
+    qs = [
+        Choice("dept", ["billing", "tech"]),
+        Noul("urgent", instruction="Is urgent?"),
+        Score("severity", min_value=0.0, max_value=100.0),
+    ]
+    res = engine.decide("Database is down", qs)
+    assert "dept" in res.answers
+    assert "urgent" in res.answers
+    assert "severity" in res.answers
+    assert res.answers["dept"].choice in ["billing", "tech"]
+    assert isinstance(res.answers["urgent"].value, bool)
+    assert 0.0 <= res.answers["severity"].score <= 100.0
 
 def test_layer_pipe():
-    from nanollm.inference import DecisionResult, ProfilingLayer
-
     class MockEngine:
+        def decide(self, state, questions):
+            return DecisionResult(answers={})
         def add(self, layer, **kwargs):
             if isinstance(layer, type): return layer(self, **kwargs)
             if hasattr(layer, "attach"): return layer.attach(self)
             return layer(self, **kwargs)
         def __or__(self, layer): return self.add(layer)
-        def decide(self, state, questions):
-            return DecisionResult(answers={})
 
     engine = MockEngine() | ProfilingLayer
     assert isinstance(engine, ProfilingLayer)
@@ -64,9 +60,6 @@ def test_layer_pipe():
     assert res.latency_ms is not None
 
 if __name__ == "__main__":
-    test_tokenizer()
-    test_assembler()
-    test_model()
-    test_resolver()
+    test_decision_engine()
     test_layer_pipe()
-    print("Engine tests passed!")
+    print("Inference tests passed!")

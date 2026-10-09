@@ -1,66 +1,29 @@
 import argparse
-from typing import Any
 import torch
-from benchmark.dataset import (
-    AbstentionSource,
-    AgenticSource,
-    BenchmarkDataset,
-    IDataSource,
-    LayaSource,
-    TypedDecisionsSource,
-)
-from benchmark.report import IScorecard, Scorecard
-from nanollm.inference.decision_engine import DEFAULT_CHECKPOINT, DecisionEngine
-from nanollm.inference.profiling_layer import ProfilingLayer
-
-from nanollm.checkpoint_resolver import get_latest_checkpoint
-
-SUITE_SOURCES: dict[str, type[IDataSource]] = {
-    "agentic": AgenticSource,
-    "abstention": AbstentionSource,
-    "typed_decisions": TypedDecisionsSource,
-    "laya": LayaSource,
-}
+from benchmark.scorecard import Scorecard
+from benchmark.tracks import TRACKS
+from nanollm import DEFAULT_CHECKPOINT, DecisionEngine, ProfilingLayer, get_latest_checkpoint
 
 def main() -> None:
-    suites = SUITE_SOURCES
     latest_ckpt, _ = get_latest_checkpoint()
-    default_ckpt = str(latest_ckpt) if latest_ckpt else str(DEFAULT_CHECKPOINT)
-
-    parser = argparse.ArgumentParser(description="NanoLLM Honest Benchmark")
-    parser.add_argument("--checkpoint", type=str, default=default_ckpt, help=f"Path to checkpoint (default: {default_ckpt})")
-    parser.add_argument("--suite", "--track", type=str, default="all", dest="suite", choices=["all"] + list(suites.keys()), help="Benchmark suite to run")
-    parser.add_argument("--all", action="store_const", dest="suite", const="all", help="Run all suites")
-    for name in suites:
-        parser.add_argument(f"--{name.replace('_', '-')}", action="store_const", dest="suite", const=name, help=f"Run {name} suite")
-    parser.add_argument("--limit", type=int, default=None, help="Optional case limit for quick validation")
-    parser.add_argument("--log-interval", type=int, default=100, help="Print running accuracy every N items (0=off)")
-    parser.add_argument("--compare", action="store_true", help="Render competitive benchmark matrix against baselines")
+    parser = argparse.ArgumentParser(description="NanoLLM Benchmark Runner")
+    parser.add_argument("--checkpoint", type=str, default=str(latest_ckpt or DEFAULT_CHECKPOINT))
+    parser.add_argument("--suite", "--track", type=str, default="all", choices=["all"] + list(TRACKS.keys()))
+    parser.add_argument("--limit", type=int, default=None)
     args = parser.parse_args()
 
-    target_suites = suites if args.suite == "all" else {args.suite: suites[args.suite]}
     dev = "cuda" if torch.cuda.is_available() else "cpu"
-    if torch.cuda.is_available():
-        torch.set_float32_matmul_precision("high")
-        torch.backends.cudnn.benchmark = True
     engine = DecisionEngine.from_checkpoint(args.checkpoint, device=dev) | ProfilingLayer()
-    scorecard: IScorecard = Scorecard()
+    card = Scorecard()
 
-    reports: dict[str, Any] = {}
-    metadata: dict[str, Any] = {}
-    for key, src_cls in target_suites.items():
-        ds = BenchmarkDataset(src_cls())
-        meta = {
-            "display_name": getattr(ds, "display_name", key.replace("_", " ").title()),
-            "category_labels": getattr(ds, "category_labels", {}),
-        }
-        if len(target_suites) > 1:
-            print(f"\n{'='*70}\n>>> Running Benchmark Suite: {meta['display_name'].upper()}\n{'='*70}", flush=True)
-        reports[key] = scorecard.evaluate_target(engine, ds, limit=args.limit, log_interval=args.log_interval)
-        metadata[key] = meta
+    targets = TRACKS if args.suite == "all" else {args.suite: TRACKS[args.suite]}
+    reports = {}
+    for name, src_cls in targets.items():
+        src = src_cls()
+        print(f"Running track: {src.display_name}...")
+        reports[name] = card.evaluate(engine, src.load(limit=args.limit))
 
-    scorecard.render(reports, track=args.suite, metadata=metadata, model_name="NanoLLM Champion")
+    card.render(reports, model_name="NanoLLM")
 
 if __name__ == "__main__":
     main()
-

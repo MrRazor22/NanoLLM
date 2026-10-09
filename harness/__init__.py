@@ -1,3 +1,3 @@
-from harness.dataset import ITrainingDataset, TrainingDataset
+from harness.dataset import TrainingDataset
 
-__all__ = ["ITrainingDataset", "TrainingDataset"]
+__all__ = ["TrainingDataset"]

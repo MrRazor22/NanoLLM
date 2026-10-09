@@ -2,7 +2,14 @@ import argparse
 from pathlib import Path
 import torch
 
-from nanollm.training import CheckpointingLayer, EpochTrainer, ITrainer, MetricsLayer
+from nanollm import (
+    CheckpointingLayer,
+    EpochTrainer,
+    ITrainer,
+    MetricsLayer,
+    get_latest_checkpoint,
+    get_next_checkpoint_path,
+)
 from harness.dataset import TrainingDataset
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -12,8 +19,6 @@ DEFAULT_VAL = DEFAULT_DATA_DIR / "splits" / "val.jsonl"
 DEFAULT_OUTPUT = ROOT / "checkpoints" / "checkpoint_trained.pt"
 DEFAULT_METRICS = ROOT / "checkpoints" / "metrics.json"
 DEFAULT_BACKBONE = "answerdotai/ModernBERT-base"
-
-from nanollm.checkpoint_resolver import get_latest_checkpoint, get_next_checkpoint_path
 
 def main() -> None:
     latest_ckpt, latest_ver = get_latest_checkpoint()
