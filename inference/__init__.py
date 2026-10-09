@@ -5,6 +5,7 @@ from inference.layers.profiling_layer import ProfilingLayer
 from inference.policies.decision_resolver import DecisionResolver, IResolver
 from inference.policies.slot_encoder import ILayoutEncoder, ITokenizer, SlotEncoder
 from inference.policies.torch_scorer import IScorer, TorchScorer
+from inference.case import DecisionCase
 from inference.questions import (
     Answer,
     Choice,
@@ -52,6 +53,7 @@ __all__ = [
     "DecisionResult",
     "TokenLayout",
     "ScoreLayout",
+    "DecisionCase",
     "DecisionSample",
     "QuestionSpec",
     "format_state",

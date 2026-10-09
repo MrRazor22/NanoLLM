@@ -6,7 +6,7 @@ import torch
 from transformers import AutoTokenizer
 
 from inference import SlotEncoder
-from data import CORPUS_DIR, Dataset
+from data import CORPUS_DIR, Dataset, DiskCachePolicy
 from training import (
     CHECKPOINTS_DIR,
     DEFAULT_CHECKPOINT,
@@ -70,7 +70,7 @@ def main() -> None:
         trainer = trainer | CheckpointingLayer(output_path=args.output)
 
     encoder = SlotEncoder(AutoTokenizer.from_pretrained(args.backbone))
-    dataset = Dataset(corpus_dir=Path(args.corpus_dir), seed=args.seed)
+    dataset = Dataset(cache_policy=DiskCachePolicy(Path(args.corpus_dir)), seed=args.seed)
 
     train_samples = dataset.load("train")
     val_samples = dataset.load("val")

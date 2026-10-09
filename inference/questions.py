@@ -76,12 +76,7 @@ class TokenLayout:
 class ScoreLayout:
     scores: Sequence[float]
 
-@dataclass(frozen=True)
-class DecisionSample:
-    state: DecisionState
-    questions: Sequence[Question]
-    category: str = "general"
-    gold: Optional[Mapping[str, str]] = None
+from inference.case import DecisionCase, DecisionSample
 
 T = TypeVar("T")
 
@@ -105,6 +100,6 @@ def format_state(state: DecisionState) -> str:
 __all__ = [
     "DecisionState", "Choice", "Noul", "Score", "Question", "QuestionSpec",
     "IAnswer", "ChoiceResult", "NoulResult", "ScoreResult", "Answer",
-    "DecisionResult", "TokenLayout", "ScoreLayout", "DecisionSample",
+    "DecisionResult", "TokenLayout", "ScoreLayout", "DecisionCase", "DecisionSample",
     "Composable", "format_state",
 ]

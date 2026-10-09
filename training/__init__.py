@@ -8,7 +8,10 @@ from training.policies.calibrated_loss import CalibratedLoss, ILoss
 from training.policies.registry import (
     CHECKPOINTS_DIR,
     DEFAULT_CHECKPOINT,
+    WEIGHTS_DIR,
+    DEFAULT_WEIGHTS,
     CheckpointInfo,
+    WeightInfo,
     get_latest_checkpoint,
     get_next_checkpoint_path,
     list_all_checkpoints,
@@ -33,9 +36,12 @@ __all__ = [
     "StepStats",
     "TargetSlot",
     "TrainingBatch",
-    # Checkpoint Registry
+    # Weight & Checkpoint Registry
+    "WEIGHTS_DIR",
     "CHECKPOINTS_DIR",
+    "DEFAULT_WEIGHTS",
     "DEFAULT_CHECKPOINT",
+    "WeightInfo",
     "CheckpointInfo",
     "get_latest_checkpoint",
     "get_next_checkpoint_path",

@@ -2,7 +2,7 @@
 *.pt
 *.bin
 *.safetensors
-**/checkpoint*/
+weights/
 
 
 # Data stores and large files

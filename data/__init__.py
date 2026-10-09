@@ -6,10 +6,8 @@ from data.dataset import (
     IDataset,
     Dataset,
     DataSplits,
-    load_raw_jsonl,
-    save_jsonl,
-    to_decision_sample,
 )
+from data.policies.cache import ICachePolicy, DiskCachePolicy, load_raw_jsonl
 from data.policies.leakage import ILeakagePolicy, NGramLeakagePolicy
 from data.policies.split import ISplitPolicy, BudgetSplitPolicy
 from data.sources import (
@@ -33,17 +31,18 @@ __all__ = [
     "BudgetSplitPolicy",
     "ILeakagePolicy",
     "NGramLeakagePolicy",
+    "ICachePolicy",
+    "DiskCachePolicy",
     # Sources
     "IDataSource",
     "GlaiveSource",
     "DecisionsSource",
     "GenericSource",
     # Utilities
+    "load_raw_jsonl",
+    # Directories
     "DATA_DIR",
     "CORPUS_DIR",
     "RAW_DIR",
     "ADAPTED_DIR",
-    "to_decision_sample",
-    "load_raw_jsonl",
-    "save_jsonl",
 ]
