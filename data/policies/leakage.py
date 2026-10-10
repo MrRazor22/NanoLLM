@@ -1,16 +1,16 @@
 import re
 from typing import Protocol, Sequence, Set, Tuple, runtime_checkable
-from inference.questions import DecisionSample
+from inference.case import DecisionCase
 
 @runtime_checkable
 class ILeakagePolicy(Protocol):
-    """Sovereign policy contract: audits candidate training samples against holdout evaluation suites."""
+    """Sovereign policy contract: audits candidate training cases against holdout evaluation suites."""
 
     def find_leaks(
         self,
-        candidates: Sequence[DecisionSample],
-        holdouts: Sequence[DecisionSample],
-    ) -> Sequence[DecisionSample]: ...
+        candidates: Sequence[DecisionCase],
+        holdouts: Sequence[DecisionCase],
+    ) -> Sequence[DecisionCase]: ...
 
 class NGramLeakagePolicy(ILeakagePolicy):
     """13-gram token shingling policy: flags continuous n-gram overlaps against holdouts."""
@@ -28,9 +28,9 @@ class NGramLeakagePolicy(ILeakagePolicy):
 
     def find_leaks(
         self,
-        candidates: Sequence[DecisionSample],
-        holdouts: Sequence[DecisionSample],
-    ) -> Sequence[DecisionSample]:
+        candidates: Sequence[DecisionCase],
+        holdouts: Sequence[DecisionCase],
+    ) -> Sequence[DecisionCase]:
         holdout_shingles: Set[Tuple[str, ...]] = set()
         for h in holdouts:
             if h.state:

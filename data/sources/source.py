@@ -1,11 +1,11 @@
 from dataclasses import dataclass
 from typing import Protocol, Sequence, runtime_checkable
-from inference.questions import DecisionSample
+from inference.case import DecisionCase
 
 @dataclass(frozen=True)
 class SourceRecord:
-    """Pure domain DTO tagging sample with dataset origin split."""
-    sample: DecisionSample
+    """Pure domain DTO tagging case with dataset origin split."""
+    sample: DecisionCase
     tag: str = "unsplit"  # "train", "test", or "unsplit"
 
 @runtime_checkable

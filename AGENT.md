@@ -4,10 +4,10 @@
 - **Always Apply PFD:** All architecture, boundary definitions, refactorings, and reviews in this repository strictly follow Primitive-First Design (PFD).
 - **Authoritative Reference:** Always read and adhere to `~/.gemini/config/skills/pfd/SKILL.md` (invocable via `/primitive-first-design`). Never use partial heuristics, legacy ATA terminology, or speculative wrapper abstractions.
 - **The 4 Irreducible Sovereign Domains:**
-  1. **Inference:** [`inference/`](file:///d:/CodeBase/Piqo/inference) — [`IDecisionEngine`](file:///d:/CodeBase/Piqo/inference/decision_engine.py#L13-L16), [`DecisionEngine`](file:///d:/CodeBase/Piqo/inference/decision_engine.py#L18-L38)
-  2. **Training:** [`training/`](file:///d:/CodeBase/Piqo/training) — [`ITrainer`](file:///d:/CodeBase/Piqo/training/epoch_trainer.py#L17-L21), [`EpochTrainer`](file:///d:/CodeBase/Piqo/training/epoch_trainer.py#L22-L75)
-  3. **Data:** [`data/`](file:///d:/CodeBase/Piqo/data) — [`ICurriculum`](file:///d:/CodeBase/Piqo/data/curriculum.py#L24-L30), [`Curriculum`](file:///d:/CodeBase/Piqo/data/curriculum.py#L44-L88), [`IDataset`](file:///d:/CodeBase/Piqo/data/curriculum.py#L17-L22), [`TrainingDataset`](file:///d:/CodeBase/Piqo/data/curriculum.py#L31-L43), [`ILeakagePolicy`](file:///d:/CodeBase/Piqo/data/policies/leakage.py#L6-L13)
-  4. **Evaluation:** [`evaluation/`](file:///d:/CodeBase/Piqo/evaluation) — [`IEvaluator`](file:///d:/CodeBase/Piqo/evaluation/scorecard.py#L21-L30), [`Scorecard`](file:///d:/CodeBase/Piqo/evaluation/scorecard.py#L35-L101), [`IBenchmarkSource`](file:///d:/CodeBase/Piqo/evaluation/policies/tracks.py#L11-L15)
+  1. **Inference:** [`inference/`](file:///d:/CodeBase/Piqo/inference) — [`IDecisionEngine`](file:///d:/CodeBase/Piqo/inference/decision_engine.py), [`DecisionEngine`](file:///d:/CodeBase/Piqo/inference/decision_engine.py)
+  2. **Training:** [`training/`](file:///d:/CodeBase/Piqo/training) — [`ITrainer`](file:///d:/CodeBase/Piqo/training/epoch_trainer.py), [`EpochTrainer`](file:///d:/CodeBase/Piqo/training/epoch_trainer.py)
+  3. **Data:** [`data/`](file:///d:/CodeBase/Piqo/data) — [`IDataset`](file:///d:/CodeBase/Piqo/data/dataset.py), [`Dataset`](file:///d:/CodeBase/Piqo/data/dataset.py), [`ILeakagePolicy`](file:///d:/CodeBase/Piqo/data/policies/leakage.py)
+  4. **Evaluation:** [`evaluation/`](file:///d:/CodeBase/Piqo/evaluation) — [`IEvaluator`](file:///d:/CodeBase/Piqo/evaluation/scorecard.py), [`Scorecard`](file:///d:/CodeBase/Piqo/evaluation/scorecard.py)
 - **Zero Meta-Buckets & Zero Nesting:** Root commands the 4 domains directly as siblings. Zero nested `piqo/` folder, and zero `tests/` meta-bucket.
 
 ## 2. Operational Workflows & Commands

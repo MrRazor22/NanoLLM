@@ -1,5 +1,4 @@
 import argparse
-import torch
 from data import Dataset
 from evaluation import IEvaluator, Scorecard
 from inference import DecisionEngine, ProfilingLayer
@@ -13,8 +12,7 @@ def main() -> None:
     parser.add_argument("--limit", type=int, default=None, help="Limit number of test items")
     args = parser.parse_args()
 
-    dev = "cuda" if torch.cuda.is_available() else "cpu"
-    engine = DecisionEngine.from_checkpoint(args.checkpoint, device=dev) | ProfilingLayer()
+    engine = DecisionEngine.from_checkpoint(args.checkpoint) | ProfilingLayer()
     card: IEvaluator = Scorecard()
 
     dataset = Dataset()

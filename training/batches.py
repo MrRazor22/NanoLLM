@@ -1,10 +1,6 @@
 from dataclasses import dataclass
 from typing import Optional, Sequence, Tuple, Union
 
-# ==========================================
-# Pure Passive Training DTOs
-# ==========================================
-
 @dataclass(frozen=True)
 class TargetSlot:
     target_type: str

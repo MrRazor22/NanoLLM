@@ -10,6 +10,10 @@ class DecisionCase:
     questions: Sequence[Question]
     category: str = "general"
 
+    @property
+    def gold(self) -> Mapping[str, Union[str, int, float, bool]]:
+        return {q.name: q.target for q in self.questions if q.target is not None}
+
     def to_dict(self) -> dict:
         return {
             "state": self.state,
@@ -17,12 +21,12 @@ class DecisionCase:
             "questions": {
                 q.name: {
                     "type": "choice" if isinstance(q, Choice) else ("score" if isinstance(q, Score) else "noul"),
-                    "options": getattr(q, "options", None),
-                    "instructions": getattr(q, "instruction", None),
+                    "options": q.options if isinstance(q, Choice) else None,
+                    "instructions": q.instruction,
                 }
                 for q in self.questions
             },
-            "gold": {q.name: getattr(q, "target", None) for q in self.questions},
+            "gold": dict(self.gold),
         }
 
     @classmethod
@@ -44,7 +48,4 @@ class DecisionCase:
                     specs.append(Noul(name=name, instruction=ins, target=bool(tgt) if tgt is not None else False))
         return cls(state=state, questions=specs, category=cat)
 
-# Backward alias
-DecisionSample = DecisionCase
-
-__all__ = ["DecisionCase", "DecisionSample"]
+__all__ = ["DecisionCase"]

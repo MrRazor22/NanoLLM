@@ -4,7 +4,8 @@ import random
 import re
 from typing import Dict, List, Sequence
 from datasets import load_dataset
-from inference.questions import Choice, DecisionSample
+from inference.case import DecisionCase
+from inference.questions import Choice
 from data.sources import RAW_DIR, ADAPTED_DIR, IDataSource, SourceRecord, cached_jsonl
 
 class GlaiveSource(IDataSource):
@@ -23,7 +24,7 @@ class GlaiveSource(IDataSource):
                 if not line.strip():
                     continue
                 d = json.loads(line)
-                sample = DecisionSample(
+                sample = DecisionCase(
                     state=d["state"],
                     questions=[Choice(name="tool", options=d["options"], instruction="Select the tool to invoke:", target=d["target"])],
                 )
@@ -75,7 +76,7 @@ class GlaiveSource(IDataSource):
                         candidates[d] = tool_registry[d]
             opt_keys = list(candidates.keys())
             if fn in opt_keys:
-                sample = DecisionSample(
+                sample = DecisionCase(
                     state=query,
                     questions=[Choice(name="tool", options=candidates, instruction="Select the tool to invoke:", target=fn)],
                 )

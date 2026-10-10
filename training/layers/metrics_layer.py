@@ -16,18 +16,17 @@ class MetricsLayer(Composable):
         self.inner = inner
         return self
 
-    def evaluate(self, batches: Iterable[TrainingBatch]) -> float:
+    def evaluate(self, data, **kwargs) -> float:
         if self.inner is None: raise RuntimeError("MetricsLayer has no inner trainer.")
-        return self.inner.evaluate(batches)
+        return self.inner.evaluate(data, **kwargs)
 
-    def fit(self, train_batches: Iterable[TrainingBatch], val_batches: Optional[Iterable[TrainingBatch]] = None, epochs: int = 1) -> Iterator[StepStats]:
+    def fit(self, train_data, epochs: int = 1, **kwargs) -> Iterator[StepStats]:
         if self.inner is None: raise RuntimeError("MetricsLayer has no inner trainer.")
         last_log = time.perf_counter()
-        for s in self.inner.fit(train_batches, val_batches=val_batches, epochs=epochs):
+        for s in self.inner.fit(train_data, epochs=epochs, **kwargs):
             now = time.perf_counter()
-            if now - last_log >= self.log_interval_sec or s.val_loss is not None:
-                val_str = f" | Val: {s.val_loss:.4f}" if s.val_loss is not None else ""
-                self.sink(f"Epoch {s.epoch}/{s.total_epochs} | Step {s.step}/{s.total_steps} | Loss: {s.loss:.4f}{val_str}")
+            if now - last_log >= self.log_interval_sec:
+                self.sink(f"Epoch {s.epoch}/{s.total_epochs} | Step {s.step}/{s.total_steps} | Loss: {s.loss:.4f}")
                 last_log = now
             yield s
 

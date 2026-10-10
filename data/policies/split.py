@@ -1,15 +1,15 @@
 from dataclasses import dataclass
 import random
 from typing import Protocol, Sequence, runtime_checkable
-from inference.questions import DecisionSample
+from inference.case import DecisionCase
 from data.sources.source import SourceRecord
 
 @dataclass(frozen=True)
 class DataSplits:
-    """Consolidated partition of domain decision samples."""
-    train: Sequence[DecisionSample]
-    val: Sequence[DecisionSample]
-    test: Sequence[DecisionSample]
+    """Consolidated partition of domain decision cases."""
+    train: Sequence[DecisionCase]
+    val: Sequence[DecisionCase]
+    test: Sequence[DecisionCase]
 
 @runtime_checkable
 class ISplitPolicy(Protocol):
@@ -32,10 +32,10 @@ class BudgetSplitPolicy(ISplitPolicy):
 
     def partition(self, records: Sequence[SourceRecord]) -> DataSplits:
         rng = random.Random(self.seed)
-        train_recs: list[DecisionSample] = []
-        val_recs: list[DecisionSample] = []
-        test_recs: list[DecisionSample] = []
-        unsplit: list[DecisionSample] = []
+        train_recs: list[DecisionCase] = []
+        val_recs: list[DecisionCase] = []
+        test_recs: list[DecisionCase] = []
+        unsplit: list[DecisionCase] = []
 
         for r in records:
             if r.tag == "test":
@@ -49,17 +49,14 @@ class BudgetSplitPolicy(ISplitPolicy):
 
         if unsplit:
             rng.shuffle(unsplit)
-            # Allocate to test if under quota
             needed_test = max(0, self.test_quota - len(test_recs))
             test_recs.extend(unsplit[:needed_test])
             remainder = unsplit[needed_test:]
 
-            # Allocate to val if under quota
             needed_val = max(0, self.val_quota - len(val_recs))
             val_recs.extend(remainder[:needed_val])
             train_recs.extend(remainder[needed_val:])
 
-        # Apply overall train quota
         if len(train_recs) > self.train_quota:
             rng.shuffle(train_recs)
             train_recs = train_recs[:self.train_quota]

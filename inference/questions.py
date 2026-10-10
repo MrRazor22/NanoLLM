@@ -27,7 +27,6 @@ class Score:
     target: Optional[float] = None
 
 Question = Union[Choice, Noul, Score]
-QuestionSpec = Question
 
 @runtime_checkable
 class IAnswer(Protocol):
@@ -64,6 +63,11 @@ class DecisionResult:
     answers: Mapping[str, Answer]
     latency_ms: float = 0.0
 
+@runtime_checkable
+class IDecisionEngine(Protocol):
+    """Core Primitive: Operational boundary for neural decision inference."""
+    def decide(self, state: DecisionState, questions: Sequence[Question]) -> DecisionResult: ...
+
 @dataclass(frozen=True)
 class TokenLayout:
     input_ids: Sequence[int]
@@ -75,8 +79,6 @@ class TokenLayout:
 @dataclass(frozen=True)
 class ScoreLayout:
     scores: Sequence[float]
-
-from inference.case import DecisionCase, DecisionSample
 
 T = TypeVar("T")
 
@@ -98,8 +100,8 @@ def format_state(state: DecisionState) -> str:
     return str(state)
 
 __all__ = [
-    "DecisionState", "Choice", "Noul", "Score", "Question", "QuestionSpec",
+    "DecisionState", "Choice", "Noul", "Score", "Question",
     "IAnswer", "ChoiceResult", "NoulResult", "ScoreResult", "Answer",
-    "DecisionResult", "TokenLayout", "ScoreLayout", "DecisionCase", "DecisionSample",
+    "IDecisionEngine", "DecisionResult", "TokenLayout", "ScoreLayout",
     "Composable", "format_state",
 ]

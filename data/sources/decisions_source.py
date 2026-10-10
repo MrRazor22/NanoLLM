@@ -2,7 +2,8 @@ import json
 from pathlib import Path
 from typing import List, Sequence
 from datasets import load_dataset
-from inference.questions import Choice, DecisionSample
+from inference.case import DecisionCase
+from inference.questions import Choice
 from data.sources import RAW_DIR, ADAPTED_DIR, IDataSource, SourceRecord, cached_jsonl
 
 class DecisionsSource(IDataSource):
@@ -29,7 +30,7 @@ class DecisionsSource(IDataSource):
                     )
                     for q in d["questions"]
                 ]
-                sample = DecisionSample(state=d["state"], questions=qs)
+                sample = DecisionCase(state=d["state"], questions=qs)
                 records.append(SourceRecord(sample=sample, tag="unsplit"))
             return records * self.repeat
 
@@ -55,7 +56,7 @@ class DecisionsSource(IDataSource):
                     qs.append(Choice(name=qid, options=opt, instruction=ins, target=tgt))
                     q_cache.append({"name": qid, "options": opt, "instruction": ins, "target": tgt})
             if qs:
-                sample = DecisionSample(state=row.get("state", ""), questions=qs)
+                sample = DecisionCase(state=row.get("state", ""), questions=qs)
                 records.append(SourceRecord(sample=sample, tag="unsplit"))
                 cache_rows.append({"state": sample.state, "questions": q_cache})
 

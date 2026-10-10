@@ -16,9 +16,9 @@ class CalibratedLoss(nn.Module, ILoss):
         self.brier_weight = brier_weight
 
     def compute(self, scores: Sequence[Sequence[float]], batch_targets: Sequence[SampleTargets]) -> float:
-        return float(self.loss_tensor(torch.as_tensor(scores, dtype=torch.float), batch_targets).item())
+        return float(self.forward(torch.as_tensor(scores, dtype=torch.float), batch_targets).item())
 
-    def loss_tensor(self, scores: torch.Tensor, batch_meta: Sequence[Sequence[TargetSlot]]) -> torch.Tensor:
+    def forward(self, scores: torch.Tensor, batch_meta: Sequence[Sequence[TargetSlot]], device: Optional[torch.device] = None) -> torch.Tensor:
         dev = scores.device
         c_logits, c_tgts, b_logits, b_tgts, s_logits, s_tgts = [], [], [], [], [], []
         for b_idx, sample in enumerate(batch_meta):
@@ -52,7 +52,6 @@ class CalibratedLoss(nn.Module, ILoss):
         total_q = len(c_logits) + len(b_logits) + len(s_logits)
         return torch.sum(torch.stack(losses)) / max(1, total_q) if losses else torch.tensor(0.0, device=dev)
 
-    def forward(self, scores: torch.Tensor, batch_meta: Sequence[Sequence[TargetSlot]], device: Optional[torch.device] = None) -> torch.Tensor:
-        return self.loss_tensor(scores, batch_meta)
+    loss_tensor = forward
 
 __all__ = ["ILoss", "CalibratedLoss"]

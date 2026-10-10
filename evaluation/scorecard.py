@@ -3,11 +3,11 @@ import json
 from pathlib import Path
 import time
 from typing import Dict, Mapping, Optional, Protocol, Sequence, runtime_checkable
-from inference import IDecisionEngine, DecisionSample, Question
+from inference import IDecisionEngine, DecisionCase, Question
 
 DEFAULT_BASELINES = Path(__file__).resolve().parent / "baselines" / "competitor_cache.json"
 
-BenchmarkItem = DecisionSample
+BenchmarkItem = DecisionCase
 
 @dataclass(frozen=True)
 class BenchmarkReport:
@@ -27,10 +27,6 @@ class IEvaluator(Protocol):
         log_interval: int = 100,
         track_name: str = "general",
     ) -> BenchmarkReport: ...
-
-# ==========================================
-# Core Primitive Implementation
-# ==========================================
 
 class Scorecard(IEvaluator):
     """Sovereign primitive: evaluates engines against benchmark tracks and renders scorecards."""

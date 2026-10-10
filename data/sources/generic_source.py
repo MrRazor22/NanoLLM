@@ -1,12 +1,13 @@
 import json
 from pathlib import Path
-from typing import List, Optional, Sequence
+from typing import List, Sequence
 from datasets import load_dataset
-from inference.questions import Choice, DecisionSample
+from inference.case import DecisionCase
+from inference.questions import Choice
 from data.sources import RAW_DIR, ADAPTED_DIR, IDataSource, SourceRecord, cached_jsonl
 
 class GenericSource(IDataSource):
-    """Declarative HuggingFace dataset adapter: extracts samples, tags origin split, and caches adapted rows."""
+    """Declarative HuggingFace dataset adapter: extracts cases, tags origin split, and caches adapted rows."""
 
     def __init__(
         self,
@@ -39,7 +40,7 @@ class GenericSource(IDataSource):
                 d = json.loads(line)
                 opts = d.get("options", ["true", "false"])
                 target = d.get("target")
-                sample = DecisionSample(
+                sample = DecisionCase(
                     state=d["state"],
                     questions=[Choice(name=self.question_name, options=opts, instruction=self.instruction, target=target)],
                 )
@@ -68,7 +69,7 @@ class GenericSource(IDataSource):
                 continue
             lbl = item.get(self.label_field) or item.get("label") or item.get("queue") or "general"
             label_str = str(lbl).replace("_", " ")
-            sample = DecisionSample(
+            sample = DecisionCase(
                 state=text[:2000],
                 questions=[Choice(name=self.question_name, options=[label_str, "other"], instruction=self.instruction, target=label_str)],
             )

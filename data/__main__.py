@@ -4,6 +4,7 @@ from data import (
     CORPUS_DIR,
     Dataset,
     BudgetSplitPolicy,
+    DiskCachePolicy,
     NGramLeakagePolicy,
     DecisionsSource,
     GenericSource,
@@ -31,8 +32,7 @@ def main() -> None:
     dataset = Dataset(
         split_policy=split_policy,
         leakage_policy=leakage_policy,
-        corpus_dir=Path(args.corpus_dir),
-        seed=args.seed,
+        cache_policy=DiskCachePolicy(root_dir=args.corpus_dir),
     )
 
     # 1. Glaive function-calling tools
