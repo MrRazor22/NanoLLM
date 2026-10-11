@@ -1,72 +1,72 @@
 {
   "banking77": {
-    "count": 462,
-    "Piqo": 0.21,
-    "Laya": 0.7554,
-    "Verdict": 0.461
+    "count": 410,
+    "Piqo": 0.2341,
+    "Laya": 0.7756,
+    "Verdict": 0.6829
   },
   "ag_news": {
-    "count": 476,
-    "Piqo": 0.2605,
-    "Laya": 0.958,
-    "Verdict": 0.292
+    "count": 425,
+    "Piqo": 0.2565,
+    "Laya": 0.9506,
+    "Verdict": 0.3765
   },
   "emotion": {
-    "count": 474,
-    "Piqo": 0.2954,
-    "Laya": 0.6097,
-    "Verdict": 0.403
+    "count": 409,
+    "Piqo": 0.2983,
+    "Laya": 0.5941,
+    "Verdict": 0.4768
   },
   "enron_spam": {
-    "count": 438,
-    "Piqo": 0.468,
-    "Laya": 0.9749,
-    "Verdict": 0.4658
+    "count": 411,
+    "Piqo": 0.4745,
+    "Laya": 0.9635,
+    "Verdict": 0.5085
   },
   "amazon_massive": {
-    "count": 461,
-    "Piqo": 0.0282,
-    "Laya": 0.5445,
-    "Verdict": 0.0998
+    "count": 415,
+    "Piqo": 0.0289,
+    "Laya": 0.5566,
+    "Verdict": 0.094
   },
   "typed_decisions": {
-    "count": 57,
-    "Piqo": 0.2982,
-    "Laya": 0.0877,
-    "Verdict": 0.1053
+    "count": 600,
+    "Piqo": 0.485,
+    "Laya": 0.2833,
+    "Verdict": 0.3
   },
   "customer_support": {
-    "count": 52,
-    "Piqo": 0.0962,
-    "Laya": 0.2885,
-    "Verdict": 0.2885
+    "count": 12,
+    "Piqo": 0.0,
+    "Laya": 0.5,
+    "Verdict": 0.25
   },
   "function_calling": {
-    "count": 36,
+    "count": 8,
     "Piqo": 1.0,
     "Laya": 1.0,
     "Verdict": 1.0
   },
   "phishing_email": {
-    "count": 44,
-    "Piqo": 0.6136,
-    "Laya": 0.9545,
-    "Verdict": 0.5682
+    "count": 10,
+    "Piqo": 0.6,
+    "Laya": 1.0,
+    "Verdict": 0.2
   },
   "OVERALL": {
-    "count": 2500,
-    "Piqo": 0.2656,
-    "Laya": 0.748,
-    "Verdict": 0.35
+    "count": 2700,
+    "Piqo": 0.3107,
+    "Laya": 0.6615,
+    "Verdict": 0.3985
   },
   "LATENCY_P50_MS": {
     "count": "-",
-    "Piqo": 39.61,
+    "Piqo": 29.98,
     "Laya": 0.0,
     "Verdict": 0.0
   },
   "DATASET": {
-    "signature": "63a1f94d19d8",
-    "count": 2500
+    "signature": "490e1026d8b4",
+    "count": 2700
   }
 }

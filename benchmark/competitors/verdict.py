@@ -18,7 +18,9 @@ class VerdictEngine(IDecisionEngine):
                 from transformers import AutoTokenizer
                 model = GLiClassModel.from_pretrained(self.model_id)
                 tokenizer = AutoTokenizer.from_pretrained(self.model_id)
-                self._pipeline = ZeroShotClassificationPipeline(model, tokenizer, classification_type="single_label")
+                self._pipeline = ZeroShotClassificationPipeline(
+                    model, tokenizer, classification_type="single_label", progress_bar=False
+                )
             except Exception as e:
                 raise ImportError(f"Cannot load Verdict ({self.model_id}): {e}. To run live: pip install gliclass transformers")
         return self._pipeline
