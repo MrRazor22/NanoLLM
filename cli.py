@@ -7,7 +7,7 @@ warnings.filterwarnings("ignore")
 from piqo import (
     CHECKPOINTS_DIR, DEFAULT_CHECKPOINT, Choice, ChoiceResult, DecisionEngine,
     DecisionResult, Noul, NoulResult, ProfilingLayer, Question, Score, ScoreResult,
-    get_latest_checkpoint, list_all_checkpoints
+    TorchModel, get_latest_checkpoint, list_all_checkpoints
 )
 
 PRESETS = {
@@ -54,7 +54,10 @@ def main() -> None:
 
     ckpt = Path(args.checkpoint)
     if not ckpt.exists() and (CHECKPOINTS_DIR / ckpt.name).exists(): ckpt = CHECKPOINTS_DIR / ckpt.name
-    engine = DecisionEngine.from_checkpoint(ckpt, device=args.device) | ProfilingLayer()
+    import torch
+    dev = torch.device(args.device) if args.device else None
+    model = TorchModel(checkpoint_path=ckpt, device=dev)
+    engine = DecisionEngine(model=model) | ProfilingLayer()
 
     if args.play:
         print(f"Piqo Playground [{ckpt.name}]. Enter context (or 'q' to quit):")

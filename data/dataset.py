@@ -1,18 +1,20 @@
 from pathlib import Path
-from typing import List, Optional, Protocol, Sequence, Union, runtime_checkable
+from typing import List, Optional, Protocol, Sequence, runtime_checkable
 
 from inference.case import DecisionCase
 from data.policies.cache import DiskCachePolicy, ICachePolicy
 from data.policies.leakage import ILeakagePolicy, NGramLeakagePolicy
 from data.policies.split import BudgetSplitPolicy, DataSplits, ISplitPolicy
-from data.sources.source import IDataSource, SourceRecord
+from data.sources import IDataSource, SourceRecord
 
 DATA_DIR = Path(__file__).resolve().parent
 CORPUS_DIR = DATA_DIR / "corpus"
 
 @runtime_checkable
 class IDataset(Protocol):
-    """Sovereign primitive contract: supplies partitioned decision cases to callers."""
+    """Sovereign primitive contract: manages dataset source preparation, leakage audit, and cached loading."""
+    def register(self, source: IDataSource) -> "IDataset": ...
+    def prepare(self, sources: Optional[Sequence[IDataSource]] = None) -> DataSplits: ...
     def load(self, split: str = "train") -> Sequence[DecisionCase]: ...
 
 class Dataset(IDataset):
@@ -23,11 +25,12 @@ class Dataset(IDataset):
         split_policy: Optional[ISplitPolicy] = None,
         leakage_policy: Optional[ILeakagePolicy] = None,
         cache_policy: Optional[ICachePolicy] = None,
+        sources: Optional[Sequence[IDataSource]] = None,
     ):
         self.split_policy = split_policy or BudgetSplitPolicy()
         self.leakage_policy = leakage_policy or NGramLeakagePolicy()
         self.cache_policy = cache_policy or DiskCachePolicy()
-        self._sources: List[IDataSource] = []
+        self._sources: List[IDataSource] = list(sources) if sources is not None else []
 
     def register(self, source: IDataSource) -> "Dataset":
         """Registers a data source into the dataset collection."""
@@ -60,7 +63,7 @@ class Dataset(IDataset):
         return splits
 
     def load(self, split: str = "train") -> Sequence[DecisionCase]:
-        """Loads cases from cache policy; triggers preparation automatically on cache miss."""
+        """Loads cases from cache policy; triggers preparation automatically on cache miss if sources registered."""
         cached = self.cache_policy.get(split)
         if cached is not None:
             return cached
@@ -69,6 +72,9 @@ class Dataset(IDataset):
             cached = self.cache_policy.get(split)
             if cached is not None:
                 return cached
-        return []
+        raise FileNotFoundError(
+            f"Corpus partition '{split}' not found in cache. "
+            f"Run data pipeline via 'python -m data' or register sources before loading."
+        )
 
 __all__ = ["DATA_DIR", "CORPUS_DIR", "IDataset", "Dataset", "DataSplits"]

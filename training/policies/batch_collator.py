@@ -1,27 +1,37 @@
-from typing import List, Optional, Protocol, Sequence, runtime_checkable
-from inference.case import DecisionCase
-from inference.policies.slot_encoder import ILayoutEncoder
-from training.batches import SampleTargets, TrainingBatch
+from typing import Optional, Protocol, Sequence, runtime_checkable
+from inference import DecisionCase, ILayoutEncoder, SlotEncoder
+from inference.questions import Choice, Score
+from training.batches import Batch, SampleTargets, TargetSlot
 
 @runtime_checkable
 class IBatchCollator(Protocol):
-    """Injected Opinion Sub-Primitive: Collates variable-length decision cases into padded training batches."""
-    def collate(self, cases: Sequence[DecisionCase], encoder: ILayoutEncoder) -> TrainingBatch: ...
+    """Injected Opinion Sub-Primitive: Collates decision cases into a padded training batch."""
+    def collate(self, cases: Sequence[DecisionCase]) -> Batch: ...
 
 class PaddedBatchCollator(IBatchCollator):
-    """Pad-to-longest batch collator policy."""
+    """Encodes decision cases using slot encoder and pads tokens to the longest batch sequence."""
 
-    def __init__(self, pad_token_id: Optional[int] = None):
-        self.pad_token_id = pad_token_id
+    def __init__(self, encoder: Optional[ILayoutEncoder] = None):
+        self.encoder = encoder or SlotEncoder()
+        self.pad_id = getattr(self.encoder, "pad_token_id", 0)
 
-    def collate(self, cases: Sequence[DecisionCase], encoder: ILayoutEncoder) -> TrainingBatch:
-        pad_id = self.pad_token_id if self.pad_token_id is not None else getattr(encoder, "pad_token_id", 0)
-        layouts = [encoder.encode(c.state, c.questions) for c in cases]
-        all_ids = [list(l.input_ids) for l in layouts]
-        targets = [SampleTargets(l.targets) for l in layouts]
+    def collate(self, cases: Sequence[DecisionCase]) -> Batch:
+        all_ids, targets = [], []
+        for c in cases:
+            layout = self.encoder.encode(c.state, c.questions)
+            sample_targets = []
+            for q, pos in zip(c.questions, layout.slots):
+                if isinstance(q, Choice):
+                    sample_targets.append(TargetSlot("choice", pos, int(q.target) if q.target is not None else 0))
+                else:
+                    q_type = "score" if isinstance(q, Score) else "noul"
+                    sample_targets.append(TargetSlot(q_type, pos, float(q.target) if q.target is not None else 0.0))
+            all_ids.append(list(layout.input_ids))
+            targets.append(SampleTargets(sample_targets))
+
         max_len = max((len(ids) for ids in all_ids), default=0)
-        padded_ids = [ids + [pad_id] * (max_len - len(ids)) for ids in all_ids]
+        padded_ids = [ids + [self.pad_id] * (max_len - len(ids)) for ids in all_ids]
         masks = [[1.0] * len(ids) + [0.0] * (max_len - len(ids)) for ids in all_ids]
-        return TrainingBatch(input_ids=padded_ids, mask=masks, targets=targets)
+        return Batch(input_ids=padded_ids, mask=masks, targets=targets)
 
 __all__ = ["IBatchCollator", "PaddedBatchCollator"]

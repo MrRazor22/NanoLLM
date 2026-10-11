@@ -9,7 +9,6 @@ class Choice:
     name: str
     options: Union[Sequence[str], Mapping[str, str]]
     instruction: Optional[str] = None
-    clusters: Optional[Mapping[str, Mapping[str, str]]] = None
     target: Optional[Union[str, int]] = None
 
 @dataclass(frozen=True)
@@ -63,26 +62,6 @@ class DecisionResult:
     answers: Mapping[str, Answer]
     latency_ms: float = 0.0
 
-@dataclass(frozen=True)
-class TargetSlot:
-    """Explicit domain DTO for a question's masked slot positions and target value."""
-    target_type: str
-    indices: Sequence[int]
-    value: Union[int, float]
-
-@dataclass(frozen=True)
-class TokenLayout:
-    input_ids: Sequence[int]
-    mask: Sequence[float]
-    slots: Sequence[Sequence[int]]
-    targets: Sequence[TargetSlot] = ()
-    @property
-    def slot_indices(self) -> Sequence[Sequence[int]]: return self.slots
-
-@dataclass(frozen=True)
-class ScoreLayout:
-    scores: Sequence[float]
-
 def format_state(state: DecisionState) -> str:
     """Colocated pure transform: formats state string or dictionary for token encoding."""
     if isinstance(state, dict): return " | ".join(f"{k}: {v}" for k, v in state.items())
@@ -96,5 +75,5 @@ def format_state(state: DecisionState) -> str:
 __all__ = [
     "DecisionState", "Choice", "Noul", "Score", "Question",
     "IAnswer", "ChoiceResult", "NoulResult", "ScoreResult", "Answer",
-    "DecisionResult", "TargetSlot", "TokenLayout", "ScoreLayout", "format_state",
+    "DecisionResult", "format_state",
 ]

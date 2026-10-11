@@ -2,13 +2,14 @@
 
 ## 1. Architectural Doctrine: Primitive-First Design (PFD)
 - **Always Apply PFD:** All architecture, boundary definitions, refactorings, and reviews in this repository strictly follow Primitive-First Design (PFD).
-- **Authoritative Reference:** Always read and adhere to `~/.gemini/config/skills/pfd/SKILL.md` (invocable via `/primitive-first-design`). Never use partial heuristics, legacy ATA terminology, or speculative wrapper abstractions.
-- **The 4 Irreducible Sovereign Domains:**
-  1. **Inference:** [`inference/`](file:///d:/CodeBase/Piqo/inference) — [`IDecisionEngine`](file:///d:/CodeBase/Piqo/inference/decision_engine.py), [`DecisionEngine`](file:///d:/CodeBase/Piqo/inference/decision_engine.py)
-  2. **Training:** [`training/`](file:///d:/CodeBase/Piqo/training) — [`ITrainer`](file:///d:/CodeBase/Piqo/training/epoch_trainer.py), [`EpochTrainer`](file:///d:/CodeBase/Piqo/training/epoch_trainer.py)
-  3. **Data:** [`data/`](file:///d:/CodeBase/Piqo/data) — [`IDataset`](file:///d:/CodeBase/Piqo/data/dataset.py), [`Dataset`](file:///d:/CodeBase/Piqo/data/dataset.py), [`ILeakagePolicy`](file:///d:/CodeBase/Piqo/data/policies/leakage.py)
-  4. **Evaluation:** [`evaluation/`](file:///d:/CodeBase/Piqo/evaluation) — [`IEvaluator`](file:///d:/CodeBase/Piqo/evaluation/scorecard.py), [`Scorecard`](file:///d:/CodeBase/Piqo/evaluation/scorecard.py)
-- **Zero Meta-Buckets & Zero Nesting:** Root commands the 4 domains directly as siblings. Zero nested `piqo/` folder, and zero `tests/` meta-bucket.
+- **Authoritative Reference:** Always read and adhere to `~/.gemini/config/skills/pfd/SKILL.md` (invocable via `/primitive-first-design`). Never use partial heuristics or speculative wrapper abstractions.
+- **The 5 Irreducible Sovereign Domains:**
+  1. **Model:** [`model/`](file:///d:/CodeBase/Piqo/model) — [`IModel`](file:///d:/CodeBase/Piqo/model/torch_model.py), [`TorchModel`](file:///d:/CodeBase/Piqo/model/torch_model.py), [`ILoss`](file:///d:/CodeBase/Piqo/model/policies/calibrated_loss.py), [`CalibratedLoss`](file:///d:/CodeBase/Piqo/model/policies/calibrated_loss.py)
+  2. **Inference:** [`inference/`](file:///d:/CodeBase/Piqo/inference) — [`IDecisionEngine`](file:///d:/CodeBase/Piqo/inference/decision_engine.py), [`DecisionEngine`](file:///d:/CodeBase/Piqo/inference/decision_engine.py)
+  3. **Training:** [`training/`](file:///d:/CodeBase/Piqo/training) — [`ITrainer`](file:///d:/CodeBase/Piqo/training/epoch_trainer.py), [`EpochTrainer`](file:///d:/CodeBase/Piqo/training/epoch_trainer.py)
+  4. **Data:** [`data/`](file:///d:/CodeBase/Piqo/data) — [`IDataset`](file:///d:/CodeBase/Piqo/data/dataset.py), [`Dataset`](file:///d:/CodeBase/Piqo/data/dataset.py)
+  5. **Evaluation:** [`evaluation/`](file:///d:/CodeBase/Piqo/evaluation) — [`IScorecard`](file:///d:/CodeBase/Piqo/evaluation/scorecard.py), [`Scorecard`](file:///d:/CodeBase/Piqo/evaluation/scorecard.py)
+- **Zero Meta-Buckets & Zero Nesting:** Root commands the sovereign domains directly as siblings with 1:1 disk topology.
 
 ## 2. Operational Workflows & Commands
 - **Interactive Terminal Playground:**
@@ -26,14 +27,9 @@
   ```
 - **Run Training (1-Epoch Adaptation):**
   ```bash
-  python train.py --epochs 1 --lr 2e-5
-  # Or directly via domain module:
-  python -m training --epochs 1 --lr 2e-5
+  python -m training --epochs 1 --lr 1.2e-5
   ```
 - **Run Evaluation Benchmarks:**
   ```bash
   python -m evaluation
-  python -m evaluation --suite agentic
-  python -m evaluation --suite typed_decisions
-  python -m evaluation --suite abstention
   ```

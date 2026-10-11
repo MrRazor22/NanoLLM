@@ -1,19 +1,10 @@
 from dataclasses import dataclass
-from typing import Optional, Sequence
-from inference.questions import TargetSlot
-
-@dataclass(frozen=True)
-class SampleTargets:
-    slots: Sequence[TargetSlot]
-
-@dataclass(frozen=True)
-class TrainingBatch:
-    input_ids: Sequence[Sequence[int]]
-    mask: Sequence[Sequence[float]]
-    targets: Sequence[SampleTargets]
+from typing import Optional
+from model.layouts import Batch, SampleTargets, TargetSlot, TrainingBatch
 
 @dataclass(frozen=True)
 class StepStats:
+    """Immutable domain DTO for step-level optimization metrics."""
     epoch: int
     total_epochs: int
     step: int
@@ -25,4 +16,4 @@ class StepStats:
     batch: int = 0
     total_batches: int = 0
 
-__all__ = ["TargetSlot", "SampleTargets", "TrainingBatch", "StepStats"]
+__all__ = ["TargetSlot", "SampleTargets", "Batch", "TrainingBatch", "StepStats"]

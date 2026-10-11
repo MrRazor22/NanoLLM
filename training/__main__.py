@@ -34,13 +34,15 @@ def main() -> None:
     parser.add_argument("--compile", action="store_true", help="Compile model with torch.compile for peak CUDA speed")
     args = parser.parse_args()
 
-    trainer: ITrainer = EpochTrainer.from_backbone(
+    from model import TorchModel
+    model = TorchModel(
         backbone_name=args.backbone,
+        checkpoint_path=args.init_checkpoint,
         lr=args.lr,
-        batch_size=args.batch_size,
-        init_checkpoint=args.init_checkpoint,
+        accum_steps=args.accum_steps,
         compile=args.compile,
     )
+    trainer: ITrainer = EpochTrainer(model=model, batch_size=args.batch_size)
     if args.metrics_output:
         trainer = trainer | MetricsLayer(output_path=args.metrics_output, sink=lambda msg: print(msg, flush=True), log_interval_sec=5.0)
     if args.output:
@@ -53,11 +55,9 @@ def main() -> None:
     print(f"Loaded dataset: {len(train_cases)} train cases, {len(val_cases)} val cases.")
     print(f"Starting training on {args.backbone} for {args.epochs} epoch(s)...")
 
-    list(trainer.fit(train_cases, epochs=args.epochs))
-
-    if val_cases:
-        val_loss = trainer.evaluate(val_cases)
-        print(f"Final Validation Loss: {val_loss:.4f}")
+    stats = list(trainer.fit(train_cases, epochs=args.epochs, val_cases=val_cases))
+    if stats and stats[-1].val_loss is not None:
+        print(f"Final Validation Loss: {stats[-1].val_loss:.4f}")
 
     print(f"Training completed. Weights saved to: {args.output}")
 

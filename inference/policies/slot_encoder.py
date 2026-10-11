@@ -1,6 +1,6 @@
-from typing import List, Optional, Protocol, Sequence, Tuple, runtime_checkable
-from inference.case import DecisionCase
-from inference.questions import Choice, DecisionState, Question, Score, TargetSlot, TokenLayout, format_state
+from typing import Optional, Protocol, Sequence, runtime_checkable
+from inference.questions import Choice, DecisionState, Question, format_state
+from model import TokenLayout
 
 @runtime_checkable
 class ITokenizer(Protocol):
@@ -13,12 +13,12 @@ class ITokenizer(Protocol):
 
 @runtime_checkable
 class ILayoutEncoder(Protocol):
-    """Injected Opinion Sub-Primitive: Maps domain state and questions into discrete token slot layouts."""
+    """Injected Opinion Sub-Primitive: Maps domain state and questions into token slot layouts."""
     pad_token_id: int
     def encode(self, state: DecisionState, questions: Sequence[Question]) -> TokenLayout: ...
 
 class SlotEncoder(ILayoutEncoder):
-    """Encodes state and questions into token layout with masked slots, extracting target annotations."""
+    """Encodes state and questions into token layout with masked slots for inference."""
 
     def __init__(self, tokenizer: Optional[ITokenizer] = None, max_state_tokens: int = 384):
         if tokenizer is None:
@@ -33,7 +33,7 @@ class SlotEncoder(ILayoutEncoder):
     def encode(self, state: DecisionState, questions: Sequence[Question]) -> TokenLayout:
         state_ids = self.tokenizer.encode(format_state(state))
         ids = state_ids[:self.max_state_tokens] if len(state_ids) > self.max_state_tokens else list(state_ids)
-        slots, targets = [], []
+        slots = []
         for q in questions:
             ids.append(self.sep_id)
             ids.extend(self.tokenizer.encode(f" {q.name}: {q.instruction}" if q.instruction else f" {q.name}:"))
@@ -45,13 +45,9 @@ class SlotEncoder(ILayoutEncoder):
                     pos.append(len(ids) - 1)
                     ids.extend(self.tokenizer.encode(f" {k}: {v}" if v else f" {k}"))
                 slots.append(pos)
-                targets.append(TargetSlot("choice", pos, int(q.target) if q.target is not None else 0))
             else:
                 ids.append(self.mask_id)
-                pos = [len(ids) - 1]
-                slots.append(pos)
-                q_type = "score" if isinstance(q, Score) else "noul"
-                targets.append(TargetSlot(q_type, pos, float(q.target) if q.target is not None else 0.0))
-        return TokenLayout(input_ids=ids, mask=[1.0] * len(ids), slots=slots, targets=targets)
+                slots.append([len(ids) - 1])
+        return TokenLayout(input_ids=ids, mask=[1.0] * len(ids), slots=slots)
 
 __all__ = ["ITokenizer", "ILayoutEncoder", "SlotEncoder"]

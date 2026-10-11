@@ -2,7 +2,7 @@ from dataclasses import dataclass
 import random
 from typing import Protocol, Sequence, runtime_checkable
 from inference.case import DecisionCase
-from data.sources.source import SourceRecord
+from data.sources.data_source import SourceRecord
 
 @dataclass(frozen=True)
 class DataSplits:

@@ -4,7 +4,6 @@ from inference.decision_engine import DecisionEngine, IDecisionEngine
 from inference.layers.profiling_layer import ProfilingLayer
 from inference.policies.decision_resolver import DecisionResolver, IResolver
 from inference.policies.slot_encoder import ILayoutEncoder, ITokenizer, SlotEncoder
-from inference.policies.torch_scorer import IScorer, TorchScorer
 from inference.case import DecisionCase
 from inference.questions import (
     Answer,
@@ -12,14 +11,12 @@ from inference.questions import (
     ChoiceResult,
     DecisionResult,
     DecisionState,
+    IAnswer,
     Noul,
     NoulResult,
     Question,
     Score,
-    ScoreLayout,
     ScoreResult,
-    TargetSlot,
-    TokenLayout,
     format_state,
 )
 
@@ -31,8 +28,6 @@ __all__ = [
     "ILayoutEncoder",
     "SlotEncoder",
     "ITokenizer",
-    "IScorer",
-    "TorchScorer",
     "IResolver",
     "DecisionResolver",
     # Layers
@@ -47,10 +42,8 @@ __all__ = [
     "NoulResult",
     "ScoreResult",
     "Answer",
+    "IAnswer",
     "DecisionResult",
-    "TokenLayout",
-    "ScoreLayout",
-    "TargetSlot",
     "DecisionCase",
     "format_state",
 ]

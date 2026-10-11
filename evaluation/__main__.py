@@ -1,7 +1,8 @@
 import argparse
 from data import Dataset
-from evaluation import IEvaluator, Scorecard
+from evaluation import Scorecard
 from inference import DecisionEngine, ProfilingLayer
+from model import TorchModel
 from training import DEFAULT_CHECKPOINT, get_latest_checkpoint
 
 def main() -> None:
@@ -12,8 +13,9 @@ def main() -> None:
     parser.add_argument("--limit", type=int, default=None, help="Limit number of test items")
     args = parser.parse_args()
 
-    engine = DecisionEngine.from_checkpoint(args.checkpoint) | ProfilingLayer()
-    card: IEvaluator = Scorecard()
+    model = TorchModel(checkpoint_path=args.checkpoint)
+    engine = DecisionEngine(model=model) | ProfilingLayer()
+    card = Scorecard()
 
     dataset = Dataset()
     items = dataset.load("test")
@@ -23,6 +25,9 @@ def main() -> None:
     print(f"Running evaluation benchmark on {len(items)} holdout items...")
     report = card.evaluate(engine, items, track_name=args.track)
     card.render({args.track: report}, model_name="Piqo")
+
+def __main__() -> None:
+    main()
 
 if __name__ == "__main__":
     main()

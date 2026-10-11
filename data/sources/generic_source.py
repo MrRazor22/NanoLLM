@@ -11,9 +11,9 @@ class GenericSource(IDataSource):
 
     def __init__(
         self,
-        dataset_name: str,
-        question_name: str,
-        instruction: str,
+        dataset_name: str = "mteb/banking77",
+        question_name: str = "intent",
+        instruction: str = "What is the primary customer request?",
         limit: int = 4000,
         text_field: str = "text",
         label_field: str = "label_text",

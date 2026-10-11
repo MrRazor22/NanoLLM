@@ -2,23 +2,10 @@ from dataclasses import dataclass
 import json
 from pathlib import Path
 import re
-from typing import List, Optional, Tuple
+from typing import List, Optional, Tuple, Union
+import torch
 
 CHECKPOINTS_DIR = Path(__file__).resolve().parent.parent / "weights"
-
-@dataclass(frozen=True)
-class CheckpointInfo:
-    name: str
-    path: Path
-    version: int
-    size_mb: float
-    modified: float
-    is_latest: bool
-    train_loss: Optional[float] = None
-    val_loss: Optional[float] = None
-    step: Optional[int] = None
-    epoch: Optional[int] = None
-    saved_at: Optional[str] = None
 
 def get_latest_checkpoint(prefix: str = "checkpoint_champion") -> Tuple[Optional[Path], int]:
     if not CHECKPOINTS_DIR.exists(): return None, 0
@@ -35,6 +22,46 @@ def resolve_default_checkpoint() -> Path:
     return CHECKPOINTS_DIR / "checkpoint_champion.pt"
 
 DEFAULT_CHECKPOINT = resolve_default_checkpoint()
+
+@dataclass(frozen=True)
+class CheckpointMeta:
+    """Explicit domain DTO for persisted model checkpoint metadata."""
+    path: Union[str, Path] = DEFAULT_CHECKPOINT
+    epoch: int = 1
+    train_loss: Optional[float] = None
+    val_loss: Optional[float] = None
+    saved_at: Optional[str] = None
+
+@dataclass(frozen=True)
+class CheckpointInfo:
+    name: str
+    path: Path
+    version: int
+    size_mb: float
+    modified: float
+    is_latest: bool
+    train_loss: Optional[float] = None
+    val_loss: Optional[float] = None
+    step: Optional[int] = None
+    epoch: Optional[int] = None
+    saved_at: Optional[str] = None
+
+def save_checkpoint(
+    model: object,
+    meta: Optional[CheckpointMeta] = None,
+) -> None:
+    """Persists model state dictionary and metadata to disk."""
+    m = meta or CheckpointMeta()
+    p = Path(m.path)
+    p.parent.mkdir(parents=True, exist_ok=True)
+    meta_dict = {
+        "epoch": m.epoch,
+        "train_loss": m.train_loss,
+        "val_loss": m.val_loss,
+        "saved_at": m.saved_at,
+    }
+    state_dict = model.state_dict() if hasattr(model, "state_dict") else {}
+    torch.save({"model_state_dict": state_dict, "meta": meta_dict}, str(p))
 
 def get_next_checkpoint_path(prefix: str = "checkpoint_champion") -> Path:
     CHECKPOINTS_DIR.mkdir(parents=True, exist_ok=True)
@@ -61,7 +88,7 @@ def list_all_checkpoints() -> List[CheckpointInfo]:
     return sorted(items, key=lambda x: x.version, reverse=True)
 
 __all__ = [
-    "CHECKPOINTS_DIR", "CheckpointInfo",
-    "DEFAULT_CHECKPOINT", "resolve_default_checkpoint",
-    "get_latest_checkpoint", "get_next_checkpoint_path", "list_all_checkpoints",
+    "CHECKPOINTS_DIR", "DEFAULT_CHECKPOINT", "CheckpointMeta", "CheckpointInfo",
+    "save_checkpoint", "get_latest_checkpoint", "get_next_checkpoint_path",
+    "list_all_checkpoints", "resolve_default_checkpoint",
 ]

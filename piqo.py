@@ -1,20 +1,25 @@
 """Piqo: Sovereign Composition Root (PFD)."""
 
+from model import (
+    IModel, TorchModel,
+    TokenLayout, ScoreLayout,
+    ILoss, CalibratedLoss,
+)
 from inference import (
     IDecisionEngine, DecisionEngine,
-    ILayoutEncoder, SlotEncoder, ITokenizer, IScorer, TorchScorer, IResolver, DecisionResolver,
+    ILayoutEncoder, SlotEncoder, ITokenizer, IResolver, DecisionResolver,
     ProfilingLayer,
     DecisionState, Choice, Noul, Score, Question,
     IAnswer, ChoiceResult, NoulResult, ScoreResult, Answer, DecisionResult,
-    TokenLayout, ScoreLayout, DecisionCase, format_state,
+    DecisionCase, format_state,
 )
 from training import (
     ITrainer, EpochTrainer,
-    ILoss, CalibratedLoss, IBatchCollator, PaddedBatchCollator,
+    IBatchCollator, PaddedBatchCollator,
     CheckpointingLayer, MetricsLayer,
-    SampleTargets, StepStats, TargetSlot, TrainingBatch,
-    CHECKPOINTS_DIR, DEFAULT_CHECKPOINT, CheckpointInfo,
-    get_latest_checkpoint, get_next_checkpoint_path, list_all_checkpoints, resolve_default_checkpoint,
+    Batch, TrainingBatch, SampleTargets, StepStats, TargetSlot,
+    CHECKPOINTS_DIR, DEFAULT_CHECKPOINT, CheckpointInfo, CheckpointMeta,
+    get_latest_checkpoint, get_next_checkpoint_path, list_all_checkpoints, resolve_default_checkpoint, save_checkpoint,
 )
 from data import (
     IDataset, Dataset, DataSplits, SourceRecord,
@@ -23,16 +28,20 @@ from data import (
     DATA_DIR, CORPUS_DIR, RAW_DIR, ADAPTED_DIR,
 )
 from evaluation import (
-    IEvaluator, Scorecard, BenchmarkItem, BenchmarkReport,
+    IScorecard, Scorecard, BenchmarkItem, BenchmarkReport, BaselineTrack, CategoryHits,
 )
 
 __all__ = [
     # Core Primitives
-    "IDecisionEngine", "DecisionEngine", "ITrainer", "EpochTrainer",
-    "IDataset", "Dataset", "IEvaluator", "Scorecard",
+    "IModel", "TorchModel",
+    "IDecisionEngine", "DecisionEngine",
+    "ITrainer", "EpochTrainer",
+    "IDataset", "Dataset",
+    "IScorecard", "Scorecard",
     # Policies & Injected Sub-Primitives
-    "ILayoutEncoder", "SlotEncoder", "ITokenizer", "IScorer", "TorchScorer", "IResolver", "DecisionResolver",
-    "ILoss", "CalibratedLoss", "IBatchCollator", "PaddedBatchCollator",
+    "ILoss", "CalibratedLoss",
+    "ILayoutEncoder", "SlotEncoder", "ITokenizer", "IResolver", "DecisionResolver",
+    "IBatchCollator", "PaddedBatchCollator",
     "ISplitPolicy", "BudgetSplitPolicy", "ILeakagePolicy", "NGramLeakagePolicy", "ICachePolicy", "DiskCachePolicy",
     "IDataSource", "GlaiveSource", "DecisionsSource", "GenericSource",
     # Layers (Lambda: P -> P)
@@ -40,10 +49,12 @@ __all__ = [
     # Domain DTOs & Models
     "DecisionState", "Choice", "Noul", "Score", "Question",
     "IAnswer", "ChoiceResult", "NoulResult", "ScoreResult", "Answer", "DecisionResult",
-    "TokenLayout", "ScoreLayout", "DecisionCase", "TrainingBatch", "StepStats", "TargetSlot", "SampleTargets",
-    "CheckpointInfo", "BenchmarkItem", "BenchmarkReport",
+    "TokenLayout", "ScoreLayout", "DecisionCase",
+    "Batch", "TrainingBatch", "StepStats", "TargetSlot", "SampleTargets",
+    "CheckpointInfo", "CheckpointMeta", "BenchmarkItem", "BenchmarkReport", "BaselineTrack", "CategoryHits",
     # Transforms & Paths
     "format_state", "CHECKPOINTS_DIR", "DEFAULT_CHECKPOINT",
     "DATA_DIR", "CORPUS_DIR", "RAW_DIR", "ADAPTED_DIR",
     "get_latest_checkpoint", "get_next_checkpoint_path", "list_all_checkpoints", "resolve_default_checkpoint",
+    "save_checkpoint",
 ]
