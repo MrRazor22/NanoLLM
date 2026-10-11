@@ -1,5 +1,8 @@
 import argparse
 from pathlib import Path
+import transformers
+
+transformers.logging.set_verbosity_error()
 
 from data import CORPUS_DIR, Dataset, DiskCachePolicy
 from training import (

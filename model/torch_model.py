@@ -2,7 +2,10 @@ from pathlib import Path
 from typing import Optional, Protocol, Union, runtime_checkable
 import torch
 import torch.nn as nn
+import transformers
 from transformers import AutoModel
+
+transformers.logging.set_verbosity_error()
 
 from model.layouts import Batch, ScoreLayout, TokenLayout
 from model.policies.calibrated_loss import CalibratedLoss, ILoss
