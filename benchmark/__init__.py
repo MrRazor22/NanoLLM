@@ -1,13 +1,18 @@
-"""Evaluation Domain: Sovereign Micro-Decision Evaluation & Benchmarking (PFD)."""
+"""Benchmark Domain: Sovereign Micro-Decision Evaluation & Benchmarking (PFD)."""
 
-from evaluation.scorecard import BaselineTrack, BenchmarkItem, BenchmarkReport, CategoryHits, IScorecard, Scorecard
+from benchmark.scorecard import BenchmarkItem, BenchmarkReport, CategoryHits, IScorecard, SCORES_FILE, Scorecard
+from benchmark.competitors import AVAILABLE_COMPETITORS, LayaEngine, VerdictEngine
 
 __all__ = [
     # Core Primitive
     "IScorecard",
     "Scorecard",
-    # DTOs
-    "BaselineTrack",
+    # Competitor Adapters & Registry
+    "AVAILABLE_COMPETITORS",
+    "LayaEngine",
+    "VerdictEngine",
+    # Ledger & DTOs
+    "SCORES_FILE",
     "CategoryHits",
     "BenchmarkItem",
     "BenchmarkReport",

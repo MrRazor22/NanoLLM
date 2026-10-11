@@ -45,9 +45,11 @@ class GenericSource(IDataSource):
                     continue
                 lbl = item.get(self.label_field) or item.get("label") or item.get("queue") or "general"
                 label_str = str(lbl).replace("_", " ")
+                cat = self.name.split("/")[-1].replace("-", "_")
                 sample = DecisionCase(
                     state=text[:2000],
                     questions=[Choice(name=self.question_name, options=[label_str, "other"], instruction=self.instruction, target=label_str)],
+                    category=cat,
                 )
                 records.append(SourceRecord(sample=sample, tag=self.tag))
                 if len(records) >= self.limit:

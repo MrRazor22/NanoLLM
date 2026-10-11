@@ -30,7 +30,7 @@ def cached_jsonl(path: Path, fetcher: Callable[[], List[dict]]) -> List[dict]:
     rows = fetcher()
     if rows:
         path.parent.mkdir(parents=True, exist_ok=True)
-        path.write_text("\n".join(json.dumps(r) for r in rows) + "\n", encoding="utf-8")
+        path.write_text("\n".join(json.dumps(r, default=str) for r in rows) + "\n", encoding="utf-8")
     return rows
 
 from data.sources.glaive_source import GlaiveSource

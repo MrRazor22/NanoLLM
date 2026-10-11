@@ -4,75 +4,60 @@ from pathlib import Path
 from typing import Dict, Mapping, Optional, Protocol, Sequence, runtime_checkable
 from inference import DecisionCase, IDecisionEngine
 
-DEFAULT_BASELINES = Path(__file__).resolve().parent / "baselines" / "competitor_cache.json"
-
 BenchmarkItem = DecisionCase
+SCORES_FILE = Path(__file__).resolve().parent / "scores.json"
 
 @dataclass
 class CategoryHits:
-    """Explicit domain DTO tracking category accuracy hits and totals."""
     correct: int = 0
     total: int = 0
-
     @property
     def accuracy(self) -> float:
         return self.correct / max(1, self.total)
 
 @dataclass(frozen=True)
-class BaselineTrack:
-    """Explicit domain DTO representing competitor benchmark accuracy."""
-    verdict_overall: Optional[float] = None
-    laya_overall: Optional[float] = None
-
-@dataclass(frozen=True)
 class BenchmarkReport:
-    """Immutable domain DTO summarizing benchmark evaluation results."""
-    track: str
+    model: str
     overall: float
     count: int
-    p50_ms: float
-    slices: Mapping[str, float]
+    p50_ms: float = 0.0
+    slices: Mapping[str, float] = ()
+    counts: Mapping[str, int] = ()
 
 @runtime_checkable
 class IScorecard(Protocol):
-    """Core Primitive: Operational boundary for evaluating decision engines against benchmarks."""
-    def evaluate(
-        self,
-        engine: IDecisionEngine,
-        items: Sequence[BenchmarkItem],
-        track_name: str = "general",
-    ) -> BenchmarkReport: ...
+    def evaluate(self, engine: IDecisionEngine, items: Sequence[BenchmarkItem], model_name: str = "Piqo") -> BenchmarkReport: ...
+    def record(self, report: BenchmarkReport) -> None: ...
+    def render(self) -> None: ...
 
 class Scorecard(IScorecard):
-    """Benchmark runner: evaluates decision engines against benchmark tracks and renders scorecards."""
+    """Sovereign benchmark runner: dynamically evaluates engines across all tracks and maintains ledger."""
 
-    def __init__(self, baselines_path: Optional[Path] = None):
-        p = baselines_path or DEFAULT_BASELINES
-        raw = json.load(open(p, "r", encoding="utf-8")) if p.exists() else {}
-        baselines: Dict[str, BaselineTrack] = {}
-        for track, data in raw.items():
-            if isinstance(data, dict):
-                v = data.get("Verdict 2.0 (151M)", {}).get("overall") if isinstance(data.get("Verdict 2.0 (151M)"), dict) else None
-                l = data.get("Laya (421M)", {}).get("overall") if isinstance(data.get("Laya (421M)"), dict) else None
-                baselines[track] = BaselineTrack(verdict_overall=v, laya_overall=l)
-        self.baselines = baselines
+    def __init__(self, scores_path: Optional[Path] = None):
+        self.scores_path = Path(scores_path or SCORES_FILE)
 
-    def evaluate(
-        self,
-        engine: IDecisionEngine,
-        items: Sequence[BenchmarkItem],
-        track_name: str = "general",
-    ) -> BenchmarkReport:
+    def load_ledger(self) -> Dict[str, dict]:
+        if not self.scores_path.exists(): return {}
+        try: return json.loads(self.scores_path.read_text(encoding="utf-8"))
+        except Exception: return {}
+
+    def record(self, report: BenchmarkReport) -> None:
+        ledger = self.load_ledger()
+        for cat, acc in report.slices.items():
+            entry = ledger.setdefault(cat, {})
+            entry["count"], entry[report.model] = report.counts.get(cat, 0), round(acc, 4)
+        overall = ledger.setdefault("OVERALL", {})
+        overall["count"], overall[report.model] = report.count, round(report.overall, 4)
+        self.scores_path.write_text(json.dumps(ledger, indent=2), encoding="utf-8")
+
+    def evaluate(self, engine: IDecisionEngine, items: Sequence[BenchmarkItem], model_name: str = "Piqo") -> BenchmarkReport:
         stats: Dict[str, CategoryHits] = {}
         latencies, hits = [], []
-
         for item in items:
-            cat = item.category
-            if cat not in stats:
-                stats[cat] = CategoryHits()
+            cat = item.category or "general"
+            if cat not in stats: stats[cat] = CategoryHits()
             res = engine.decide(item.state, item.questions)
-            if res.latency_ms:
-                latencies.append(res.latency_ms)
+            if res.latency_ms: latencies.append(res.latency_ms)
 
             q_by_name = {q.name: q for q in item.questions}
             def _matches(qid: str, target) -> bool:
@@ -80,7 +65,7 @@ class Scorecard(IScorecard):
                 ans_val = str(res.answers[qid].value)
                 if ans_val == str(target): return True
                 q = q_by_name.get(qid)
-                if isinstance(q, Choice):
+                if hasattr(q, "options"):
                     keys = list(q.options.keys()) if isinstance(q.options, dict) else list(q.options)
                     if isinstance(target, int) and 0 <= target < len(keys): return ans_val == str(keys[target])
                     if str(target).isdigit() and 0 <= int(target) < len(keys): return ans_val == str(keys[int(target)])
@@ -89,28 +74,44 @@ class Scorecard(IScorecard):
             match = bool(item.gold) and all(_matches(qid, tgt) for qid, tgt in item.gold.items())
             hits.append(1.0 if match else 0.0)
             stats[cat].total += 1
-            if match:
-                stats[cat].correct += 1
+            if match: stats[cat].correct += 1
 
         overall = sum(hits) / max(1, len(hits))
         p50 = float(sorted(latencies)[len(latencies) // 2]) if latencies else 0.0
-        slices = {cat: ch.accuracy for cat, ch in stats.items()}
         return BenchmarkReport(
-            track=track_name,
+            model=model_name,
             overall=overall,
             count=len(items),
             p50_ms=p50,
-            slices=slices,
+            slices={c: h.accuracy for c, h in stats.items()},
+            counts={c: h.total for c, h in stats.items()},
         )
 
-    def render(self, reports: Mapping[str, BenchmarkReport], model_name: str = "Piqo") -> None:
-        hdr = f"{'Benchmark Track':<32} | {'Count':>6} | {model_name:>12} | {'Verdict 2.0':>12} | {'Laya (421M)':>12}"
-        print("\n" + "=" * len(hdr) + "\n" + hdr + "\n" + "-" * len(hdr))
-        for track, rep in reports.items():
-            base = self.baselines.get(track, BaselineTrack())
-            v_str = f"{base.verdict_overall * 100:11.1f}%" if base.verdict_overall is not None else "-"
-            l_str = f"{base.laya_overall * 100:11.1f}%" if base.laya_overall is not None else "-"
-            print(f"{track:<32} | {rep.count:>6} | {rep.overall*100:11.1f}% | {v_str:>12} | {l_str:>12}")
+    def render(self) -> None:
+        ledger = self.load_ledger()
+        if not ledger:
+            print("\nLeaderboard is empty. Run: python -m benchmark\n")
+            return
+
+        models = sorted({m for entry in ledger.values() for m in entry if m != "count"})
+        if "Piqo" in models:
+            models.remove("Piqo")
+            models.insert(0, "Piqo")
+
+        tracks = [t for t in sorted(ledger.keys()) if t != "OVERALL"]
+        if "OVERALL" in ledger:
+            tracks.append("OVERALL")
+
+        hdr = f"{'Benchmark Track / Data':<32} | {'Count':>6} | " + " | ".join(f"{m:>14}" for m in models)
+        sep = "-" * len(hdr)
+        print("\n" + "=" * len(hdr) + "\n" + hdr + "\n" + sep)
+        for track in tracks:
+            entry = ledger.get(track, {})
+            cnt = entry.get("count", "-")
+            cols = [f"{entry[m]*100:13.1f}%" if m in entry else f"{'-':>14}" for m in models]
+            if track == "OVERALL":
+                print(sep)
+            print(f"{track:<32} | {str(cnt):>6} | " + " | ".join(cols))
         print("=" * len(hdr) + "\n")
 
-__all__ = ["CategoryHits", "BaselineTrack", "BenchmarkItem", "BenchmarkReport", "IScorecard", "Scorecard"]
+__all__ = ["CategoryHits", "BenchmarkItem", "BenchmarkReport", "IScorecard", "Scorecard", "SCORES_FILE"]

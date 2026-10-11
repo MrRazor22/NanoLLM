@@ -8,7 +8,7 @@
   2. **Inference:** [`inference/`](file:///d:/CodeBase/Piqo/inference) — [`IDecisionEngine`](file:///d:/CodeBase/Piqo/inference/decision_engine.py), [`DecisionEngine`](file:///d:/CodeBase/Piqo/inference/decision_engine.py)
   3. **Training:** [`training/`](file:///d:/CodeBase/Piqo/training) — [`ITrainer`](file:///d:/CodeBase/Piqo/training/epoch_trainer.py), [`EpochTrainer`](file:///d:/CodeBase/Piqo/training/epoch_trainer.py)
   4. **Data:** [`data/`](file:///d:/CodeBase/Piqo/data) — [`IDataset`](file:///d:/CodeBase/Piqo/data/dataset.py), [`Dataset`](file:///d:/CodeBase/Piqo/data/dataset.py)
-  5. **Evaluation:** [`evaluation/`](file:///d:/CodeBase/Piqo/evaluation) — [`IScorecard`](file:///d:/CodeBase/Piqo/evaluation/scorecard.py), [`Scorecard`](file:///d:/CodeBase/Piqo/evaluation/scorecard.py)
+  5. **Benchmark:** [`benchmark/`](file:///d:/CodeBase/Piqo/benchmark) — [`IScorecard`](file:///d:/CodeBase/Piqo/benchmark/scorecard.py), [`Scorecard`](file:///d:/CodeBase/Piqo/benchmark/scorecard.py)
 - **Zero Meta-Buckets & Zero Nesting:** Root commands the sovereign domains directly as siblings with 1:1 disk topology.
 
 ## 2. Operational Workflows & Commands
@@ -31,5 +31,5 @@
   ```
 - **Run Evaluation Benchmarks:**
   ```bash
-  python -m evaluation
+  python -m benchmark
   ```

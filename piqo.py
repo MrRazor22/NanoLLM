@@ -27,8 +27,9 @@ from data import (
     IDataSource, GlaiveSource, DecisionsSource, GenericSource, standard_sources,
     DATA_DIR, CORPUS_DIR, RAW_DIR, ADAPTED_DIR,
 )
-from evaluation import (
-    IScorecard, Scorecard, BenchmarkItem, BenchmarkReport, BaselineTrack, CategoryHits,
+from benchmark import (
+    IScorecard, Scorecard, BenchmarkItem, BenchmarkReport, SCORES_FILE, CategoryHits,
+    LayaEngine, VerdictEngine,
 )
 
 __all__ = [
@@ -37,7 +38,7 @@ __all__ = [
     "IDecisionEngine", "DecisionEngine",
     "ITrainer", "EpochTrainer",
     "IDataset", "Dataset",
-    "IScorecard", "Scorecard",
+    "IScorecard", "Scorecard", "LayaEngine", "VerdictEngine",
     # Policies & Injected Sub-Primitives
     "ILoss", "CalibratedLoss",
     "ILayoutEncoder", "SlotEncoder", "ITokenizer", "IResolver", "DecisionResolver",
@@ -51,7 +52,7 @@ __all__ = [
     "IAnswer", "ChoiceResult", "NoulResult", "ScoreResult", "Answer", "DecisionResult",
     "TokenLayout", "ScoreLayout", "DecisionCase",
     "Batch", "StepStats", "TargetSlot", "SampleTargets",
-    "CheckpointInfo", "CheckpointMeta", "BenchmarkItem", "BenchmarkReport", "BaselineTrack", "CategoryHits",
+    "CheckpointInfo", "CheckpointMeta", "BenchmarkItem", "BenchmarkReport", "SCORES_FILE", "CategoryHits",
     # Transforms & Paths
     "format_state", "CHECKPOINTS_DIR", "DEFAULT_CHECKPOINT",
     "DATA_DIR", "CORPUS_DIR", "RAW_DIR", "ADAPTED_DIR",

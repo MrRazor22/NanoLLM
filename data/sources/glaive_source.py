@@ -51,7 +51,11 @@ class GlaiveSource(IDataSource):
                         for d in self.rng.sample(distractors, sample_k):
                             candidates[d] = tool_registry[d]
                 if fn in candidates:
-                    sample = DecisionCase(state=query, questions=[Choice(name="tool", options=candidates, instruction="Select the tool to invoke:", target=fn)])
+                    sample = DecisionCase(
+                        state=query,
+                        questions=[Choice(name="tool", options=candidates, instruction="Select the tool to invoke:", target=fn)],
+                        category="function_calling",
+                    )
                     records.append(SourceRecord(sample=sample, tag="unsplit"))
                 if len(records) >= self.limit:
                     break

@@ -101,7 +101,7 @@ flowchart TD
 | **Training Policies** | `ILoss`, `LossRegistry` | `CalibratedLoss` | Dynamic loss composition tailored to multi-task question heads. |
 | **Training Layers** | Decorator ($\lambda: P \to P$) | `MetricsLayer`, `CheckpointingLayer` | Pluggable telemetry monitoring and champion checkpoint persistence. |
 | **Data (`data/`)** | `ICurriculum`, `IDataset` | `Curriculum`, `TrainingDataset` | Clean ingestion, 13-gram leakage policy, and batch collation. |
-| **Evaluation (`evaluation/`)** | `IEvaluator` | `Scorecard` | Evaluates engine accuracy & latency against competitive baselines. |
+| **Benchmark (`benchmark/`)** | `IScorecard` | `Scorecard` | Evaluates engine accuracy & latency against competitive baselines. |
 
 ---
 

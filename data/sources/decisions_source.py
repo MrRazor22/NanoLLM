@@ -27,7 +27,7 @@ class DecisionsSource(IDataSource):
                     for qid, qd in q_dict.items() if qd.get("type") == "choice"
                 ]
                 if qs:
-                    records.append(SourceRecord(sample=DecisionCase(state=row.get("state", ""), questions=qs), tag="unsplit"))
+                    records.append(SourceRecord(sample=DecisionCase(state=row.get("state", ""), questions=qs, category=row.get("category", "typed_decisions")), tag="unsplit"))
             return records
 
         return cached_records(ADAPTED_DIR / f"{self.name}.jsonl", _build) * self.repeat
