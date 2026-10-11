@@ -93,10 +93,12 @@ class Scorecard(IScorecard):
                     if str(target).isdigit() and 0 <= int(target) < len(keys): return ans_val == str(keys[int(target)])
                 return False
 
-            match = bool(item.gold) and all(_matches(qid, tgt) for qid, tgt in item.gold.items())
-            hits.append(1.0 if match else 0.0)
-            stats[cat].total += 1
-            if match: stats[cat].correct += 1
+            if item.gold:
+                for qid, tgt in item.gold.items():
+                    m = _matches(qid, tgt)
+                    hits.append(1.0 if m else 0.0)
+                    stats[cat].total += 1
+                    if m: stats[cat].correct += 1
 
             now = time.perf_counter()
             if self.show_progress and (now - last_log >= self.log_interval_sec or idx == total_items):
@@ -111,7 +113,7 @@ class Scorecard(IScorecard):
         report = BenchmarkReport(
             model=model_name,
             overall=overall,
-            count=len(items),
+            count=len(hits),
             p50_ms=p50,
             slices={c: h.accuracy for c, h in stats.items()},
             counts={c: h.total for c, h in stats.items()},

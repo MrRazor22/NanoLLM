@@ -26,21 +26,28 @@ class VerdictEngine(IDecisionEngine):
     def decide(self, state: DecisionState, questions: Sequence[Question]) -> DecisionResult:
         pipe = self._get_pipeline()
         answers = {}
-        prompt_text = str(state)
         for q in questions:
+            prompt_text = f"Question: {q.instruction}\n\nContext:\n{state}" if q.instruction else str(state)
             if isinstance(q, Choice):
-                options = list(q.options.keys()) if isinstance(q.options, dict) else list(q.options)
-                out = pipe(prompt_text, options)
+                if isinstance(q.options, dict):
+                    opt_map = {f"It is {desc if desc else key}": key for key, desc in q.options.items()}
+                else:
+                    opt_map = {f"It is {opt}": opt for opt in q.options}
+                candidates = list(opt_map.keys())
+                out = pipe(prompt_text, candidates)
                 res_list = out[0] if (out and isinstance(out, list) and isinstance(out[0], list)) else (out or [])
                 top = res_list[0] if res_list else {}
-                label = str(top.get("label", options[0] if options else ""))
+                top_label = str(top.get("label", candidates[0] if candidates else ""))
+                chosen_key = opt_map.get(top_label, top_label)
                 score = float(top.get("score", 1.0))
-                answers[q.name] = ChoiceResult(choice=label, confidence=score, probabilities={label: score})
+                answers[q.name] = ChoiceResult(choice=str(chosen_key), confidence=score, probabilities={str(chosen_key): score})
             elif isinstance(q, Noul):
-                out = pipe(prompt_text, ["true", "false"])
+                nli_map = {"It is true": True, "It is false": False}
+                out = pipe(prompt_text, list(nli_map.keys()))
                 res_list = out[0] if (out and isinstance(out, list) and isinstance(out[0], list)) else (out or [])
                 top = res_list[0] if res_list else {}
-                is_pos = str(top.get("label", "")).lower() in ("true", "1", "yes")
+                top_label = str(top.get("label", "It is false"))
+                is_pos = nli_map.get(top_label, False)
                 score = float(top.get("score", 0.5))
                 answers[q.name] = NoulResult(is_positive=is_pos, probability=score)
             elif isinstance(q, Score):
