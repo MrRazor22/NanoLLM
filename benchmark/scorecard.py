@@ -3,7 +3,8 @@ import json
 from pathlib import Path
 import time
 from typing import Dict, Mapping, Optional, Protocol, Sequence, runtime_checkable
-from inference import DecisionCase, IDecisionEngine
+from data import DecisionCase
+from inference import IDecisionEngine
 
 BenchmarkItem = DecisionCase
 SCORES_FILE = Path(__file__).resolve().parent / "scores.json"

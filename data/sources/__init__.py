@@ -3,7 +3,7 @@ import json
 from pathlib import Path
 from typing import Callable, List, Optional, Protocol, Sequence, runtime_checkable
 
-from inference.case import DecisionCase
+from data.case import DecisionCase
 
 DATA_DIR = Path(__file__).resolve().parent.parent
 RAW_DIR = DATA_DIR / "raw"

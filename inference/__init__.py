@@ -3,7 +3,6 @@
 from inference.decision_engine import DecisionEngine, IDecisionEngine
 from inference.layers.profiling_layer import ProfilingLayer
 from inference.policies.decision_resolver import DecisionResolver, IResolver
-from inference.case import DecisionCase
 from inference.questions import (
     Answer,
     Choice,
@@ -40,6 +39,5 @@ __all__ = [
     "Answer",
     "IAnswer",
     "DecisionResult",
-    "DecisionCase",
     "format_state",
 ]

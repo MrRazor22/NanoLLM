@@ -7,7 +7,7 @@ from transformers import AutoModel, AutoTokenizer, logging
 logging.set_verbosity_error()
 
 if TYPE_CHECKING:
-    from inference.case import DecisionCase
+    from data.case import DecisionCase
 
 from inference.questions import Choice, DecisionState, Question, Score, format_state
 from model.layouts import Batch, PredictionLayout, SampleTargets, TargetSlot, TokenLayout

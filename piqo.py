@@ -11,7 +11,7 @@ from inference import (
     ProfilingLayer,
     DecisionState, Choice, Noul, Score, Question,
     IAnswer, ChoiceResult, NoulResult, ScoreResult, Answer, DecisionResult,
-    DecisionCase, format_state,
+    format_state,
 )
 from training import (
     ITrainer, EpochTrainer,
@@ -21,7 +21,7 @@ from training import (
     get_latest_checkpoint, get_next_checkpoint_path, list_all_checkpoints, resolve_default_checkpoint, save_checkpoint,
 )
 from data import (
-    IDataset, Dataset, DataSplits, SourceRecord,
+    IDataset, Dataset, DataSplits, SourceRecord, DecisionCase,
     ICachePolicy, DiskCachePolicy, ISplitPolicy, BudgetSplitPolicy, ILeakagePolicy, NGramLeakagePolicy,
     IDataSource, GlaiveSource, DecisionsSource, HuggingFaceSource, standard_sources,
     DATA_DIR, CORPUS_DIR, RAW_DIR, ADAPTED_DIR,

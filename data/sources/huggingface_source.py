@@ -1,6 +1,6 @@
 from typing import List, Mapping, Optional, Sequence, Union
 from datasets import load_dataset
-from inference.case import DecisionCase
+from data.case import DecisionCase
 from inference.questions import Choice
 from data.sources import RAW_DIR, ADAPTED_DIR, IDataSource, SourceRecord, cached_jsonl, cached_records
 

@@ -2,7 +2,7 @@ import random
 import time
 from typing import Callable, Iterator, Optional, Protocol, Sequence, runtime_checkable
 
-from inference.case import DecisionCase
+from data.case import DecisionCase
 from model import IModel, TorchModel
 from training.stats import StepStats
 from training.checkpoints import CheckpointMeta, save_checkpoint

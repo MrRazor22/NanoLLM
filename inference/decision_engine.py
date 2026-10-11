@@ -1,8 +1,10 @@
-from typing import Callable, Optional, Protocol, Sequence, runtime_checkable
+from typing import TYPE_CHECKING, Callable, Optional, Protocol, Sequence, runtime_checkable
 
 from inference.questions import DecisionResult, DecisionState, Question
 from inference.policies.decision_resolver import DecisionResolver, IResolver
-from model import IModel, TorchModel
+
+if TYPE_CHECKING:
+    from model import IModel
 
 @runtime_checkable
 class IDecisionEngine(Protocol):
@@ -14,10 +16,13 @@ class DecisionEngine(IDecisionEngine):
 
     def __init__(
         self,
-        model: Optional[IModel] = None,
+        model: Optional["IModel"] = None,
         resolver: Optional[IResolver] = None,
     ):
-        self.model = model or TorchModel()
+        if model is None:
+            from model.torch_model import TorchModel
+            model = TorchModel()
+        self.model = model
         self.resolver = resolver or DecisionResolver()
 
     def decide(self, state: DecisionState, questions: Sequence[Question]) -> DecisionResult:

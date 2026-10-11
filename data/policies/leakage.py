@@ -1,6 +1,6 @@
 import re
 from typing import Protocol, Sequence, Set, Tuple, runtime_checkable
-from inference.case import DecisionCase
+from data.case import DecisionCase
 
 @runtime_checkable
 class ILeakagePolicy(Protocol):

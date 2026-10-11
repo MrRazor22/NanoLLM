@@ -1,7 +1,7 @@
 import json
 from pathlib import Path
 from typing import Optional, Protocol, Sequence, Union, runtime_checkable
-from inference.case import DecisionCase
+from data.case import DecisionCase
 
 DEFAULT_CORPUS_DIR = Path(__file__).resolve().parent.parent / "corpus"
 

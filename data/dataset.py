@@ -1,7 +1,7 @@
 from pathlib import Path
 from typing import List, Optional, Protocol, Sequence, Union, runtime_checkable
 
-from inference.case import DecisionCase
+from data.case import DecisionCase
 from data.policies.cache import DiskCachePolicy, ICachePolicy
 from data.policies.leakage import ILeakagePolicy, NGramLeakagePolicy
 from data.policies.split import BudgetSplitPolicy, DataSplits, ISplitPolicy

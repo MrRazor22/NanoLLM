@@ -1,7 +1,7 @@
 from dataclasses import dataclass
 import random
 from typing import Protocol, Sequence, runtime_checkable
-from inference.case import DecisionCase
+from data.case import DecisionCase
 from data.sources import SourceRecord
 
 @dataclass(frozen=True)

@@ -1,5 +1,6 @@
 """Data Domain: Sovereign Dataset Preparation, Anti-Leakage, and Collation (PFD)."""
 
+from data.case import DecisionCase
 from data.dataset import (
     DATA_DIR,
     CORPUS_DIR,
@@ -27,6 +28,7 @@ __all__ = [
     "Dataset",
     "DataSplits",
     "SourceRecord",
+    "DecisionCase",
     # Policies
     "ISplitPolicy",
     "BudgetSplitPolicy",
