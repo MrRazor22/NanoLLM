@@ -33,15 +33,18 @@ class MetricsLayer(ITrainer):
     def fit(self, train_data, epochs: int = 1, **kwargs) -> Iterator[StepStats]:
         if self.inner is None:
             raise RuntimeError("MetricsLayer has no inner trainer.")
-        last_log = time.perf_counter()
+        start_time = time.perf_counter()
+        last_log = start_time
         for s in self.inner.fit(train_data, epochs=epochs, **kwargs):
             now = time.perf_counter()
+            elapsed_sec = int(now - start_time)
+            elapsed_str = f"{elapsed_sec // 60:02d}:{elapsed_sec % 60:02d}"
             if s.step == s.total_steps:
                 val_info = f" | Val Loss: {s.val_loss:.4f}" if s.val_loss is not None else ""
-                self.sink(f"Epoch {s.epoch}/{s.total_epochs} Complete | Train Loss: {s.loss:.4f}{val_info}")
+                self.sink(f"Epoch {s.epoch}/{s.total_epochs} Complete | Train Loss: {s.loss:.4f}{val_info} | {s.elapsed_ms:.0f}ms/step | Total: {elapsed_str}")
                 last_log = now
             elif now - last_log >= self.log_interval_sec:
-                self.sink(f"Epoch {s.epoch}/{s.total_epochs} | Step {s.step}/{s.total_steps} | Loss: {s.loss:.4f}")
+                self.sink(f"Epoch {s.epoch}/{s.total_epochs} | Step {s.step}/{s.total_steps} | Loss: {s.loss:.4f} | {s.elapsed_ms:.0f}ms/step | Elapsed: {elapsed_str}")
                 last_log = now
             yield s
 
