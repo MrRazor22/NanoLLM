@@ -1,5 +1,5 @@
 from dataclasses import dataclass
-from typing import Optional, Sequence, Union
+from typing import Sequence, Union
 
 @dataclass(frozen=True)
 class TokenLayout:
@@ -7,10 +7,6 @@ class TokenLayout:
     input_ids: Sequence[int]
     mask: Sequence[float]
     slots: Sequence[Sequence[int]]
-
-    @property
-    def slot_indices(self) -> Sequence[Sequence[int]]:
-        return self.slots
 
 @dataclass(frozen=True)
 class ScoreLayout:
@@ -36,14 +32,10 @@ class Batch:
     mask: Sequence[Sequence[float]]
     targets: Sequence[SampleTargets]
 
-# Symmetrical domain alias
-TrainingBatch = Batch
-
 __all__ = [
     "TokenLayout",
     "ScoreLayout",
     "TargetSlot",
     "SampleTargets",
     "Batch",
-    "TrainingBatch",
 ]

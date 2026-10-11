@@ -17,7 +17,7 @@ from training import (
     ITrainer, EpochTrainer,
     IBatchCollator, PaddedBatchCollator,
     CheckpointingLayer, MetricsLayer,
-    Batch, TrainingBatch, SampleTargets, StepStats, TargetSlot,
+    Batch, SampleTargets, StepStats, TargetSlot,
     CHECKPOINTS_DIR, DEFAULT_CHECKPOINT, CheckpointInfo, CheckpointMeta,
     get_latest_checkpoint, get_next_checkpoint_path, list_all_checkpoints, resolve_default_checkpoint, save_checkpoint,
 )
@@ -50,7 +50,7 @@ __all__ = [
     "DecisionState", "Choice", "Noul", "Score", "Question",
     "IAnswer", "ChoiceResult", "NoulResult", "ScoreResult", "Answer", "DecisionResult",
     "TokenLayout", "ScoreLayout", "DecisionCase",
-    "Batch", "TrainingBatch", "StepStats", "TargetSlot", "SampleTargets",
+    "Batch", "StepStats", "TargetSlot", "SampleTargets",
     "CheckpointInfo", "CheckpointMeta", "BenchmarkItem", "BenchmarkReport", "BaselineTrack", "CategoryHits",
     # Transforms & Paths
     "format_state", "CHECKPOINTS_DIR", "DEFAULT_CHECKPOINT",

@@ -1,6 +1,6 @@
 """Training Domain: Sovereign Optimization & Adaptation Primitive (PFD)."""
 
-from training.batches import Batch, SampleTargets, StepStats, TargetSlot, TrainingBatch
+from training.batches import Batch, SampleTargets, StepStats, TargetSlot
 from training.epoch_trainer import EpochTrainer, ITrainer
 from training.layers.checkpointing_layer import CheckpointingLayer
 from training.layers.metrics_layer import MetricsLayer
@@ -29,7 +29,6 @@ __all__ = [
     "MetricsLayer",
     # DTOs
     "Batch",
-    "TrainingBatch",
     "SampleTargets",
     "StepStats",
     "TargetSlot",

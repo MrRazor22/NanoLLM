@@ -26,8 +26,5 @@ def main() -> None:
     report = card.evaluate(engine, items, track_name=args.track)
     card.render({args.track: report}, model_name="Piqo")
 
-def __main__() -> None:
-    main()
-
 if __name__ == "__main__":
     main()

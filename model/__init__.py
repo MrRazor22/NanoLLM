@@ -6,7 +6,6 @@ from model.layouts import (
     SampleTargets,
     TargetSlot,
     TokenLayout,
-    TrainingBatch,
 )
 from model.torch_model import IModel, TorchModel
 from model.policies.calibrated_loss import CalibratedLoss, ILoss
@@ -24,5 +23,4 @@ __all__ = [
     "TargetSlot",
     "SampleTargets",
     "Batch",
-    "TrainingBatch",
 ]

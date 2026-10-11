@@ -29,10 +29,4 @@ class DiskCachePolicy(ICachePolicy):
         lines = [json.dumps(s.to_dict(), default=str) for s in samples]
         target.write_text("\n".join(lines) + ("\n" if lines else ""), encoding="utf-8")
 
-def load_raw_jsonl(path: Path) -> Sequence[DecisionCase]:
-    p = Path(path)
-    if not p.exists():
-        return []
-    return [DecisionCase.from_dict(json.loads(line)) for line in p.read_text(encoding="utf-8").splitlines() if line.strip()]
-
-__all__ = ["ICachePolicy", "DiskCachePolicy", "load_raw_jsonl"]
+__all__ = ["ICachePolicy", "DiskCachePolicy"]

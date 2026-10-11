@@ -7,7 +7,7 @@ from data.dataset import (
     Dataset,
     DataSplits,
 )
-from data.policies.cache import ICachePolicy, DiskCachePolicy, load_raw_jsonl
+from data.policies.cache import ICachePolicy, DiskCachePolicy
 from data.policies.leakage import ILeakagePolicy, NGramLeakagePolicy
 from data.policies.split import ISplitPolicy, BudgetSplitPolicy
 from data.sources import (
@@ -40,8 +40,6 @@ __all__ = [
     "DecisionsSource",
     "GenericSource",
     "standard_sources",
-    # Utilities
-    "load_raw_jsonl",
     # Directories
     "DATA_DIR",
     "CORPUS_DIR",

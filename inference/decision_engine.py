@@ -26,7 +26,7 @@ class DecisionEngine(IDecisionEngine):
     def decide(self, state: DecisionState, questions: Sequence[Question]) -> DecisionResult:
         layout = self.encoder.encode(state, questions)
         scores = self.model.predict(layout).scores
-        answers = self.resolver.resolve(questions, layout.slot_indices, scores)
+        answers = self.resolver.resolve(questions, layout.slots, scores)
         return DecisionResult(answers=answers)
 
     def __or__(self, layer: Callable[["IDecisionEngine"], "IDecisionEngine"]) -> "IDecisionEngine":
