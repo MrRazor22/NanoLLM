@@ -22,9 +22,11 @@ class MetricsLayer:
         self.sink = sink or (lambda msg: print(msg, flush=True))
         self.log_interval_sec = log_interval_sec
 
-    def attach(self, inner: "ITrainer") -> "MetricsLayer":
+    def __call__(self, inner: "ITrainer") -> "MetricsLayer":
         self.inner = inner
         return self
+
+    attach = __call__
 
     def save(self, meta: Optional[CheckpointMeta] = None) -> None:
         if self.inner is not None:
@@ -45,7 +47,7 @@ class MetricsLayer:
                 last_log = now
             yield s
 
-    def __or__(self, layer: Union[type, Callable[["ITrainer"], "ITrainer"]]) -> "ITrainer":
-        return layer(self) if isinstance(layer, type) else (getattr(layer, "attach")(self) if hasattr(layer, "attach") else layer(self))
+    def __or__(self, layer: Callable[["ITrainer"], "ITrainer"]) -> "ITrainer":
+        return layer(self)
 
 __all__ = ["MetricsLayer"]

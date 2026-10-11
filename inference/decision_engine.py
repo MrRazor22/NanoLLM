@@ -29,7 +29,7 @@ class DecisionEngine(IDecisionEngine):
         answers = self.resolver.resolve(questions, layout.slot_indices, scores)
         return DecisionResult(answers=answers)
 
-    def __or__(self, layer: Union[type, Callable[["IDecisionEngine"], "IDecisionEngine"]]) -> "IDecisionEngine":
-        return layer(self) if isinstance(layer, type) else (getattr(layer, "attach")(self) if hasattr(layer, "attach") else layer(self))
+    def __or__(self, layer: Callable[["IDecisionEngine"], "IDecisionEngine"]) -> "IDecisionEngine":
+        return layer(self)
 
 __all__ = ["IDecisionEngine", "DecisionEngine"]

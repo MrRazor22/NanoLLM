@@ -15,11 +15,9 @@ def get_latest_checkpoint(prefix: str = "checkpoint_champion") -> Tuple[Optional
         if m: files.append((int(m.group(1) or 1), f))
     return max(files, key=lambda x: x[0], default=(0, None))[::-1]
 
-def resolve_default_checkpoint() -> Path:
-    latest, _ = get_latest_checkpoint()
-    for p in [latest, CHECKPOINTS_DIR / "checkpoint_champion_v10.pt", CHECKPOINTS_DIR / "checkpoint_champion_v8.pt"]:
-        if p and p.exists(): return p
-    return CHECKPOINTS_DIR / "checkpoint_champion.pt"
+def resolve_default_checkpoint(prefix: str = "checkpoint_champion") -> Path:
+    latest, _ = get_latest_checkpoint(prefix)
+    return latest if latest and latest.exists() else CHECKPOINTS_DIR / f"{prefix}.pt"
 
 DEFAULT_CHECKPOINT = resolve_default_checkpoint()
 

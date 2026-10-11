@@ -11,9 +11,11 @@ class ProfilingLayer:
     def __init__(self, inner: Optional["IDecisionEngine"] = None):
         self.inner = inner
 
-    def attach(self, inner: "IDecisionEngine") -> "ProfilingLayer":
+    def __call__(self, inner: "IDecisionEngine") -> "ProfilingLayer":
         self.inner = inner
         return self
+
+    attach = __call__
 
     def decide(self, state: DecisionState, questions: Sequence[Question]) -> DecisionResult:
         if self.inner is None: raise RuntimeError("ProfilingLayer is not attached to an inner engine.")
@@ -24,7 +26,7 @@ class ProfilingLayer:
         result.latency_ms = (time.perf_counter() - t0) * 1000.0
         return result
 
-    def __or__(self, layer):
-        return layer(self) if isinstance(layer, type) else (getattr(layer, "attach")(self) if hasattr(layer, "attach") else layer(self))
+    def __or__(self, layer) -> "IDecisionEngine":
+        return layer(self)
 
 __all__ = ["ProfilingLayer"]

@@ -14,9 +14,11 @@ class CheckpointingLayer:
         self.inner = inner
         self.output_path = Path(output_path) if output_path else None
 
-    def attach(self, inner: "ITrainer") -> "CheckpointingLayer":
+    def __call__(self, inner: "ITrainer") -> "CheckpointingLayer":
         self.inner = inner
         return self
+
+    attach = __call__
 
     def save(self, meta: Optional[CheckpointMeta] = None) -> None:
         if self.inner is not None:
@@ -42,7 +44,7 @@ class CheckpointingLayer:
                 self._save(self.output_path, stats=s)
             yield s
 
-    def __or__(self, layer: Union[type, Callable[["ITrainer"], "ITrainer"]]) -> "ITrainer":
-        return layer(self) if isinstance(layer, type) else (getattr(layer, "attach")(self) if hasattr(layer, "attach") else layer(self))
+    def __or__(self, layer: Callable[["ITrainer"], "ITrainer"]) -> "ITrainer":
+        return layer(self)
 
 __all__ = ["CheckpointingLayer"]

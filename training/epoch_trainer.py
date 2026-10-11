@@ -80,7 +80,7 @@ class EpochTrainer(ITrainer):
                     total_batches=total_batches,
                 )
 
-    def __or__(self, layer: Union[type, Callable[["ITrainer"], "ITrainer"]]) -> "ITrainer":
-        return layer(self) if isinstance(layer, type) else (getattr(layer, "attach")(self) if hasattr(layer, "attach") else layer(self))
+    def __or__(self, layer: Callable[["ITrainer"], "ITrainer"]) -> "ITrainer":
+        return layer(self)
 
 __all__ = ["ITrainer", "EpochTrainer"]

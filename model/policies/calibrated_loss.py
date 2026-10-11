@@ -11,7 +11,7 @@ class ILoss(Protocol):
     def compute(self, predictions: Sequence, targets: Sequence[SampleTargets]) -> float: ...
 
 class CalibratedLoss(nn.Module, ILoss):
-    """Brier-calibrated multi-task loss policy: encapsulates PyTorch tensor loss computation."""
+    """Brier-calibrated multi-task loss policy: vectorizes cross-entropy, Brier, and MSE losses."""
 
     def __init__(self, brier_weight: float = 0.5):
         super().__init__()
@@ -19,19 +19,20 @@ class CalibratedLoss(nn.Module, ILoss):
 
     def compute(self, predictions, targets: Sequence[SampleTargets]):
         dev = predictions.device
-        c_logits, c_tgts, b_logits, b_tgts, s_logits, s_tgts = [], [], [], [], [], []
-        for b_idx, sample in enumerate(targets):
+        c_logits, c_tgts = [], []
+        b_idx, b_pos, b_tgts = [], [], []
+        s_idx, s_pos, s_tgts = [], [], []
+
+        for b, sample in enumerate(targets):
             for item in sample.slots:
-                q_type, pos, val = item.target_type, item.indices, item.value
-                if q_type == "choice":
-                    c_logits.append(predictions[b_idx, pos])
+                t, pos, val = item.target_type, item.indices, item.value
+                if t == "choice":
+                    c_logits.append(predictions[b, pos])
                     c_tgts.append(int(val))
-                elif q_type == "noul":
-                    b_logits.append(predictions[b_idx, pos[0]])
-                    b_tgts.append(float(val))
-                elif q_type == "score":
-                    s_logits.append(predictions[b_idx, pos[0]])
-                    s_tgts.append(float(val))
+                elif t == "noul":
+                    b_idx.append(b); b_pos.append(pos[0]); b_tgts.append(float(val))
+                elif t == "score":
+                    s_idx.append(b); s_pos.append(pos[0]); s_tgts.append(float(val))
 
         losses = []
         if c_logits:
@@ -40,15 +41,17 @@ class CalibratedLoss(nn.Module, ILoss):
             for i, l in enumerate(c_logits):
                 pad[i, :l.size(0)] = l
             losses.append(F.cross_entropy(pad, torch.as_tensor(c_tgts, dtype=torch.long, device=dev), reduction="sum"))
-        if b_logits:
-            l, t = torch.stack(b_logits), torch.as_tensor(b_tgts, dtype=torch.float, device=dev)
-            prob = torch.sigmoid(l)
-            losses.append((1.0 - self.brier_weight) * F.binary_cross_entropy_with_logits(l, t, reduction="sum") + self.brier_weight * torch.sum((prob - t) ** 2))
-        if s_logits:
-            l, t = torch.stack(s_logits), torch.as_tensor(s_tgts, dtype=torch.float, device=dev)
-            losses.append(torch.sum(4.0 * (torch.sigmoid(l) - t) ** 2))
+        if b_idx:
+            pred = predictions[torch.as_tensor(b_idx, device=dev), torch.as_tensor(b_pos, device=dev)]
+            tgt = torch.as_tensor(b_tgts, dtype=torch.float, device=dev)
+            prob = torch.sigmoid(pred)
+            losses.append((1.0 - self.brier_weight) * F.binary_cross_entropy_with_logits(pred, tgt, reduction="sum") + self.brier_weight * torch.sum((prob - tgt) ** 2))
+        if s_idx:
+            pred = predictions[torch.as_tensor(s_idx, device=dev), torch.as_tensor(s_pos, device=dev)]
+            tgt = torch.as_tensor(s_tgts, dtype=torch.float, device=dev)
+            losses.append(torch.sum(4.0 * (torch.sigmoid(pred) - tgt) ** 2))
 
-        total_q = len(c_logits) + len(b_logits) + len(s_logits)
+        total_q = len(c_logits) + len(b_idx) + len(s_idx)
         return torch.sum(torch.stack(losses)) / max(1, total_q) if losses else torch.tensor(0.0, device=dev)
 
     forward = compute
