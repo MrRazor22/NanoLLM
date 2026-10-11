@@ -20,6 +20,7 @@ class TorchModel(IModel):
     def __init__(
         self,
         backbone_name: str = "answerdotai/ModernBERT-base",
+        backbone: Optional[nn.Module] = None,
         checkpoint_path: Optional[Union[str, Path]] = None,
         loss_policy: Optional[ILoss] = None,
         lr: float = 1.5e-5,
@@ -28,7 +29,7 @@ class TorchModel(IModel):
         compile: bool = False,
     ):
         self.device = torch.device(device) if isinstance(device, str) else (device or torch.device("cuda" if torch.cuda.is_available() else "cpu"))
-        self.backbone = AutoModel.from_pretrained(backbone_name).to(self.device)
+        self.backbone = (backbone or AutoModel.from_pretrained(backbone_name)).to(self.device)
         hidden_dim = getattr(self.backbone.config, "hidden_size", 768) if hasattr(self.backbone, "config") else 768
         self.head = nn.Linear(hidden_dim, 1).to(self.device)
 

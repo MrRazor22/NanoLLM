@@ -13,7 +13,10 @@ class PaddedBatchCollator(IBatchCollator):
 
     def __init__(self, encoder: Optional[ILayoutEncoder] = None):
         self.encoder = encoder or SlotEncoder()
-        self.pad_id = getattr(self.encoder, "pad_token_id", 0)
+
+    @property
+    def pad_id(self) -> int:
+        return getattr(self.encoder, "pad_token_id", 0)
 
     def collate(self, cases: Sequence[DecisionCase]) -> Batch:
         all_ids, targets = [], []

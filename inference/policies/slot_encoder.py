@@ -21,14 +21,27 @@ class SlotEncoder(ILayoutEncoder):
     """Encodes state and questions into token layout with masked slots for inference."""
 
     def __init__(self, tokenizer: Optional[ITokenizer] = None, max_state_tokens: int = 384):
-        if tokenizer is None:
-            from transformers import AutoTokenizer
-            tokenizer = AutoTokenizer.from_pretrained("answerdotai/ModernBERT-base")
-        self.tokenizer = tokenizer
+        self._tokenizer = tokenizer
         self.max_state_tokens = max_state_tokens
-        self.mask_id = tokenizer.mask_token_id
-        self.sep_id = tokenizer.sep_token_id
-        self.pad_token_id = tokenizer.pad_token_id
+
+    @property
+    def tokenizer(self) -> ITokenizer:
+        if self._tokenizer is None:
+            from transformers import AutoTokenizer
+            self._tokenizer = AutoTokenizer.from_pretrained("answerdotai/ModernBERT-base")
+        return self._tokenizer
+
+    @property
+    def mask_id(self) -> int:
+        return self.tokenizer.mask_token_id
+
+    @property
+    def sep_id(self) -> int:
+        return self.tokenizer.sep_token_id
+
+    @property
+    def pad_token_id(self) -> int:
+        return self.tokenizer.pad_token_id
 
     def encode(self, state: DecisionState, questions: Sequence[Question]) -> TokenLayout:
         state_ids = self.tokenizer.encode(format_state(state))
