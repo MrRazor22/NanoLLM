@@ -70,7 +70,7 @@ class Dataset(IDataset):
         cached = self.cache_policy.get(split)
         if cached is not None:
             return cached
-        if self._sources:
+        if self.sources:
             self.prepare()
             cached = self.cache_policy.get(split)
             if cached is not None:
