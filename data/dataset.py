@@ -31,6 +31,12 @@ class Dataset(IDataset):
         self.cache_policy = cache_policy or DiskCachePolicy()
         self.sources: List[IDataSource] = list(sources) if sources is not None else standard_sources()
 
+    @property
+    def signature(self) -> str:
+        import hashlib
+        raw = "|".join(f"{s.name}:{getattr(s, 'limit', '')}:{getattr(s, 'category', '')}" for s in self.sources)
+        return hashlib.sha256(raw.encode()).hexdigest()[:12]
+
     def prepare(self, sources: Optional[Sequence[IDataSource]] = None) -> DataSplits:
         """Extracts all registered sources, partitions splits, audits for leakage, and caches via cache policy."""
         src_list = list(sources) if sources is not None else self.sources
@@ -58,21 +64,22 @@ class Dataset(IDataset):
         if self.leakage_policy.find_leaks(splits.train, splits.val):
             raise ValueError("Contamination invariant violated: train split leaks validation.")
 
-        # Delegate caching to injected cache policy
-        self.cache_policy.put("train", splits.train)
-        self.cache_policy.put("val", splits.val)
-        self.cache_policy.put("test", splits.test)
+        # Delegate caching to injected cache policy with signature
+        sig = self.signature
+        self.cache_policy.put("train", splits.train, signature=sig)
+        self.cache_policy.put("val", splits.val, signature=sig)
+        self.cache_policy.put("test", splits.test, signature=sig)
 
         return splits
 
     def load(self, split: str = "train") -> Sequence[DecisionCase]:
-        """Loads domain decision cases from cache; self-prepares from sources on cache miss."""
-        cached = self.cache_policy.get(split)
+        """Loads domain decision cases from cache; self-prepares from sources on cache miss or signature mismatch."""
+        cached = self.cache_policy.get(split, signature=self.signature)
         if cached is not None:
             return cached
         if self.sources:
             self.prepare()
-            cached = self.cache_policy.get(split)
+            cached = self.cache_policy.get(split, signature=self.signature)
             if cached is not None:
                 return cached
         raise FileNotFoundError(

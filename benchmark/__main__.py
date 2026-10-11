@@ -17,6 +17,7 @@ def main() -> None:
     parser.add_argument("--split", type=str, default="test", help="Dataset split to evaluate")
     parser.add_argument("--limit", type=int, default=None, help="Limit number of test items")
     parser.add_argument("--competitor", type=str, default="all", help=f"Competitor to benchmark live: {list(AVAILABLE_COMPETITORS.keys())}, 'all', or 'none' (default: all)")
+    parser.add_argument("--force", action="store_true", help="Force re-evaluation even if competitor is already recorded in ledger")
     args = parser.parse_args()
 
     card = Scorecard()
@@ -29,19 +30,15 @@ def main() -> None:
     engine = DecisionEngine(model=model) | ProfilingLayer()
 
     print(f"Benchmarking {args.name} on {len(items)} items ({args.split} split)...")
-    report = card.evaluate(engine, items, model_name=args.name)
-    card.record(report)
+    card.evaluate(engine, items, model_name=args.name, force=args.force)
 
     if args.competitor and args.competitor != "none":
         targets = list(AVAILABLE_COMPETITORS.keys()) if args.competitor == "all" else [args.competitor]
         for c_name in targets:
             if c_name in AVAILABLE_COMPETITORS:
                 cls = AVAILABLE_COMPETITORS[c_name]
-                print(f"\nBenchmarking competitor '{c_name}' live on {len(items)} items...")
                 try:
-                    comp_engine = cls()
-                    comp_rep = card.evaluate(comp_engine, items, model_name=f"{c_name.capitalize()}")
-                    card.record(comp_rep)
+                    card.evaluate(cls(), items, model_name=c_name.capitalize(), force=args.force)
                 except Exception as e:
                     print(f"Skipping live run for competitor '{c_name}': {e}")
 

@@ -36,31 +36,38 @@ class Scorecard(IScorecard):
 
     def __init__(
         self,
-        scores_path: Optional[Path] = None,
+        ledger_policy: Optional["ILedgerPolicy"] = None,
         show_progress: bool = True,
         log_interval_sec: float = 3.0,
     ):
-        self.scores_path = Path(scores_path or SCORES_FILE)
+        from benchmark.policies.ledger import DiskLedgerPolicy
+        self.ledger_policy = ledger_policy or DiskLedgerPolicy()
         self.show_progress = show_progress
         self.log_interval_sec = log_interval_sec
 
-    def load_ledger(self) -> Dict[str, dict]:
-        if not self.scores_path.exists(): return {}
-        try: return json.loads(self.scores_path.read_text(encoding="utf-8"))
-        except Exception: return {}
+    def signature_for(self, items: Sequence[BenchmarkItem]) -> str:
+        import hashlib
+        raw = f"{len(items)}|{items[0].state[:30] if items else ''}|{items[-1].state[:30] if items else ''}"
+        return hashlib.sha256(raw.encode()).hexdigest()[:12]
 
-    def record(self, report: BenchmarkReport) -> None:
-        ledger = self.load_ledger()
-        for cat, acc in report.slices.items():
-            entry = ledger.setdefault(cat, {})
-            entry["count"], entry[report.model] = report.counts.get(cat, 0), round(acc, 4)
-        overall = ledger.setdefault("OVERALL", {})
-        overall["count"], overall[report.model] = report.count, round(report.overall, 4)
-        lat = ledger.setdefault("LATENCY_P50_MS", {})
-        lat["count"], lat[report.model] = "-", round(report.p50_ms, 2)
-        self.scores_path.write_text(json.dumps(ledger, indent=2), encoding="utf-8")
+    def record(self, report: BenchmarkReport, dataset_signature: Optional[str] = None) -> None:
+        self.ledger_policy.put(report, signature=dataset_signature)
 
-    def evaluate(self, engine: IDecisionEngine, items: Sequence[BenchmarkItem], model_name: str = "Piqo") -> BenchmarkReport:
+    def evaluate(self, engine: IDecisionEngine, items: Sequence[BenchmarkItem], model_name: str = "Piqo", force: bool = False) -> BenchmarkReport:
+        sig = self.signature_for(items)
+        if not force:
+            cached = self.ledger_policy.get(model_name, signature=sig)
+            if cached is not None:
+                print(f"Competitor '{model_name}' already evaluated on this dataset (reusing cached scores; pass --force to re-run).", flush=True)
+                return BenchmarkReport(
+                    model=model_name,
+                    overall=cached.get("OVERALL", 0.0),
+                    count=len(items),
+                    p50_ms=cached.get("LATENCY_P50_MS", 0.0),
+                    slices={k: v for k, v in cached.items() if k not in ("OVERALL", "LATENCY_P50_MS")},
+                    counts={},
+                )
+
         stats: Dict[str, CategoryHits] = {}
         latencies, hits = [], []
         total_items = len(items)
@@ -100,7 +107,7 @@ class Scorecard(IScorecard):
 
         overall = sum(hits) / max(1, len(hits))
         p50 = float(sorted(latencies)[len(latencies) // 2]) if latencies else 0.0
-        return BenchmarkReport(
+        report = BenchmarkReport(
             model=model_name,
             overall=overall,
             count=len(items),
@@ -108,19 +115,21 @@ class Scorecard(IScorecard):
             slices={c: h.accuracy for c, h in stats.items()},
             counts={c: h.total for c, h in stats.items()},
         )
+        self.record(report, dataset_signature=sig)
+        return report
 
     def render(self) -> None:
-        ledger = self.load_ledger()
+        ledger = self.ledger_policy.all()
         if not ledger:
             print("\nLeaderboard is empty. Run: python -m benchmark\n")
             return
 
-        models = sorted({m for entry in ledger.values() for m in entry if m != "count"})
+        models = sorted({m for entry in ledger.values() for m in entry if m not in ("count", "signature")})
         if "Piqo" in models:
             models.remove("Piqo")
             models.insert(0, "Piqo")
 
-        tracks = [t for t in sorted(ledger.keys()) if t not in ("OVERALL", "LATENCY_P50_MS")]
+        tracks = [t for t in sorted(ledger.keys()) if t not in ("OVERALL", "LATENCY_P50_MS", "DATASET")]
         if "OVERALL" in ledger:
             tracks.append("OVERALL")
         if "LATENCY_P50_MS" in ledger:
