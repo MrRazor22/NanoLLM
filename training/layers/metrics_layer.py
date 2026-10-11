@@ -3,11 +3,9 @@ import time
 from typing import TYPE_CHECKING, Callable, Iterator, Optional, Union
 from training.checkpoints import CheckpointMeta
 from training.batches import StepStats
+from training.epoch_trainer import ITrainer
 
-if TYPE_CHECKING:
-    from training.epoch_trainer import ITrainer
-
-class MetricsLayer:
+class MetricsLayer(ITrainer):
     """Layer Decorator (lambda: P -> P): Real-time logging over the StepStats stream."""
 
     def __init__(

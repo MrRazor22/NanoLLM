@@ -2,11 +2,9 @@ import time
 from typing import TYPE_CHECKING, Optional, Sequence
 import torch
 from inference.questions import DecisionResult, DecisionState, Question
+from inference.decision_engine import IDecisionEngine
 
-if TYPE_CHECKING:
-    from inference.decision_engine import IDecisionEngine
-
-class ProfilingLayer:
+class ProfilingLayer(IDecisionEngine):
     """Layer Decorator (lambda: P -> P): Measures wall-clock decision latency."""
     def __init__(self, inner: Optional["IDecisionEngine"] = None):
         self.inner = inner

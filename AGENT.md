@@ -14,12 +14,12 @@
 ## 2. Operational Workflows & Commands
 - **Interactive Terminal Playground:**
   ```bash
-  python cli.py --play
+  python -m inference --play
   ```
 - **Run One-Shot Inference:**
   ```bash
-  python cli.py "Database CPU reached 99% and connection pool is exhausted"
-  python cli.py "Look up encryption policy" --preset routing
+  python -m inference "Database CPU reached 99% and connection pool is exhausted"
+  python -m inference "Look up encryption policy" --preset routing
   ```
 - **Build / Adapt Training Curriculum (Zero Leakage):**
   ```bash

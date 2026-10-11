@@ -24,10 +24,10 @@ class TorchModel(IModel):
         loss_policy: Optional[ILoss] = None,
         lr: float = 1.5e-5,
         accum_steps: int = 2,
-        device: Optional[torch.device] = None,
+        device: Optional[Union[str, torch.device]] = None,
         compile: bool = False,
     ):
-        self.device = device or torch.device("cuda" if torch.cuda.is_available() else "cpu")
+        self.device = torch.device(device) if isinstance(device, str) else (device or torch.device("cuda" if torch.cuda.is_available() else "cpu"))
         self.backbone = AutoModel.from_pretrained(backbone_name).to(self.device)
         hidden_dim = getattr(self.backbone.config, "hidden_size", 768) if hasattr(self.backbone, "config") else 768
         self.head = nn.Linear(hidden_dim, 1).to(self.device)

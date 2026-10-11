@@ -3,11 +3,9 @@ import time
 from typing import TYPE_CHECKING, Callable, Iterator, Optional, Union
 from training.checkpoints import CheckpointMeta
 from training.batches import StepStats
+from training.epoch_trainer import ITrainer
 
-if TYPE_CHECKING:
-    from training.epoch_trainer import ITrainer
-
-class CheckpointingLayer:
+class CheckpointingLayer(ITrainer):
     """Layer Decorator (lambda: P -> P): Saves model checkpoint at epoch-end."""
 
     def __init__(self, inner: Optional["ITrainer"] = None, output_path: Optional[str] = None):
