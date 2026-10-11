@@ -16,7 +16,7 @@ from data.sources import (
     IDataSource,
     SourceRecord,
     DecisionsSource,
-    GenericSource,
+    HuggingFaceSource,
     GlaiveSource,
     standard_sources,
 )
@@ -38,7 +38,7 @@ __all__ = [
     "IDataSource",
     "GlaiveSource",
     "DecisionsSource",
-    "GenericSource",
+    "HuggingFaceSource",
     "standard_sources",
     # Directories
     "DATA_DIR",

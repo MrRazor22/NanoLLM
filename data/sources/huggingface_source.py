@@ -1,10 +1,12 @@
-from typing import Any, List, Mapping, Optional, Sequence
+from typing import List, Mapping, Optional, Sequence, Union
 from datasets import load_dataset
 from inference.case import DecisionCase
 from inference.questions import Choice
 from data.sources import RAW_DIR, ADAPTED_DIR, IDataSource, SourceRecord, cached_jsonl, cached_records
 
-class GenericSource(IDataSource):
+LabelKey = Union[str, int, bool]
+
+class HuggingFaceSource(IDataSource):
     """Declarative HuggingFace dataset adapter: extracts cases with real class candidates, tags origin split, and caches adapted rows."""
 
     def __init__(
@@ -19,7 +21,7 @@ class GenericSource(IDataSource):
         tag: str = "unsplit",
         category: Optional[str] = None,
         candidate_options: Optional[Sequence[str]] = None,
-        label_map: Optional[Mapping[Any, str]] = None,
+        label_map: Optional[Mapping[LabelKey, str]] = None,
     ):
         self.name = dataset_name.replace("/", "_")
         self.dataset_name = dataset_name
@@ -87,4 +89,4 @@ class GenericSource(IDataSource):
 
         return cached_records(ADAPTED_DIR / f"{self.name}_{self.split}.jsonl", _build)
 
-__all__ = ["GenericSource"]
+__all__ = ["HuggingFaceSource"]

@@ -45,7 +45,7 @@ def cached_jsonl(path: Path, fetcher: Callable[[], List[dict]]) -> List[dict]:
 
 from data.sources.glaive_source import GlaiveSource
 from data.sources.decisions_source import DecisionsSource
-from data.sources.generic_source import GenericSource
+from data.sources.huggingface_source import HuggingFaceSource
 
 def standard_sources(seed: int = 42) -> List[IDataSource]:
     """Default collection of diverse multi-task, multimodal-ready decision sources."""
@@ -61,68 +61,68 @@ def standard_sources(seed: int = 42) -> List[IDataSource]:
     return [
         GlaiveSource(limit=5000, seed=seed),
         DecisionsSource(repeat=5),
-        GenericSource(
+        HuggingFaceSource(
             "mteb/banking77", "intent", "What is the primary customer request?",
             limit=5000, split="train", label_field="label_text", tag="unsplit", category="banking77",
         ),
-        GenericSource(
+        HuggingFaceSource(
             "mteb/banking77", "intent", "What is the primary customer request?",
             limit=400, split="test", label_field="label_text", tag="test", category="banking77",
         ),
-        GenericSource(
+        HuggingFaceSource(
             "fancyzhx/ag_news", "topic", "What is the topic of article?",
             limit=5000, split="train", text_field="text", label_field="label", tag="unsplit", category="ag_news",
             candidate_options=ag_news_opts, label_map=ag_news_map,
         ),
-        GenericSource(
+        HuggingFaceSource(
             "fancyzhx/ag_news", "topic", "What is the topic of article?",
             limit=400, split="test", text_field="text", label_field="label", tag="test", category="ag_news",
             candidate_options=ag_news_opts, label_map=ag_news_map,
         ),
-        GenericSource(
+        HuggingFaceSource(
             "dair-ai/emotion", "emotion", "Which emotion is most strongly expressed?",
             limit=5000, split="train", text_field="text", label_field="label", tag="unsplit", category="emotion",
             candidate_options=emotion_opts, label_map=emotion_map,
         ),
-        GenericSource(
+        HuggingFaceSource(
             "dair-ai/emotion", "emotion", "Which emotion is most strongly expressed?",
             limit=400, split="test", text_field="text", label_field="label", tag="test", category="emotion",
             candidate_options=emotion_opts, label_map=emotion_map,
         ),
-        GenericSource(
+        HuggingFaceSource(
             "Tobi-Bueck/customer-support-tickets", "queue", "Which support queue should handle this ticket?",
             limit=4000, split="train", text_field="body", label_field="queue", tag="unsplit", category="customer_support",
         ),
-        GenericSource(
+        HuggingFaceSource(
             "zefang-liu/phishing-email-dataset", "is_phishing", "Is this email a phishing or scam attempt?",
             limit=4000, split="train", text_field="Email Text", label_field="Email Type", tag="unsplit", category="phishing_email",
             candidate_options=["Safe Email", "Phishing Email"],
         ),
-        GenericSource(
+        HuggingFaceSource(
             "SetFit/enron_spam", "is_spam", "Is this email unsolicited spam or bulk marketing?",
             limit=4000, split="train", text_field="text", label_field="label_text", tag="unsplit", category="enron_spam",
             candidate_options=binary_spam_opts, label_map=binary_spam_map,
         ),
-        GenericSource(
+        HuggingFaceSource(
             "SetFit/enron_spam", "is_spam", "Is this email unsolicited spam or bulk marketing?",
             limit=400, split="test", text_field="text", label_field="label_text", tag="test", category="enron_spam",
             candidate_options=binary_spam_opts, label_map=binary_spam_map,
         ),
-        GenericSource(
+        HuggingFaceSource(
             "lmsys/toxic-chat", "jailbreak", "Does prompt try to bypass system safety instructions?",
             limit=3000, split="train", text_field="user_input", label_field="jailbreaking", tag="unsplit", category="toxic_chat",
             candidate_options=toxic_opts, label_map=toxic_map,
         ),
-        GenericSource(
+        HuggingFaceSource(
             "lmsys/toxic-chat", "jailbreak", "Does prompt try to bypass system safety instructions?",
             limit=400, split="test", text_field="user_input", label_field="jailbreaking", tag="test", category="toxic_chat",
             candidate_options=toxic_opts, label_map=toxic_map,
         ),
-        GenericSource(
+        HuggingFaceSource(
             "SetFit/amazon_massive_intent_en-US", "intent", "What is the user intent in this utterance?",
             limit=5000, split="train", text_field="text", label_field="label_text", tag="unsplit", category="amazon_massive",
         ),
-        GenericSource(
+        HuggingFaceSource(
             "SetFit/amazon_massive_intent_en-US", "intent", "What is the user intent in this utterance?",
             limit=400, split="test", text_field="text", label_field="label_text", tag="test", category="amazon_massive",
         ),
@@ -132,5 +132,5 @@ __all__ = [
     "DATA_DIR", "RAW_DIR", "ADAPTED_DIR",
     "IDataSource", "SourceRecord",
     "cached_jsonl", "cached_records",
-    "GlaiveSource", "DecisionsSource", "GenericSource", "standard_sources",
+    "GlaiveSource", "DecisionsSource", "HuggingFaceSource", "standard_sources",
 ]
