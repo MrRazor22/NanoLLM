@@ -18,6 +18,7 @@ from data.sources import (
     DecisionsSource,
     GenericSource,
     GlaiveSource,
+    standard_sources,
 )
 
 __all__ = [
@@ -38,6 +39,7 @@ __all__ = [
     "GlaiveSource",
     "DecisionsSource",
     "GenericSource",
+    "standard_sources",
     # Utilities
     "load_raw_jsonl",
     # Directories

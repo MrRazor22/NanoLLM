@@ -19,6 +19,7 @@ def cached_jsonl(path: Path, fetcher: Callable[[], List[dict]]) -> List[dict]:
 from data.sources.glaive_source import GlaiveSource
 from data.sources.decisions_source import DecisionsSource
 from data.sources.generic_source import GenericSource
+from data.sources.standard import standard_sources
 
 __all__ = [
     "DATA_DIR",
@@ -30,4 +31,5 @@ __all__ = [
     "GlaiveSource",
     "DecisionsSource",
     "GenericSource",
+    "standard_sources",
 ]

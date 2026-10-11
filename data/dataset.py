@@ -5,7 +5,7 @@ from inference.case import DecisionCase
 from data.policies.cache import DiskCachePolicy, ICachePolicy
 from data.policies.leakage import ILeakagePolicy, NGramLeakagePolicy
 from data.policies.split import BudgetSplitPolicy, DataSplits, ISplitPolicy
-from data.sources import IDataSource, SourceRecord
+from data.sources import IDataSource, SourceRecord, standard_sources
 
 DATA_DIR = Path(__file__).resolve().parent
 CORPUS_DIR = DATA_DIR / "corpus"
@@ -30,7 +30,7 @@ class Dataset(IDataset):
         self.split_policy = split_policy or BudgetSplitPolicy()
         self.leakage_policy = leakage_policy or NGramLeakagePolicy()
         self.cache_policy = cache_policy or DiskCachePolicy()
-        self._sources: List[IDataSource] = list(sources) if sources is not None else []
+        self._sources: List[IDataSource] = list(sources) if sources is not None else standard_sources()
 
     def register(self, source: IDataSource) -> "Dataset":
         """Registers a data source into the dataset collection."""
@@ -63,7 +63,7 @@ class Dataset(IDataset):
         return splits
 
     def load(self, split: str = "train") -> Sequence[DecisionCase]:
-        """Loads cases from cache policy; triggers preparation automatically on cache miss if sources registered."""
+        """Loads domain decision cases from cache; self-prepares from sources on cache miss."""
         cached = self.cache_policy.get(split)
         if cached is not None:
             return cached
@@ -73,8 +73,7 @@ class Dataset(IDataset):
             if cached is not None:
                 return cached
         raise FileNotFoundError(
-            f"Corpus partition '{split}' not found in cache. "
-            f"Run data pipeline via 'python -m data' or register sources before loading."
+            f"Corpus partition '{split}' not found and no data sources available to prepare it."
         )
 
 __all__ = ["DATA_DIR", "CORPUS_DIR", "IDataset", "Dataset", "DataSplits"]
