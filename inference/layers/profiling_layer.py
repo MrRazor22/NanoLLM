@@ -1,12 +1,12 @@
 import time
 from typing import TYPE_CHECKING, Optional, Sequence
 import torch
-from inference.questions import Composable, DecisionResult, DecisionState, Question
+from inference.questions import DecisionResult, DecisionState, Question
 
 if TYPE_CHECKING:
     from inference.decision_engine import IDecisionEngine
 
-class ProfilingLayer(Composable):
+class ProfilingLayer:
     """Layer Decorator (lambda: P -> P): Measures wall-clock decision latency."""
     def __init__(self, inner: Optional["IDecisionEngine"] = None):
         self.inner = inner
@@ -23,5 +23,8 @@ class ProfilingLayer(Composable):
         if torch.cuda.is_available(): torch.cuda.synchronize()
         result.latency_ms = (time.perf_counter() - t0) * 1000.0
         return result
+
+    def __or__(self, layer):
+        return layer(self) if isinstance(layer, type) else (getattr(layer, "attach")(self) if hasattr(layer, "attach") else layer(self))
 
 __all__ = ["ProfilingLayer"]

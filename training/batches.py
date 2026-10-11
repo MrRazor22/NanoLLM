@@ -1,11 +1,6 @@
 from dataclasses import dataclass
-from typing import Optional, Sequence, Tuple, Union
-
-@dataclass(frozen=True)
-class TargetSlot:
-    target_type: str
-    indices: Sequence[int]
-    value: Union[int, float]
+from typing import Optional, Sequence
+from inference.questions import TargetSlot
 
 @dataclass(frozen=True)
 class SampleTargets:

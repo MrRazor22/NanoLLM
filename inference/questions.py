@@ -1,6 +1,6 @@
 from dataclasses import dataclass
 import json
-from typing import Callable, Mapping, Optional, Protocol, Sequence, TypeVar, Union, runtime_checkable
+from typing import Mapping, Optional, Protocol, Sequence, Union, runtime_checkable
 
 DecisionState = Union[str, Mapping[str, str]]
 
@@ -63,31 +63,25 @@ class DecisionResult:
     answers: Mapping[str, Answer]
     latency_ms: float = 0.0
 
-@runtime_checkable
-class IDecisionEngine(Protocol):
-    """Core Primitive: Operational boundary for neural decision inference."""
-    def decide(self, state: DecisionState, questions: Sequence[Question]) -> DecisionResult: ...
+@dataclass(frozen=True)
+class TargetSlot:
+    """Explicit domain DTO for a question's masked slot positions and target value."""
+    target_type: str
+    indices: Sequence[int]
+    value: Union[int, float]
 
 @dataclass(frozen=True)
 class TokenLayout:
     input_ids: Sequence[int]
     mask: Sequence[float]
     slots: Sequence[Sequence[int]]
+    targets: Sequence[TargetSlot] = ()
     @property
     def slot_indices(self) -> Sequence[Sequence[int]]: return self.slots
 
 @dataclass(frozen=True)
 class ScoreLayout:
     scores: Sequence[float]
-
-T = TypeVar("T")
-
-class Composable:
-    """Layer decorator composition mixin (lambda: P -> P)."""
-    def add(self: T, layer: Union[type, Callable[[T], T]]) -> T:
-        return layer(self) if isinstance(layer, type) else (getattr(layer, "attach")(self) if hasattr(layer, "attach") else layer) # type: ignore
-    def __or__(self: T, layer: Union[type, Callable[[T], T]]) -> T:
-        return self.add(layer)
 
 def format_state(state: DecisionState) -> str:
     """Colocated pure transform: formats state string or dictionary for token encoding."""
@@ -102,6 +96,5 @@ def format_state(state: DecisionState) -> str:
 __all__ = [
     "DecisionState", "Choice", "Noul", "Score", "Question",
     "IAnswer", "ChoiceResult", "NoulResult", "ScoreResult", "Answer",
-    "IDecisionEngine", "DecisionResult", "TokenLayout", "ScoreLayout",
-    "Composable", "format_state",
+    "DecisionResult", "TargetSlot", "TokenLayout", "ScoreLayout", "format_state",
 ]

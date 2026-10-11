@@ -10,7 +10,6 @@ from inference.questions import (
     Answer,
     Choice,
     ChoiceResult,
-    Composable,
     DecisionResult,
     DecisionState,
     Noul,
@@ -19,6 +18,7 @@ from inference.questions import (
     Score,
     ScoreLayout,
     ScoreResult,
+    TargetSlot,
     TokenLayout,
     format_state,
 )
@@ -38,7 +38,6 @@ __all__ = [
     # Layers
     "ProfilingLayer",
     # Domain Models & DTOs
-    "Composable",
     "DecisionState",
     "Choice",
     "Noul",
@@ -51,6 +50,7 @@ __all__ = [
     "DecisionResult",
     "TokenLayout",
     "ScoreLayout",
+    "TargetSlot",
     "DecisionCase",
     "format_state",
 ]

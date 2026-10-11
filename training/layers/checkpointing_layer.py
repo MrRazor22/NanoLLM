@@ -2,13 +2,12 @@ from pathlib import Path
 import time
 from typing import TYPE_CHECKING, Iterator, Optional
 import torch
-from inference.questions import Composable
 from training.batches import StepStats
 
 if TYPE_CHECKING:
     from training.epoch_trainer import ITrainer
 
-class CheckpointingLayer(Composable):
+class CheckpointingLayer:
     """Layer Decorator (lambda: P -> P): Saves model checkpoint at epoch-end."""
 
     def __init__(self, inner: Optional["ITrainer"] = None, output_path: Optional[str] = None):
@@ -56,5 +55,8 @@ class CheckpointingLayer(Composable):
             if self.output_path:
                 self._save(self.output_path, stats=s)
             yield s
+
+    def __or__(self, layer):
+        return layer(self) if isinstance(layer, type) else (getattr(layer, "attach")(self) if hasattr(layer, "attach") else layer(self))
 
 __all__ = ["CheckpointingLayer"]

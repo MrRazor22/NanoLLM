@@ -4,11 +4,11 @@ from training.batches import SampleTargets, StepStats, TargetSlot, TrainingBatch
 from training.epoch_trainer import EpochTrainer, ITrainer
 from training.layers.checkpointing_layer import CheckpointingLayer
 from training.layers.metrics_layer import MetricsLayer
+from training.policies.batch_collator import IBatchCollator, PaddedBatchCollator
 from training.policies.calibrated_loss import CalibratedLoss, ILoss
 from training.checkpoints import (
     CHECKPOINTS_DIR,
     DEFAULT_CHECKPOINT,
-    WEIGHTS_DIR,
     CheckpointInfo,
     get_latest_checkpoint,
     get_next_checkpoint_path,
@@ -23,6 +23,8 @@ __all__ = [
     # Policies
     "ILoss",
     "CalibratedLoss",
+    "IBatchCollator",
+    "PaddedBatchCollator",
     # Layers
     "CheckpointingLayer",
     "MetricsLayer",
@@ -31,8 +33,7 @@ __all__ = [
     "StepStats",
     "TargetSlot",
     "TrainingBatch",
-    # Checkpoint Registry
-    "WEIGHTS_DIR",
+    # Checkpoints
     "CHECKPOINTS_DIR",
     "DEFAULT_CHECKPOINT",
     "CheckpointInfo",

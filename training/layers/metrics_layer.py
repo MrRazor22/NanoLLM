@@ -1,13 +1,12 @@
 from pathlib import Path
 import time
 from typing import TYPE_CHECKING, Callable, Iterable, Iterator, Optional, Union
-from inference.questions import Composable
 from training.batches import StepStats, TrainingBatch
 
 if TYPE_CHECKING:
     from training.epoch_trainer import ITrainer
 
-class MetricsLayer(Composable):
+class MetricsLayer:
     """Layer Decorator (lambda: P -> P): Real-time logging over the StepStats stream."""
     def __init__(self, inner: Optional["ITrainer"] = None, output_path: Optional[Union[str, Path]] = None, sink: Optional[Callable[[str], None]] = None, log_interval_sec: float = 10.0):
         self.inner, self.output_path, self.sink, self.log_interval_sec = inner, Path(output_path) if output_path else None, sink or (lambda msg: print(msg, flush=True)), log_interval_sec
@@ -29,5 +28,8 @@ class MetricsLayer(Composable):
                 self.sink(f"Epoch {s.epoch}/{s.total_epochs} | Step {s.step}/{s.total_steps} | Loss: {s.loss:.4f}")
                 last_log = now
             yield s
+
+    def __or__(self, layer):
+        return layer(self) if isinstance(layer, type) else (getattr(layer, "attach")(self) if hasattr(layer, "attach") else layer(self))
 
 __all__ = ["MetricsLayer"]

@@ -1,14 +1,19 @@
 from pathlib import Path
-from typing import Optional, Sequence, Union
+from typing import Callable, Optional, Protocol, Sequence, Union, runtime_checkable
 import torch
 from transformers import AutoTokenizer
 
-from inference.questions import Composable, DecisionResult, DecisionState, IDecisionEngine, Question
+from inference.questions import DecisionResult, DecisionState, Question
 from inference.policies.decision_resolver import DecisionResolver, IResolver
 from inference.policies.slot_encoder import ILayoutEncoder, SlotEncoder
 from inference.policies.torch_scorer import IScorer, TorchScorer
 
-class DecisionEngine(Composable, IDecisionEngine):
+@runtime_checkable
+class IDecisionEngine(Protocol):
+    """Core Primitive: Sovereign operational boundary for neural decision inference."""
+    def decide(self, state: DecisionState, questions: Sequence[Question]) -> DecisionResult: ...
+
+class DecisionEngine(IDecisionEngine):
     """Core Primitive Implementation: Coordinates layout encoding, neural scoring, and logit resolution."""
 
     def __init__(
@@ -54,5 +59,8 @@ class DecisionEngine(Composable, IDecisionEngine):
         scores = self.scorer.score(layout).scores
         answers = self.resolver.resolve(questions, layout.slot_indices, scores)
         return DecisionResult(answers=answers)
+
+    def __or__(self, layer: Union[type, Callable[["IDecisionEngine"], "IDecisionEngine"]]) -> "IDecisionEngine":
+        return layer(self) if isinstance(layer, type) else (getattr(layer, "attach")(self) if hasattr(layer, "attach") else layer(self))
 
 __all__ = ["IDecisionEngine", "DecisionEngine"]

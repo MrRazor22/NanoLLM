@@ -4,16 +4,16 @@ from inference import (
     IDecisionEngine, DecisionEngine,
     ILayoutEncoder, SlotEncoder, ITokenizer, IScorer, TorchScorer, IResolver, DecisionResolver,
     ProfilingLayer,
-    Composable, DecisionState, Choice, Noul, Score, Question,
+    DecisionState, Choice, Noul, Score, Question,
     IAnswer, ChoiceResult, NoulResult, ScoreResult, Answer, DecisionResult,
     TokenLayout, ScoreLayout, DecisionCase, format_state,
 )
 from training import (
     ITrainer, EpochTrainer,
-    ILoss, CalibratedLoss,
+    ILoss, CalibratedLoss, IBatchCollator, PaddedBatchCollator,
     CheckpointingLayer, MetricsLayer,
     SampleTargets, StepStats, TargetSlot, TrainingBatch,
-    WEIGHTS_DIR, CHECKPOINTS_DIR, DEFAULT_CHECKPOINT, CheckpointInfo,
+    CHECKPOINTS_DIR, DEFAULT_CHECKPOINT, CheckpointInfo,
     get_latest_checkpoint, get_next_checkpoint_path, list_all_checkpoints, resolve_default_checkpoint,
 )
 from data import (
@@ -32,18 +32,18 @@ __all__ = [
     "IDataset", "Dataset", "IEvaluator", "Scorecard",
     # Policies & Injected Sub-Primitives
     "ILayoutEncoder", "SlotEncoder", "ITokenizer", "IScorer", "TorchScorer", "IResolver", "DecisionResolver",
-    "ILoss", "CalibratedLoss",
+    "ILoss", "CalibratedLoss", "IBatchCollator", "PaddedBatchCollator",
     "ISplitPolicy", "BudgetSplitPolicy", "ILeakagePolicy", "NGramLeakagePolicy", "ICachePolicy", "DiskCachePolicy",
     "IDataSource", "GlaiveSource", "DecisionsSource", "GenericSource",
     # Layers (Lambda: P -> P)
-    "ProfilingLayer", "CheckpointingLayer", "MetricsLayer", "Composable",
+    "ProfilingLayer", "CheckpointingLayer", "MetricsLayer",
     # Domain DTOs & Models
     "DecisionState", "Choice", "Noul", "Score", "Question",
     "IAnswer", "ChoiceResult", "NoulResult", "ScoreResult", "Answer", "DecisionResult",
     "TokenLayout", "ScoreLayout", "DecisionCase", "TrainingBatch", "StepStats", "TargetSlot", "SampleTargets",
     "CheckpointInfo", "BenchmarkItem", "BenchmarkReport",
     # Transforms & Paths
-    "format_state", "WEIGHTS_DIR", "CHECKPOINTS_DIR", "DEFAULT_CHECKPOINT",
+    "format_state", "CHECKPOINTS_DIR", "DEFAULT_CHECKPOINT",
     "DATA_DIR", "CORPUS_DIR", "RAW_DIR", "ADAPTED_DIR",
     "get_latest_checkpoint", "get_next_checkpoint_path", "list_all_checkpoints", "resolve_default_checkpoint",
 ]
