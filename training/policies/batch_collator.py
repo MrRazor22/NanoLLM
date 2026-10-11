@@ -1,7 +1,7 @@
 from typing import Optional, Protocol, Sequence, runtime_checkable
 from inference import DecisionCase, ILayoutEncoder, SlotEncoder
 from inference.questions import Choice, Score
-from training.batches import Batch, SampleTargets, TargetSlot
+from model import Batch, SampleTargets, TargetSlot
 
 @runtime_checkable
 class IBatchCollator(Protocol):

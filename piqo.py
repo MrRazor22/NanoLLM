@@ -2,7 +2,7 @@
 
 from model import (
     IModel, TorchModel,
-    TokenLayout, ScoreLayout,
+    TokenLayout, ScoreLayout, Batch, SampleTargets, TargetSlot,
     ILoss, CalibratedLoss,
 )
 from inference import (
@@ -17,7 +17,7 @@ from training import (
     ITrainer, EpochTrainer,
     IBatchCollator, PaddedBatchCollator,
     CheckpointingLayer, MetricsLayer,
-    Batch, SampleTargets, StepStats, TargetSlot,
+    StepStats,
     CHECKPOINTS_DIR, DEFAULT_CHECKPOINT, CheckpointInfo, CheckpointMeta,
     get_latest_checkpoint, get_next_checkpoint_path, list_all_checkpoints, resolve_default_checkpoint, save_checkpoint,
 )

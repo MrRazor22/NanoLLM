@@ -4,7 +4,7 @@ from typing import Callable, Iterator, Optional, Protocol, Sequence, Union, runt
 
 from inference.case import DecisionCase
 from model import IModel, TorchModel
-from training.batches import StepStats
+from training.stats import StepStats
 from training.checkpoints import CheckpointMeta, save_checkpoint
 from training.policies.batch_collator import IBatchCollator, PaddedBatchCollator
 

@@ -1,6 +1,5 @@
 from dataclasses import dataclass
 from typing import Optional
-from model.layouts import Batch, SampleTargets, TargetSlot
 
 @dataclass(frozen=True)
 class StepStats:
@@ -16,4 +15,4 @@ class StepStats:
     batch: int = 0
     total_batches: int = 0
 
-__all__ = ["TargetSlot", "SampleTargets", "Batch", "StepStats"]
+__all__ = ["StepStats"]

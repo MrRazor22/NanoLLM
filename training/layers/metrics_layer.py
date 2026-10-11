@@ -2,7 +2,7 @@ from pathlib import Path
 import time
 from typing import TYPE_CHECKING, Callable, Iterator, Optional, Union
 from training.checkpoints import CheckpointMeta
-from training.batches import StepStats
+from training.stats import StepStats
 from training.epoch_trainer import ITrainer
 
 class MetricsLayer(ITrainer):
