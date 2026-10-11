@@ -25,9 +25,9 @@
   ```bash
   python -m data
   ```
-- **Run Training (1-Epoch Adaptation):**
+- **Run Training (3-Epoch Adaptation):**
   ```bash
-  python -m training --epochs 1 --lr 1.2e-5
+  python -m training --epochs 3 --lr 1.5e-5
   ```
 - **Run Evaluation Benchmarks:**
   ```bash

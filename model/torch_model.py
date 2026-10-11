@@ -1,4 +1,5 @@
 from pathlib import Path
+import random
 from typing import TYPE_CHECKING, Optional, Protocol, Sequence, Union, runtime_checkable
 import torch
 import torch.nn as nn
@@ -59,31 +60,57 @@ class TorchModel(nn.Module, IModel):
         if compile and hasattr(torch, "compile"): self.backbone = torch.compile(self.backbone)
 
     def _encode_layout(self, state: DecisionState, questions: Sequence[Question]) -> TokenLayout:
-        state_ids = self.tokenizer.encode(format_state(state))
-        ids = state_ids[:self.max_state_tokens] if len(state_ids) > self.max_state_tokens else list(state_ids)
+        cls_id = getattr(self.tokenizer, "cls_token_id", 50281)
+        sep_id = getattr(self.tokenizer, "sep_token_id", 50282)
+        mask_id = getattr(self.tokenizer, "mask_token_id", 50284)
+
+        state_tokens = self.tokenizer.encode(format_state(state), add_special_tokens=False)
+        if len(state_tokens) > self.max_state_tokens:
+            state_tokens = state_tokens[:self.max_state_tokens]
+
+        ids = [cls_id] + list(state_tokens)
         slots = []
         for q in questions:
-            ids.append(self.tokenizer.sep_token_id)
-            ids.extend(self.tokenizer.encode(f" {q.name}: {q.instruction}" if q.instruction else f" {q.name}:"))
+            ids.append(sep_id)
+            q_text = f" {q.name}: {q.instruction}" if q.instruction else f" {q.name}:"
+            ids.extend(self.tokenizer.encode(q_text, add_special_tokens=False))
             if isinstance(q, Choice):
                 pos = []
                 opt_items = q.options.items() if isinstance(q.options, dict) else [(o, None) for o in q.options]
                 for k, v in opt_items:
-                    ids.append(self.tokenizer.mask_token_id)
+                    ids.append(mask_id)
                     pos.append(len(ids) - 1)
-                    ids.extend(self.tokenizer.encode(f" {k}: {v}" if v else f" {k}"))
+                    opt_text = f" {k}: {v}" if v else f" {k}"
+                    ids.extend(self.tokenizer.encode(opt_text, add_special_tokens=False))
                 slots.append(pos)
             else:
-                ids.append(self.tokenizer.mask_token_id)
+                ids.append(mask_id)
                 slots.append([len(ids) - 1])
+        ids.append(sep_id)
         return TokenLayout(input_ids=ids, mask=[1.0] * len(ids), slots=slots)
 
-    def _collate_batch(self, cases: Sequence["DecisionCase"]) -> Batch:
+    def _collate_batch(self, cases: Sequence["DecisionCase"], shuffle_options: bool = False) -> Batch:
         all_ids, targets = [], []
         for c in cases:
-            layout = self._encode_layout(c.state, c.questions)
+            q_list = []
+            for q in c.questions:
+                if shuffle_options and isinstance(q, Choice):
+                    keys = list(q.options.keys()) if isinstance(q.options, dict) else list(q.options)
+                    raw_idx = q.target if isinstance(q.target, int) else (keys.index(q.target) if q.target in keys else (int(q.target) if str(q.target).isdigit() else 0))
+                    indices = list(range(len(keys)))
+                    random.shuffle(indices)
+                    new_idx = indices.index(raw_idx) if 0 <= raw_idx < len(indices) else 0
+                    if isinstance(q.options, dict):
+                        shuffled_opts = {keys[i]: q.options[keys[i]] for i in indices}
+                    else:
+                        shuffled_opts = [keys[i] for i in indices]
+                    q_list.append(Choice(name=q.name, options=shuffled_opts, instruction=q.instruction, target=new_idx))
+                else:
+                    q_list.append(q)
+
+            layout = self._encode_layout(c.state, q_list)
             sample_targets = []
-            for q, pos in zip(c.questions, layout.slots):
+            for q, pos in zip(q_list, layout.slots):
                 if isinstance(q, Choice):
                     keys = list(q.options.keys()) if isinstance(q.options, dict) else list(q.options)
                     idx = q.target if isinstance(q.target, int) else (keys.index(q.target) if q.target in keys else (int(q.target) if str(q.target).isdigit() else 0))
@@ -114,7 +141,7 @@ class TorchModel(nn.Module, IModel):
         return PredictionLayout(scores=raw, slots=layout.slots)
 
     def train_step(self, cases: Sequence["DecisionCase"]) -> float:
-        batch = self._collate_batch(cases)
+        batch = self._collate_batch(cases, shuffle_options=True)
         self.backbone.train()
         self.head.train()
         ids = torch.as_tensor(batch.input_ids, dtype=torch.long, device=self.device)
@@ -133,7 +160,7 @@ class TorchModel(nn.Module, IModel):
         return (loss.detach() * self.accum_steps).item()
 
     def eval_step(self, cases: Sequence["DecisionCase"]) -> float:
-        batch = self._collate_batch(cases)
+        batch = self._collate_batch(cases, shuffle_options=False)
         self.backbone.eval()
         self.head.eval()
         ids = torch.as_tensor(batch.input_ids, dtype=torch.long, device=self.device)
