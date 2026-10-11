@@ -30,7 +30,7 @@ def main() -> None:
     parser.add_argument("--metrics-output", type=str, default=str(DEFAULT_METRICS), help="Metrics JSON output path")
     parser.add_argument("--init-checkpoint", type=str, default=default_init, help=f"Initial weights path (default: {default_init})")
     parser.add_argument("--epochs", type=int, default=3, help="Number of training epochs")
-    parser.add_argument("--batch-size", type=int, default=32)
+    parser.add_argument("--batch-size", type=int, default=16)
     parser.add_argument("--lr", type=float, default=1.5e-5)
     parser.add_argument("--accum-steps", type=int, default=2)
     parser.add_argument("--seed", type=int, default=42, help="Random seed for reproducibility")

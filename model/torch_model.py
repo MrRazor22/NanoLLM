@@ -39,6 +39,9 @@ class TorchModel(nn.Module, IModel):
     ):
         super().__init__()
         self.device = torch.device(device) if isinstance(device, str) else (device or torch.device("cuda" if torch.cuda.is_available() else "cpu"))
+        if self.device.type == "cuda":
+            torch.backends.cuda.matmul.allow_tf32 = True
+            torch.backends.cudnn.allow_tf32 = True
         self.backbone = (backbone or AutoModel.from_pretrained(backbone_name)).to(self.device)
         self.tokenizer = tokenizer or AutoTokenizer.from_pretrained(backbone_name)
         self.max_state_tokens = max_state_tokens
