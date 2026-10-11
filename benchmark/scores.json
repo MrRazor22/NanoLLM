@@ -1,47 +1,69 @@
 {
   "banking77": {
     "count": 462,
-    "Piqo": 0.21
+    "Piqo": 0.21,
+    "Laya": 0.7554,
+    "Verdict": 0.461
   },
   "ag_news": {
     "count": 476,
-    "Piqo": 0.2605
+    "Piqo": 0.2605,
+    "Laya": 0.958,
+    "Verdict": 0.292
   },
   "emotion": {
     "count": 474,
-    "Piqo": 0.2954
+    "Piqo": 0.2954,
+    "Laya": 0.6097,
+    "Verdict": 0.403
   },
   "enron_spam": {
     "count": 438,
-    "Piqo": 0.468
+    "Piqo": 0.468,
+    "Laya": 0.9749,
+    "Verdict": 0.4658
   },
   "amazon_massive": {
     "count": 461,
-    "Piqo": 0.0282
+    "Piqo": 0.0282,
+    "Laya": 0.5445,
+    "Verdict": 0.0998
   },
   "typed_decisions": {
     "count": 57,
-    "Piqo": 0.2982
+    "Piqo": 0.2982,
+    "Laya": 0.0877,
+    "Verdict": 0.1053
   },
   "customer_support": {
     "count": 52,
-    "Piqo": 0.0962
+    "Piqo": 0.0962,
+    "Laya": 0.2885,
+    "Verdict": 0.2885
   },
   "function_calling": {
     "count": 36,
-    "Piqo": 1.0
+    "Piqo": 1.0,
+    "Laya": 1.0,
+    "Verdict": 1.0
   },
   "phishing_email": {
     "count": 44,
-    "Piqo": 0.6136
+    "Piqo": 0.6136,
+    "Laya": 0.9545,
+    "Verdict": 0.5682
   },
   "OVERALL": {
     "count": 2500,
-    "Piqo": 0.2656
+    "Piqo": 0.2656,
+    "Laya": 0.748,
+    "Verdict": 0.35
   },
   "LATENCY_P50_MS": {
     "count": "-",
-    "Piqo": 39.61
+    "Piqo": 39.61,
+    "Laya": 0.0,
+    "Verdict": 0.0
   },
   "DATASET": {
     "signature": "63a1f94d19d8",
