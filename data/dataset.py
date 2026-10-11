@@ -13,7 +13,6 @@ CORPUS_DIR = DATA_DIR / "corpus"
 @runtime_checkable
 class IDataset(Protocol):
     """Sovereign primitive contract: manages dataset source preparation, leakage audit, and cached loading."""
-    def register(self, source: IDataSource) -> "IDataset": ...
     def prepare(self, sources: Optional[Sequence[IDataSource]] = None) -> DataSplits: ...
     def load(self, split: str = "train") -> Sequence[DecisionCase]: ...
 
@@ -30,16 +29,11 @@ class Dataset(IDataset):
         self.split_policy = split_policy or BudgetSplitPolicy()
         self.leakage_policy = leakage_policy or NGramLeakagePolicy()
         self.cache_policy = cache_policy or DiskCachePolicy()
-        self._sources: List[IDataSource] = list(sources) if sources is not None else standard_sources()
-
-    def register(self, source: IDataSource) -> "Dataset":
-        """Registers a data source into the dataset collection."""
-        self._sources.append(source)
-        return self
+        self.sources: List[IDataSource] = list(sources) if sources is not None else standard_sources()
 
     def prepare(self, sources: Optional[Sequence[IDataSource]] = None) -> DataSplits:
         """Extracts all registered sources, partitions splits, audits for leakage, and caches via cache policy."""
-        src_list = list(sources) if sources is not None else self._sources
+        src_list = list(sources) if sources is not None else self.sources
         if not src_list:
             raise ValueError("No data sources registered for dataset preparation.")
 
