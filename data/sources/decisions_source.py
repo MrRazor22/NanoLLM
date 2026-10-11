@@ -1,10 +1,9 @@
 import json
-from pathlib import Path
 from typing import List, Sequence
 from datasets import load_dataset
 from inference.case import DecisionCase
 from inference.questions import Choice
-from data.sources import RAW_DIR, ADAPTED_DIR, IDataSource, SourceRecord, cached_jsonl
+from data.sources import RAW_DIR, ADAPTED_DIR, IDataSource, SourceRecord, cached_jsonl, cached_records
 
 class DecisionsSource(IDataSource):
     """Real Typed-Decisions dataset extractor: loads multi-question typed decision benchmarks."""
@@ -14,56 +13,23 @@ class DecisionsSource(IDataSource):
         self.repeat = repeat
 
     def read(self) -> Sequence[SourceRecord]:
-        adapted_path = ADAPTED_DIR / f"{self.name}.jsonl"
-        if adapted_path.exists():
+        def _build() -> List[SourceRecord]:
+            rows = cached_jsonl(
+                RAW_DIR / f"{self.name}.jsonl",
+                lambda: list(load_dataset("LocalLLaMA/typed-decisions", "all", split="train")),
+            )
             records: List[SourceRecord] = []
-            for line in adapted_path.read_text(encoding="utf-8").splitlines():
-                if not line.strip():
-                    continue
-                d = json.loads(line)
+            for row in rows:
+                q_dict = json.loads(q) if isinstance(q := row.get("questions", {}), str) else q
+                g_dict = json.loads(g) if isinstance(g := row.get("gold", {}), str) else g
                 qs = [
-                    Choice(
-                        name=q["name"],
-                        options=q["options"],
-                        instruction=q["instruction"],
-                        target=q["target"],
-                    )
-                    for q in d["questions"]
+                    Choice(name=qid, options=qd.get("criteria", {}), instruction=qd.get("instructions", "Select the best option:"), target=g_dict.get(qid, {}).get("label"))
+                    for qid, qd in q_dict.items() if qd.get("type") == "choice"
                 ]
-                sample = DecisionCase(state=d["state"], questions=qs)
-                records.append(SourceRecord(sample=sample, tag="unsplit"))
-            return records * self.repeat
+                if qs:
+                    records.append(SourceRecord(sample=DecisionCase(state=row.get("state", ""), questions=qs), tag="unsplit"))
+            return records
 
-        rows = cached_jsonl(
-            RAW_DIR / f"{self.name}.jsonl",
-            lambda: list(load_dataset("LocalLLaMA/typed-decisions", "all", split="train")),
-        )
-
-        records: List[SourceRecord] = []
-        cache_rows: List[dict] = []
-        for row in rows:
-            q_defs = row.get("questions", {})
-            g_defs = row.get("gold", {})
-            q_dict = json.loads(q_defs) if isinstance(q_defs, str) else q_defs
-            g_dict = json.loads(g_defs) if isinstance(g_defs, str) else g_defs
-            qs = []
-            q_cache = []
-            for qid, q_data in q_dict.items():
-                if q_data.get("type") == "choice":
-                    opt = q_data.get("criteria", {})
-                    ins = q_data.get("instructions", "Select the best option:")
-                    tgt = g_dict.get(qid, {}).get("label")
-                    qs.append(Choice(name=qid, options=opt, instruction=ins, target=tgt))
-                    q_cache.append({"name": qid, "options": opt, "instruction": ins, "target": tgt})
-            if qs:
-                sample = DecisionCase(state=row.get("state", ""), questions=qs)
-                records.append(SourceRecord(sample=sample, tag="unsplit"))
-                cache_rows.append({"state": sample.state, "questions": q_cache})
-
-        if cache_rows:
-            adapted_path.parent.mkdir(parents=True, exist_ok=True)
-            adapted_path.write_text("\n".join(json.dumps(r) for r in cache_rows) + "\n", encoding="utf-8")
-
-        return records * self.repeat
+        return cached_records(ADAPTED_DIR / f"{self.name}.jsonl", _build) * self.repeat
 
 __all__ = ["DecisionsSource"]

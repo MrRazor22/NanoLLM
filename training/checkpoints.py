@@ -62,6 +62,10 @@ def save_checkpoint(
     }
     state_dict = model.state_dict() if hasattr(model, "state_dict") else {}
     torch.save({"model_state_dict": state_dict, "meta": meta_dict}, str(p))
+    manifest_p = p.parent / "manifest.json"
+    manifest = json.loads(manifest_p.read_text(encoding="utf-8")) if manifest_p.exists() else {}
+    manifest[p.name] = meta_dict
+    manifest_p.write_text(json.dumps(manifest, indent=2), encoding="utf-8")
 
 def get_next_checkpoint_path(prefix: str = "checkpoint_champion") -> Path:
     CHECKPOINTS_DIR.mkdir(parents=True, exist_ok=True)

@@ -6,6 +6,23 @@ DATA_DIR = Path(__file__).resolve().parent.parent
 RAW_DIR = DATA_DIR / "raw"
 ADAPTED_DIR = DATA_DIR / "adapted"
 
+def cached_records(path: Path, fetcher: Callable[[], Sequence[SourceRecord]]) -> Sequence[SourceRecord]:
+    import json
+    from inference.case import DecisionCase
+    if path.exists():
+        records = []
+        for line in path.read_text(encoding="utf-8").splitlines():
+            if line.strip():
+                d = json.loads(line)
+                records.append(SourceRecord(sample=DecisionCase.from_dict(d), tag=d.get("tag", "unsplit")))
+        return records
+    records = list(fetcher())
+    if records:
+        path.parent.mkdir(parents=True, exist_ok=True)
+        lines = [json.dumps({**r.sample.to_dict(), "tag": r.tag}, default=str) for r in records]
+        path.write_text("\n".join(lines) + "\n", encoding="utf-8")
+    return records
+
 def cached_jsonl(path: Path, fetcher: Callable[[], List[dict]]) -> List[dict]:
     import json
     if path.exists():
@@ -28,6 +45,7 @@ __all__ = [
     "IDataSource",
     "SourceRecord",
     "cached_jsonl",
+    "cached_records",
     "GlaiveSource",
     "DecisionsSource",
     "GenericSource",
