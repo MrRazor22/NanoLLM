@@ -2,6 +2,7 @@
 
 from model.layouts import (
     Batch,
+    PredictionLayout,
     ScoreLayout,
     SampleTargets,
     TargetSlot,
@@ -20,6 +21,7 @@ __all__ = [
     # Model Layout DTOs
     "TokenLayout",
     "ScoreLayout",
+    "PredictionLayout",
     "TargetSlot",
     "SampleTargets",
     "Batch",

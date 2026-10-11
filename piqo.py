@@ -2,12 +2,12 @@
 
 from model import (
     IModel, TorchModel,
-    TokenLayout, ScoreLayout, Batch, SampleTargets, TargetSlot,
+    TokenLayout, ScoreLayout, PredictionLayout, Batch, SampleTargets, TargetSlot,
     ILoss, CalibratedLoss,
 )
 from inference import (
     IDecisionEngine, DecisionEngine,
-    ILayoutEncoder, SlotEncoder, ITokenizer, IResolver, DecisionResolver,
+    IResolver, DecisionResolver,
     ProfilingLayer,
     DecisionState, Choice, Noul, Score, Question,
     IAnswer, ChoiceResult, NoulResult, ScoreResult, Answer, DecisionResult,
@@ -15,7 +15,6 @@ from inference import (
 )
 from training import (
     ITrainer, EpochTrainer,
-    IBatchCollator, PaddedBatchCollator,
     CheckpointingLayer, MetricsLayer,
     StepStats,
     CHECKPOINTS_DIR, DEFAULT_CHECKPOINT, CheckpointInfo, CheckpointMeta,
@@ -42,8 +41,7 @@ __all__ = [
     "IScorecard", "Scorecard", "LayaEngine", "VerdictEngine",
     # Policies & Injected Sub-Primitives
     "ILoss", "CalibratedLoss",
-    "ILayoutEncoder", "SlotEncoder", "ITokenizer", "IResolver", "DecisionResolver",
-    "IBatchCollator", "PaddedBatchCollator",
+    "IResolver", "DecisionResolver",
     "ISplitPolicy", "BudgetSplitPolicy", "ILeakagePolicy", "NGramLeakagePolicy", "ICachePolicy", "DiskCachePolicy",
     "ILedgerPolicy", "DiskLedgerPolicy",
     "IDataSource", "GlaiveSource", "DecisionsSource", "HuggingFaceSource", "standard_sources",
@@ -52,7 +50,7 @@ __all__ = [
     # Domain DTOs & Models
     "DecisionState", "Choice", "Noul", "Score", "Question",
     "IAnswer", "ChoiceResult", "NoulResult", "ScoreResult", "Answer", "DecisionResult",
-    "TokenLayout", "ScoreLayout", "DecisionCase",
+    "TokenLayout", "ScoreLayout", "PredictionLayout", "DecisionCase",
     "Batch", "StepStats", "TargetSlot", "SampleTargets",
     "CheckpointInfo", "CheckpointMeta", "BenchmarkItem", "BenchmarkReport", "SCORES_FILE", "CategoryHits",
     # Transforms & Paths

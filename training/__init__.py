@@ -4,7 +4,6 @@ from training.stats import StepStats
 from training.epoch_trainer import EpochTrainer, ITrainer
 from training.layers.checkpointing_layer import CheckpointingLayer
 from training.layers.metrics_layer import MetricsLayer
-from training.policies.batch_collator import IBatchCollator, PaddedBatchCollator
 from training.checkpoints import (
     CHECKPOINTS_DIR,
     DEFAULT_CHECKPOINT,
@@ -21,9 +20,6 @@ __all__ = [
     # Core Primitive
     "ITrainer",
     "EpochTrainer",
-    # Policies
-    "IBatchCollator",
-    "PaddedBatchCollator",
     # Layers
     "CheckpointingLayer",
     "MetricsLayer",

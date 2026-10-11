@@ -4,7 +4,7 @@ import transformers
 
 transformers.logging.set_verbosity_error()
 
-from data import CORPUS_DIR, Dataset, DiskCachePolicy
+from data import CORPUS_DIR, Dataset
 from training import (
     CheckpointingLayer,
     EpochTrainer,
@@ -51,7 +51,7 @@ def main() -> None:
     if args.output:
         trainer = trainer | CheckpointingLayer(output_path=args.output)
 
-    dataset = Dataset(cache_policy=DiskCachePolicy(Path(args.corpus_dir))) if Path(args.corpus_dir) != CORPUS_DIR else Dataset()
+    dataset = Dataset(corpus_dir=args.corpus_dir)
     train_cases = dataset.load("train")
     val_cases = dataset.load("val")
 

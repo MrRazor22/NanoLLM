@@ -1,13 +1,5 @@
 import argparse
-from pathlib import Path
-from data import (
-    CORPUS_DIR,
-    Dataset,
-    BudgetSplitPolicy,
-    DiskCachePolicy,
-    NGramLeakagePolicy,
-    standard_sources,
-)
+from data import CORPUS_DIR, Dataset
 
 def main() -> None:
     parser = argparse.ArgumentParser(description="Piqo Dataset Corpus Builder")
@@ -19,19 +11,13 @@ def main() -> None:
     parser.add_argument("--n-gram", type=int, default=13)
     args = parser.parse_args()
 
-    split_policy = BudgetSplitPolicy(
+    dataset = Dataset(
+        corpus_dir=args.corpus_dir,
         train_quota=args.train_quota,
         val_quota=args.val_quota,
         test_quota=args.test_quota,
+        n_gram=args.n_gram,
         seed=args.seed,
-    )
-    leakage_policy = NGramLeakagePolicy(n_gram=args.n_gram)
-
-    dataset = Dataset(
-        split_policy=split_policy,
-        leakage_policy=leakage_policy,
-        cache_policy=DiskCachePolicy(root_dir=args.corpus_dir),
-        sources=standard_sources(seed=args.seed),
     )
 
     print(f"Building dataset corpus into {args.corpus_dir}...")

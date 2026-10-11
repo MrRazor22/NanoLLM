@@ -34,17 +34,21 @@ flowchart TD
         end
 
         subgraph InfPolicies ["Irreducible Policies (policies/)"]
-            ENC["SlotEncoder (IEncoder): Packs state + questions into slot layout"]
-            SCORER["TorchScorer (IScorer): Single-pass forward pass (ModernBERT)"]
             RES["DecisionResolver (IResolver): Calibrated softmax, sigmoid & min-max scale"]
         end
     end
 
-    subgraph Outputs ["4. Instant Calibrated Result (sub-40ms)"]
-        RES_OUT["DecisionResult: department='Infra' (0.97), urgent=True (0.99), severity=94.2"]
+    subgraph ModelPrimitive ["4. Model Primitive (model/)"]
+        direction TB
+        MODEL["TorchModel (Contract: IModel): Backbone + Tokenizer + Prediction Layout"]
+        LOSS["CalibratedLoss (ILoss): Multi-task loss registry (CE, BCE, MSE)"]
     end
 
-    subgraph TrainingPrimitive ["5. Optimization Primitive (piqo/trainer)"]
+    subgraph Outputs ["5. Instant Calibrated Result (sub-40ms)"]
+        RES_OUT["DecisionResult: department='Billing' (0.82), urgent=True (0.96), severity=97.3"]
+    end
+
+    subgraph TrainingPrimitive ["6. Training Primitive (training/)"]
         direction TB
         ET["EpochTrainer (Contract: ITrainer)"]
 
@@ -52,39 +56,35 @@ flowchart TD
             METRICS["MetricsLayer: Live loss, throughput & step telemetry"]
             CKPT["CheckpointingLayer: Auto-evaluates & saves champion weights"]
         end
-
-        subgraph TrainPolicies ["Irreducible Policies (policies/)"]
-            LOSS["CalibratedLoss (ILoss): Multi-task loss registry (CE, BCE, MSE)"]
-        end
     end
 
-    subgraph DataEngine ["3. Data Domain (data/)"]
+    subgraph DataEngine ["7. Data Domain (data/)"]
         SOURCES["12+ Task Sources: Banking, Security, Glaive Tools, Intent, Guardrails"]
-        TDS["TrainingDataset: Streamer & slot-aligned batch generator"]
+        TDS["Dataset: Self-wiring budget split, n-gram leakage, and cache policies"]
     end
 
     %% Inference Flow
     Client --> Inputs
     Inputs --> DE
     DE --> PROF
-    PROF --> ENC
-    ENC --> SCORER
-    SCORER --> RES
+    PROF --> MODEL
+    MODEL --> RES
     RES --> RES_OUT
 
     %% Training Flow
     SOURCES --> TDS
     TDS --> ET
-    ET --> LOSS
+    ET --> MODEL
     ET --> METRICS
     ET --> CKPT
-    CKPT -. "Loads champion weights (.pt)" .-> SCORER
+    CKPT -. "Loads champion weights (.pt)" .-> MODEL
 
     class CLI,SDK client;
     class CTX,QS input;
-    class DE,PROF,ENC,SCORER,RES engine;
+    class DE,PROF,RES engine;
+    class MODEL,LOSS model;
     class RES_OUT output;
-    class ET,LOSS,METRICS,CKPT trainer;
+    class ET,METRICS,CKPT trainer;
     class SOURCES,TDS data;
 ```
 
@@ -95,12 +95,13 @@ flowchart TD
 | Domain | Boundary Contract | Primary Implementation | Role & PFD Discipline |
 | :--- | :--- | :--- | :--- |
 | **Inference (`inference/`)** | `IDecisionEngine` | `DecisionEngine` | Orchestrates single-pass micro-decisions; strictly decoupled from frameworks. |
-| **Inference Policies** | `ILayoutEncoder`, `IScorer`, `IResolver` | `SlotEncoder`, `TorchScorer`, `DecisionResolver` | Discrete sub-primitives handling slot serialization, transformer scoring, and calibration. |
+| **Inference Policies** | `IResolver` | `DecisionResolver` | Calibrated softmax, sigmoid & min-max scale resolution. |
 | **Inference Layers** | Decorator ($\lambda: P \to P$) | `ProfilingLayer` | Non-invasive instrumentation for sub-millisecond stage tracking. |
+| **Model (`model/`)** | `IModel` | `TorchModel` | Encapsulates weights, tokenizer layout, and gradient step executions. |
+| **Model Policies** | `ILoss` | `CalibratedLoss` | Dynamic loss composition tailored to multi-task question heads. |
 | **Training (`training/`)** | `ITrainer` | `EpochTrainer` | Drives multi-epoch model convergence and validation loops. |
-| **Training Policies** | `ILoss`, `LossRegistry` | `CalibratedLoss` | Dynamic loss composition tailored to multi-task question heads. |
 | **Training Layers** | Decorator ($\lambda: P \to P$) | `MetricsLayer`, `CheckpointingLayer` | Pluggable telemetry monitoring and champion checkpoint persistence. |
-| **Data (`data/`)** | `ICurriculum`, `IDataset` | `Curriculum`, `TrainingDataset` | Clean ingestion, 13-gram leakage policy, and batch collation. |
+| **Data (`data/`)** | `IDataset` | `Dataset` | Clean ingestion, budget splitting, 13-gram leakage policy, and disk caching. |
 | **Benchmark (`benchmark/`)** | `IScorecard` | `Scorecard` | Evaluates engine accuracy & latency against competitive baselines. |
 
 ---
@@ -131,43 +132,47 @@ for name, ans in result.answers.items():
 
 ### 2. Run Training
 ```python
-from piqo import Curriculum, EpochTrainer, MetricsLayer, CheckpointingLayer, SlotEncoder
-from transformers import AutoTokenizer
+from piqo import Dataset, EpochTrainer, MetricsLayer, CheckpointingLayer, TorchModel
 
-# Pipeline composition
+# Self-wiring dataset loader
+dataset = Dataset()
+train_cases = dataset.load("train")
+val_cases = dataset.load("val")
+
+# Pipeline composition with decorators
 trainer = (
-    EpochTrainer.from_backbone("answerdotai/ModernBERT-base")
+    EpochTrainer(model=TorchModel())
     | MetricsLayer()
     | CheckpointingLayer(output_path="checkpoints/checkpoint_champion.pt")
 )
 
-encoder = SlotEncoder(AutoTokenizer.from_pretrained("answerdotai/ModernBERT-base"))
-train_ds, val_ds = Curriculum.load_splits(encoder=encoder)
-train_loader = train_ds.get_loader(batch_size=16, shuffle=True)
-val_loader = val_ds.get_loader(batch_size=16, shuffle=False) if val_ds else None
-
-# Stream training statistics
-for stats in trainer.fit(train_loader, val_batches=val_loader, epochs=3):
-    pass
+# Stream training telemetry
+for stats in trainer.fit(train_cases, val_cases=val_cases, epochs=3):
+    print(f"Epoch {stats.epoch} | Loss: {stats.loss:.4f} | Val: {stats.val_loss:.4f}")
 ```
 
 ### 3. Interactive CLI
 ```bash
-# Terminal playground
-python cli.py --play
-
 # Incident triage preset
-python cli.py "Postgres CPU at 99%" --preset triage
+python -m inference "Postgres CPU at 99%" --preset triage
 
-# View available checkpoints
-python cli.py --models
+# Build dataset corpus
+python -m data --train-quota 2000 --val-quota 500
+
+# Train model
+python -m training --epochs 3 --batch-size 16
+
+# Run benchmark evaluation
+python -m benchmark
 ```
 
 ---
 
 ## Architectural Principles (Primitive-First Design)
 
-1. **Zero Framework Types in Contracts:** Interfaces (`IDecisionEngine`, `ITrainer`, `ILayoutEncoder`, etc.) exchange pure Python DTOs. Zero PyTorch tensors leak across boundary contracts.
+1. **Zero Substrate Leakage in Contracts:** Interfaces (`IDecisionEngine`, `ITrainer`, `IModel`, `IDataset`) exchange pure domain DTOs. Zero token IDs or PyTorch tensors leak across primitive boundaries.
 2. **Fractal Directory Topology:** Disk folders match the architectural tree 1:1. The root hosts only sovereign entrypoints; internal strategies live in `policies/`, and decorators live in `layers/`.
-3. **The 150-Line Cognitive Limit:** Every source file in the repository fits within human working memory ($\le 142$ lines).
-4. **Zero Backward-Compatibility Bloat:** High-density, zero-loss functional compression (~1,750 lines end-to-end).
+3. **The 150-Line Cognitive Limit:** Every source file in the repository fits within human working memory ($\le 150$ lines).
+4. **Self-Wiring Primitives:** Every constructor provides production defaults; callers never need to import internal default policies.
+5. **Zero Backward-Compatibility Bloat:** Lean, zero-loss functional compression.
+

@@ -14,6 +14,12 @@ class ScoreLayout:
     scores: Sequence[float]
 
 @dataclass(frozen=True)
+class PredictionLayout:
+    """Explicit domain DTO for model output scores and corresponding question slot positions."""
+    scores: Sequence[float]
+    slots: Sequence[Sequence[int]]
+
+@dataclass(frozen=True)
 class TargetSlot:
     """Explicit domain DTO for a question's masked slot positions and target value."""
     target_type: str
@@ -35,6 +41,7 @@ class Batch:
 __all__ = [
     "TokenLayout",
     "ScoreLayout",
+    "PredictionLayout",
     "TargetSlot",
     "SampleTargets",
     "Batch",

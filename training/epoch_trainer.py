@@ -1,12 +1,11 @@
 import random
 import time
-from typing import Callable, Iterator, Optional, Protocol, Sequence, Union, runtime_checkable
+from typing import Callable, Iterator, Optional, Protocol, Sequence, runtime_checkable
 
 from inference.case import DecisionCase
 from model import IModel, TorchModel
 from training.stats import StepStats
 from training.checkpoints import CheckpointMeta, save_checkpoint
-from training.policies.batch_collator import IBatchCollator, PaddedBatchCollator
 
 @runtime_checkable
 class ITrainer(Protocol):
@@ -25,13 +24,10 @@ class EpochTrainer(ITrainer):
     def __init__(
         self,
         model: Optional[IModel] = None,
-        collator: Optional[IBatchCollator] = None,
         batch_size: int = 16,
     ):
         self.model = model or TorchModel()
-        self.collator = collator or PaddedBatchCollator()
         self.batch_size = batch_size
-
 
     def save(self, meta: Optional[CheckpointMeta] = None) -> None:
         save_checkpoint(self.model, meta=meta)
@@ -50,8 +46,8 @@ class EpochTrainer(ITrainer):
             total_loss, last_t = 0.0, time.perf_counter()
 
             for n, i in enumerate(range(0, len(items), self.batch_size)):
-                batch = self.collator.collate(items[i : i + self.batch_size])
-                step_loss = self.model.train_step(batch)
+                batch_cases = items[i : i + self.batch_size]
+                step_loss = self.model.train_step(batch_cases)
                 total_loss += step_loss
                 now = time.perf_counter()
                 dt = (now - last_t) * 1000.0
@@ -62,7 +58,7 @@ class EpochTrainer(ITrainer):
                     v_items = list(val_cases)
                     v_total, v_count = 0.0, 0
                     for vi in range(0, len(v_items), self.batch_size):
-                        v_batch = self.collator.collate(v_items[vi : vi + self.batch_size])
+                        v_batch = v_items[vi : vi + self.batch_size]
                         v_total += self.model.eval_step(v_batch)
                         v_count += 1
                     v_loss = v_total / max(1, v_count)

@@ -1,5 +1,5 @@
 from pathlib import Path
-from typing import List, Optional, Protocol, Sequence, runtime_checkable
+from typing import List, Optional, Protocol, Sequence, Union, runtime_checkable
 
 from inference.case import DecisionCase
 from data.policies.cache import DiskCachePolicy, ICachePolicy
@@ -21,15 +21,27 @@ class Dataset(IDataset):
 
     def __init__(
         self,
+        corpus_dir: Optional[Union[str, Path]] = None,
+        train_quota: int = 40000,
+        val_quota: int = 2500,
+        test_quota: int = 2500,
+        n_gram: int = 13,
+        seed: int = 42,
         split_policy: Optional[ISplitPolicy] = None,
         leakage_policy: Optional[ILeakagePolicy] = None,
         cache_policy: Optional[ICachePolicy] = None,
         sources: Optional[Sequence[IDataSource]] = None,
     ):
-        self.split_policy = split_policy or BudgetSplitPolicy()
-        self.leakage_policy = leakage_policy or NGramLeakagePolicy()
-        self.cache_policy = cache_policy or DiskCachePolicy()
-        self.sources: List[IDataSource] = list(sources) if sources is not None else standard_sources()
+        self.corpus_dir = Path(corpus_dir) if corpus_dir is not None else CORPUS_DIR
+        self.split_policy = split_policy or BudgetSplitPolicy(
+            train_quota=train_quota,
+            val_quota=val_quota,
+            test_quota=test_quota,
+            seed=seed,
+        )
+        self.leakage_policy = leakage_policy or NGramLeakagePolicy(n_gram=n_gram)
+        self.cache_policy = cache_policy or DiskCachePolicy(root_dir=self.corpus_dir)
+        self.sources: List[IDataSource] = list(sources) if sources is not None else standard_sources(seed=seed)
 
     @property
     def signature(self) -> str:

@@ -3,7 +3,6 @@
 from inference.decision_engine import DecisionEngine, IDecisionEngine
 from inference.layers.profiling_layer import ProfilingLayer
 from inference.policies.decision_resolver import DecisionResolver, IResolver
-from inference.policies.slot_encoder import ILayoutEncoder, ITokenizer, SlotEncoder
 from inference.case import DecisionCase
 from inference.questions import (
     Answer,
@@ -25,9 +24,6 @@ __all__ = [
     "IDecisionEngine",
     "DecisionEngine",
     # Sub-Primitives & Policies
-    "ILayoutEncoder",
-    "SlotEncoder",
-    "ITokenizer",
     "IResolver",
     "DecisionResolver",
     # Layers

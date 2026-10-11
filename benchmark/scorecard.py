@@ -125,15 +125,11 @@ class Scorecard(IScorecard):
             return
 
         models = sorted({m for entry in ledger.values() for m in entry if m not in ("count", "signature")})
-        if "Piqo" in models:
-            models.remove("Piqo")
-            models.insert(0, "Piqo")
+        if "Piqo" in models: models = ["Piqo"] + [m for m in models if m != "Piqo"]
 
         tracks = [t for t in sorted(ledger.keys()) if t not in ("OVERALL", "LATENCY_P50_MS", "DATASET")]
-        if "OVERALL" in ledger:
-            tracks.append("OVERALL")
-        if "LATENCY_P50_MS" in ledger:
-            tracks.append("LATENCY_P50_MS")
+        for m in ("OVERALL", "LATENCY_P50_MS"):
+            if m in ledger: tracks.append(m)
 
         hdr = f"{'Benchmark Track / Metric':<32} | {'Count':>6} | " + " | ".join(f"{m:>14}" for m in models)
         sep = "-" * len(hdr)
