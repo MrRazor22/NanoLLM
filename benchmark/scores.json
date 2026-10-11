@@ -3,67 +3,89 @@
     "count": 410,
     "Piqo": 0.2341,
     "Laya": 0.7756,
-    "Verdict": 0.6829
+    "Verdict": 0.6829,
+    "Kev": 0.9195,
+    "Gliner_decide": 0.0976
   },
   "ag_news": {
     "count": 425,
     "Piqo": 0.2565,
     "Laya": 0.9506,
-    "Verdict": 0.3765
+    "Verdict": 0.3765,
+    "Kev": 0.9247,
+    "Gliner_decide": 0.2565
   },
   "emotion": {
     "count": 409,
     "Piqo": 0.2983,
     "Laya": 0.5941,
-    "Verdict": 0.4768
+    "Verdict": 0.4768,
+    "Kev": 0.577,
+    "Gliner_decide": 0.2983
   },
   "enron_spam": {
     "count": 411,
     "Piqo": 0.4745,
     "Laya": 0.9635,
-    "Verdict": 0.5085
+    "Verdict": 0.5085,
+    "Kev": 0.9465,
+    "Gliner_decide": 0.4745
   },
   "amazon_massive": {
     "count": 415,
     "Piqo": 0.0289,
     "Laya": 0.5566,
-    "Verdict": 0.094
+    "Verdict": 0.094,
+    "Kev": 0.8193,
+    "Gliner_decide": 0.0289
   },
   "typed_decisions": {
     "count": 600,
     "Piqo": 0.485,
     "Laya": 0.2833,
-    "Verdict": 0.3
+    "Verdict": 0.3,
+    "Kev": 0.6617,
+    "Gliner_decide": 0.1983
   },
   "customer_support": {
     "count": 12,
     "Piqo": 0.0,
     "Laya": 0.5,
-    "Verdict": 0.25
+    "Verdict": 0.25,
+    "Kev": 0.3333,
+    "Gliner_decide": 0.0
   },
   "function_calling": {
     "count": 8,
     "Piqo": 1.0,
     "Laya": 1.0,
-    "Verdict": 1.0
+    "Verdict": 1.0,
+    "Kev": 1.0,
+    "Gliner_decide": 1.0
   },
   "phishing_email": {
     "count": 10,
     "Piqo": 0.6,
     "Laya": 1.0,
-    "Verdict": 0.2
+    "Verdict": 0.2,
+    "Kev": 0.9,
+    "Gliner_decide": 0.6
   },
   "OVERALL": {
     "count": 2700,
     "Piqo": 0.3107,
     "Laya": 0.6615,
-    "Verdict": 0.3985
+    "Verdict": 0.3985,
+    "Kev": 0.7974,
+    "Gliner_decide": 0.2263
   },
   "LATENCY_P50_MS": {
     "count": "-",
-    "Piqo": 29.98,
+    "Piqo": 30.3,
     "Laya": 0.0,
-    "Verdict": 0.0
+    "Verdict": 0.0,
+    "Kev": 0.0,
+    "Gliner_decide": 0.0
   },
   "DATASET": {
     "signature": "490e1026d8b4",

@@ -3,7 +3,7 @@ import transformers
 from benchmark import Scorecard
 from benchmark.competitors import AVAILABLE_COMPETITORS
 from data import Dataset
-from inference import DecisionEngine, ProfilingLayer
+from inference import DecisionEngine
 from model import TorchModel
 from training import DEFAULT_CHECKPOINT, get_latest_checkpoint
 
@@ -27,7 +27,7 @@ def main() -> None:
         items = items[:args.limit]
 
     model = TorchModel(checkpoint_path=args.checkpoint)
-    engine = DecisionEngine(model=model) | ProfilingLayer()
+    engine = DecisionEngine(model=model)
 
     print(f"Benchmarking {args.name} on {len(items)} items ({args.split} split)...")
     card.evaluate(engine, items, model_name=args.name, force=args.force)
