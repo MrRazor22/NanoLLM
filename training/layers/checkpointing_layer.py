@@ -38,7 +38,7 @@ class CheckpointingLayer:
         if self.inner is None:
             raise RuntimeError("CheckpointingLayer has no inner trainer.")
         for s in self.inner.fit(train_data, epochs=epochs, **kwargs):
-            if self.output_path:
+            if self.output_path and s.step == s.total_steps:
                 self._save(self.output_path, stats=s)
             yield s
 

@@ -22,7 +22,16 @@ class PaddedBatchCollator(IBatchCollator):
             sample_targets = []
             for q, pos in zip(c.questions, layout.slots):
                 if isinstance(q, Choice):
-                    sample_targets.append(TargetSlot("choice", pos, int(q.target) if q.target is not None else 0))
+                    keys = list(q.options.keys()) if isinstance(q.options, dict) else list(q.options)
+                    if isinstance(q.target, int):
+                        idx = q.target
+                    elif q.target in keys:
+                        idx = keys.index(q.target)
+                    elif str(q.target).isdigit():
+                        idx = int(q.target)
+                    else:
+                        idx = 0
+                    sample_targets.append(TargetSlot("choice", pos, idx))
                 else:
                     q_type = "score" if isinstance(q, Score) else "noul"
                     sample_targets.append(TargetSlot(q_type, pos, float(q.target) if q.target is not None else 0.0))

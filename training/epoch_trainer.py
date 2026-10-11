@@ -57,6 +57,16 @@ class EpochTrainer(ITrainer):
                 dt = (now - last_t) * 1000.0
                 last_t = now
 
+                v_loss = None
+                if (n + 1 == total_batches) and val_cases:
+                    v_items = list(val_cases)
+                    v_total, v_count = 0.0, 0
+                    for vi in range(0, len(v_items), self.batch_size):
+                        v_batch = self.collator.collate(v_items[vi : vi + self.batch_size])
+                        v_total += self.model.eval_step(v_batch)
+                        v_count += 1
+                    v_loss = v_total / max(1, v_count)
+
                 yield StepStats(
                     epoch=ep,
                     total_epochs=epochs,
@@ -65,7 +75,7 @@ class EpochTrainer(ITrainer):
                     loss=total_loss / (n + 1),
                     elapsed_ms=dt,
                     lr=0.0,
-                    val_loss=None,
+                    val_loss=v_loss,
                     batch=n + 1,
                     total_batches=total_batches,
                 )

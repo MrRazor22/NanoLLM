@@ -12,6 +12,7 @@ class IModel(Protocol):
     """Core Primitive: Neural computation boundary for inference scoring and parameter adaptation."""
     def predict(self, layout: TokenLayout) -> ScoreLayout: ...
     def train_step(self, batch: Batch) -> float: ...
+    def eval_step(self, batch: Batch) -> float: ...
 
 class TorchModel(IModel):
     """Concrete PyTorch neural model: sovereign scoring primitive with ModernBERT backbone and scalar linear head."""
@@ -86,6 +87,16 @@ class TorchModel(IModel):
                 self.optimizer.step()
             self.optimizer.zero_grad(set_to_none=True)
         return (loss.detach() * self.accum_steps).item()
+
+    def eval_step(self, batch: Batch) -> float:
+        self.backbone.eval()
+        self.head.eval()
+        ids = torch.as_tensor(batch.input_ids, dtype=torch.long, device=self.device)
+        mask = torch.as_tensor(batch.mask, dtype=torch.float, device=self.device)
+        with torch.no_grad(), torch.amp.autocast("cuda", enabled=self.device.type == "cuda"):
+            logits = self._score(ids, mask)
+            loss = self.loss_policy.compute(logits, batch.targets)
+        return loss.item() if hasattr(loss, "item") else float(loss)
 
     def state_dict(self) -> dict:
         return {

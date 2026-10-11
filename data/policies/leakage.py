@@ -23,7 +23,7 @@ class NGramLeakagePolicy(ILeakagePolicy):
         if not tokens:
             return set()
         if len(tokens) < self.n_gram:
-            return {tuple(tokens)}
+            return {tuple(tokens)} if len(tokens) >= 3 else set()
         return {tuple(tokens[i : i + self.n_gram]) for i in range(len(tokens) - self.n_gram + 1)}
 
     def find_leaks(

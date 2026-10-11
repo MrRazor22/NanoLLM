@@ -49,7 +49,16 @@ class Dataset(IDataset):
 
         splits = self.split_policy.partition(records)
 
-        # Invariant verification: zero leakage
+        # Enforce zero-leakage invariant: prune candidate training samples overlapping holdouts
+        leaks = set(id(c) for c in self.leakage_policy.find_leaks(splits.train, splits.test))
+        leaks.update(id(c) for c in self.leakage_policy.find_leaks(splits.train, splits.val))
+        if leaks:
+            splits = DataSplits(
+                train=[c for c in splits.train if id(c) not in leaks],
+                val=splits.val,
+                test=splits.test,
+            )
+
         if self.leakage_policy.find_leaks(splits.train, splits.test):
             raise ValueError("Contamination invariant violated: train split leaks test holdout.")
         if self.leakage_policy.find_leaks(splits.train, splits.val):

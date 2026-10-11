@@ -74,11 +74,19 @@ class Scorecard(IScorecard):
             if res.latency_ms:
                 latencies.append(res.latency_ms)
 
-            match = bool(item.gold) and all(
-                str(res.answers[qid].value) == str(target)
-                for qid, target in item.gold.items()
-                if qid in res.answers
-            )
+            q_by_name = {q.name: q for q in item.questions}
+            def _matches(qid: str, target) -> bool:
+                if qid not in res.answers: return False
+                ans_val = str(res.answers[qid].value)
+                if ans_val == str(target): return True
+                q = q_by_name.get(qid)
+                if isinstance(q, Choice):
+                    keys = list(q.options.keys()) if isinstance(q.options, dict) else list(q.options)
+                    if isinstance(target, int) and 0 <= target < len(keys): return ans_val == str(keys[target])
+                    if str(target).isdigit() and 0 <= int(target) < len(keys): return ans_val == str(keys[int(target)])
+                return False
+
+            match = bool(item.gold) and all(_matches(qid, tgt) for qid, tgt in item.gold.items())
             hits.append(1.0 if match else 0.0)
             stats[cat].total += 1
             if match:

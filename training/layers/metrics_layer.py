@@ -36,7 +36,11 @@ class MetricsLayer:
         last_log = time.perf_counter()
         for s in self.inner.fit(train_data, epochs=epochs, **kwargs):
             now = time.perf_counter()
-            if now - last_log >= self.log_interval_sec:
+            if s.step == s.total_steps:
+                val_info = f" | Val Loss: {s.val_loss:.4f}" if s.val_loss is not None else ""
+                self.sink(f"Epoch {s.epoch}/{s.total_epochs} Complete | Train Loss: {s.loss:.4f}{val_info}")
+                last_log = now
+            elif now - last_log >= self.log_interval_sec:
                 self.sink(f"Epoch {s.epoch}/{s.total_epochs} | Step {s.step}/{s.total_steps} | Loss: {s.loss:.4f}")
                 last_log = now
             yield s
