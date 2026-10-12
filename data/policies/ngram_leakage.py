@@ -14,11 +14,19 @@ class ILeakagePolicy(Protocol):
     ) -> Sequence[DecisionCase]: ...
 
 class NGramLeakagePolicy(ILeakagePolicy):
-    """Input-state leakage policy: exact prompt duplicates, short-to-long sub-sequences, and n-gram shingling."""
+    """Input-state and entity-level leakage policy: exact prompt duplicates, n-gram shingling, token Jaccard similarity, and isolated entity holdouts."""
 
-    def __init__(self, n_gram: int = 13, min_short_tokens: int = 4):
+    def __init__(
+        self,
+        n_gram: int = 10,
+        min_short_tokens: int = 4,
+        jaccard_threshold: float = 0.70,
+        disjoint_categories: Sequence[str] = ("function_calling",),
+    ):
         self.n_gram = n_gram
         self.min_short_tokens = min_short_tokens
+        self.jaccard_threshold = jaccard_threshold
+        self.disjoint_categories = tuple(disjoint_categories)
 
     @property
     def signature(self) -> str:
@@ -28,6 +36,8 @@ class NGramLeakagePolicy(ILeakagePolicy):
             "type": "NGramLeakagePolicy",
             "n_gram": self.n_gram,
             "min_short_tokens": self.min_short_tokens,
+            "jaccard_threshold": self.jaccard_threshold,
+            "disjoint_categories": list(self.disjoint_categories),
         }
         return hashlib.sha256(json.dumps(payload, sort_keys=True).encode()).hexdigest()[:10]
 
@@ -55,9 +65,14 @@ class NGramLeakagePolicy(ILeakagePolicy):
         holdout_shingles: Set[Tuple[str, ...]] = set()
         holdout_texts: list[str] = []
         short_holdout_by_first: dict[str, list[str]] = {}
+        holdout_targets_by_cat: dict[str, Set[str]] = {}
+        holdouts_by_cat: dict[str, list[Tuple[Set[str], int]]] = {}
+
+        disjoint_set = set(self.disjoint_categories)
 
         for h in holdouts:
             toks = self.state_tokens(h.state)
+            cat = h.category or "general"
             if toks:
                 exact_holdouts.add(toks)
                 if len(toks) >= self.n_gram:
@@ -66,20 +81,35 @@ class NGramLeakagePolicy(ILeakagePolicy):
                     short_holdout_by_first.setdefault(toks[0], []).append(f" {' '.join(toks)} ")
                 holdout_texts.append(" ".join(toks))
 
+                tok_set = set(toks)
+                holdouts_by_cat.setdefault(cat, []).append((tok_set, len(tok_set)))
+
+            if cat in disjoint_set and h.gold:
+                for tgt in h.gold.values():
+                    holdout_targets_by_cat.setdefault(cat, set()).add(str(tgt))
+
         holdout_blob = (" " + " \n ".join(holdout_texts) + " ") if holdout_texts else ""
 
         leaked: list[DecisionCase] = []
         for c in candidates:
+            cat = c.category or "general"
+
+            # 1. Enforce entity disjointness for isolated categories (e.g. zero-shot tools)
+            if cat in disjoint_set and c.gold and cat in holdout_targets_by_cat:
+                if any(str(tgt) in holdout_targets_by_cat[cat] for tgt in c.gold.values()):
+                    leaked.append(c)
+                    continue
+
             toks = self.state_tokens(c.state)
             if not toks:
                 continue
 
-            # 1. Exact input/state duplicate (catches 1:1 duplicates regardless of label)
+            # 2. Exact input/state duplicate
             if toks in exact_holdouts:
                 leaked.append(c)
                 continue
 
-            # 2. Continuous n-gram state overlap or embedded short holdout
+            # 3. Continuous n-gram state overlap or embedded short holdout
             if len(toks) >= self.n_gram:
                 if self.extract_shingles(toks) & holdout_shingles:
                     leaked.append(c)
@@ -90,10 +120,24 @@ class NGramLeakagePolicy(ILeakagePolicy):
                     leaked.append(c)
                     continue
             elif len(toks) >= self.min_short_tokens:
-                # 3. Short candidate query appearing as contiguous sub-sequence in holdout state
+                # 4. Short candidate query appearing as contiguous sub-sequence in holdout state
                 cand_str = f" {' '.join(toks)} "
                 if cand_str in holdout_blob:
                     leaked.append(c)
+                    continue
+
+            # 5. Token Jaccard fuzzy match on short/medium queries (< 30 tokens) to catch template slot variations
+            if len(toks) < 30 and cat in holdouts_by_cat:
+                cand_set = set(toks)
+                cand_len = len(cand_set)
+                found_fuzzy = False
+                for h_set, h_len in holdouts_by_cat[cat]:
+                    common = len(cand_set & h_set)
+                    if common / (cand_len + h_len - common) >= self.jaccard_threshold:
+                        leaked.append(c)
+                        found_fuzzy = True
+                        break
+                if found_fuzzy:
                     continue
 
         return leaked

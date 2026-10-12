@@ -1,47 +1,47 @@
 {
   "banking77": {
-    "count": 410,
-    "Piqo": 0.9439,
-    "Laya": 0.7756,
-    "Verdict": 0.6829,
-    "Kev": 0.9195,
+    "count": 400,
+    "Piqo": 0.94,
+    "Laya": 0.465,
+    "Verdict": 0.4075,
+    "Kev": 0.8425,
     "Gliner_decide": 0.0976
   },
   "ag_news": {
-    "count": 425,
-    "Piqo": 0.9059,
-    "Laya": 0.9506,
-    "Verdict": 0.3765,
-    "Kev": 0.9247,
+    "count": 400,
+    "Piqo": 0.91,
+    "Laya": 0.95,
+    "Verdict": 0.375,
+    "Kev": 0.92,
     "Gliner_decide": 0.2565
   },
   "emotion": {
-    "count": 409,
-    "Piqo": 0.8802,
-    "Laya": 0.5941,
-    "Verdict": 0.4792,
-    "Kev": 0.577,
+    "count": 400,
+    "Piqo": 0.875,
+    "Laya": 0.5975,
+    "Verdict": 0.48,
+    "Kev": 0.58,
     "Gliner_decide": 0.2983
   },
   "enron_spam": {
-    "count": 411,
-    "Piqo": 0.983,
-    "Laya": 0.9635,
-    "Verdict": 0.5085,
-    "Kev": 0.9465,
+    "count": 400,
+    "Piqo": 0.98,
+    "Laya": 0.9725,
+    "Verdict": 0.5125,
+    "Kev": 0.945,
     "Gliner_decide": 0.4745
   },
   "amazon_massive": {
-    "count": 415,
-    "Piqo": 0.8916,
-    "Laya": 0.5566,
-    "Verdict": 0.094,
-    "Kev": 0.8193,
+    "count": 400,
+    "Piqo": 0.9,
+    "Laya": 0.485,
+    "Verdict": 0.07,
+    "Kev": 0.76,
     "Gliner_decide": 0.0289
   },
   "typed_decisions": {
     "count": 600,
-    "Piqo": 0.515,
+    "Piqo": 0.5183,
     "Laya": 0.2833,
     "Verdict": 0.3,
     "Kev": 0.6617,
@@ -56,11 +56,11 @@
     "Gliner_decide": 0.0
   },
   "function_calling": {
-    "count": 8,
-    "Piqo": 1.0,
-    "Laya": 1.0,
-    "Verdict": 1.0,
-    "Kev": 1.0,
+    "count": 278,
+    "Piqo": 0.9892,
+    "Laya": 0.9892,
+    "Verdict": 0.9964,
+    "Kev": 0.9964,
     "Gliner_decide": 1.0
   },
   "phishing_email": {
@@ -72,23 +72,30 @@
     "Gliner_decide": 0.6
   },
   "OVERALL": {
-    "count": 2700,
-    "Piqo": 0.8281,
-    "Laya": 0.6615,
-    "Verdict": 0.3989,
-    "Kev": 0.7974,
+    "count": 7961,
+    "Piqo": 0.9325,
+    "Laya": 0.7287,
+    "Verdict": 0.7618,
+    "Kev": 0.899,
     "Gliner_decide": 0.2263
   },
   "LATENCY_P50_MS": {
     "count": "-",
-    "Piqo": 32.34,
-    "Laya": 43.59,
-    "Verdict": 28.34,
-    "Kev": 0.0,
+    "Piqo": 29.63,
+    "Laya": 46.25,
+    "Verdict": 28.22,
+    "Kev": 75.09,
     "Gliner_decide": 0.0
   },
   "DATASET": {
-    "signature": "490e1026d8b4",
-    "count": 2700
+    "signature": "86bf899f6e8e",
+    "count": 7961
+  },
+  "toxic_chat": {
+    "count": 5083,
+    "Piqo": 0.9829,
+    "Laya": 0.7806,
+    "Verdict": 0.9581,
+    "Kev": 0.9569
   }
 }

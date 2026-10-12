@@ -9,33 +9,34 @@ class LayaEngine(IDecisionEngine):
 
     def __init__(self, model_variant: str = "convaiinnovations/laya"):
         self.model_variant = model_variant
-        self._router = None
+        self._agent = None
 
-    def _get_router(self):
-        if self._router is None:
+    def _get_agent(self):
+        if self._agent is None:
             try:
-                from laya import Router
-                self._router = Router()
+                from laya import Agent
+                self._agent = Agent(self.model_variant)
             except ImportError:
                 raise ImportError("Laya is not installed. To run live: pip install laya")
-        return self._router
+        return self._agent
 
     def decide(self, state: DecisionState, questions: Sequence[Question]) -> DecisionResult:
-        router = self._get_router()
+        agent = self._get_agent()
         q_dict = {}
         for q in questions:
+            instr = q.instruction.strip() if q.instruction and q.instruction.strip() else f"Select the best option for {q.name}."
             if isinstance(q, Choice):
                 q_dict[q.name] = {
                     "type": "choice",
-                    "instructions": q.instruction or "",
+                    "instructions": instr,
                     "criteria": q.options if isinstance(q.options, dict) else {o: o for o in q.options},
                 }
             elif isinstance(q, Noul):
-                q_dict[q.name] = {"type": "noul", "instructions": q.instruction or ""}
+                q_dict[q.name] = {"type": "noul", "instructions": instr}
             elif isinstance(q, Score):
-                q_dict[q.name] = {"type": "score", "instructions": q.instruction or "", "criteria": [str(q.min_value), str(q.max_value)]}
+                q_dict[q.name] = {"type": "score", "instructions": instr, "criteria": [str(q.min_value), str(q.max_value)]}
 
-        raw = router.predict(str(state), q_dict)
+        raw = agent.system_one(str(state), q_dict)
         answers = {}
         for q in questions:
             ans_raw = raw.get("answers", {}).get(q.name, {})

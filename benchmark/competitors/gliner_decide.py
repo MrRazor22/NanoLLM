@@ -35,13 +35,23 @@ class GlinerDecideEngine(IDecisionEngine):
                 else:
                     opt_map = {opt: opt for opt in q.options}
                 labels = list(opt_map.keys())
-                if hasattr(model, "classify"):
+
+                if hasattr(model, "classify_text"):
+                    preds = model.classify_text(prompt_text, {q.name: labels})
+                    raw_choice = preds.get(q.name, "")
+                    chosen_key = opt_map.get(raw_choice, raw_choice)
+                    score = 1.0
+                elif hasattr(model, "classify"):
                     preds = model.classify(prompt_text, labels)
+                    top_label = preds[0]["label"] if preds else ""
+                    score = float(preds[0].get("score", 0.0)) if preds else 0.0
+                    chosen_key = opt_map.get(top_label, top_label)
                 else:
                     preds = model.predict_entities(prompt_text, labels)
-                top_label = preds[0]["label"] if preds else ""
-                score = float(preds[0].get("score", 0.0)) if preds else 0.0
-                chosen_key = opt_map.get(top_label, top_label)
+                    top_label = preds[0]["label"] if preds else ""
+                    score = float(preds[0].get("score", 0.0)) if preds else 0.0
+                    chosen_key = opt_map.get(top_label, top_label)
+
                 answers[q.name] = ChoiceResult(choice=str(chosen_key), confidence=score, probabilities={str(chosen_key): score})
             elif isinstance(q, Noul):
                 answers[q.name] = NoulResult(is_positive=False, probability=0.5)

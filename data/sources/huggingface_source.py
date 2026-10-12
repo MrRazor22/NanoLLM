@@ -35,6 +35,7 @@ class BenchmarkSpec:
     label_names: Optional[Sequence[str]] = None
     subset: Optional[str] = None
     splits: Sequence[str] = ("train", "test")
+    test_limit: Optional[int] = 400
 
     @property
     def signature(self) -> str:
@@ -70,8 +71,14 @@ class HuggingFaceSource(IDataSource):
             args = [self.spec.dataset]
             if self.spec.subset:
                 args.append(self.spec.subset)
-            return list(load_dataset(*args, split=split))
-        return read_raw_jsonl(target, _fetch)
+            rows = list(load_dataset(*args, split=split))
+            if split == "test" and self.spec.test_limit is not None:
+                rows = rows[: self.spec.test_limit]
+            return rows
+        rows = read_raw_jsonl(target, _fetch)
+        if split == "test" and self.spec.test_limit is not None and len(rows) > self.spec.test_limit:
+            rows = rows[: self.spec.test_limit]
+        return rows
 
     def read(self) -> Sequence[SourceRecord]:
         split_rows = {s: self._load_split(s) for s in self.spec.splits}

@@ -42,29 +42,32 @@ class GlaiveSource(IDataSource):
             tool_registry.update(tools)
             raw_pairs.append((user_query, fn_name, tools))
 
-        cases: List[DecisionCase] = []
-        all_names = list(tool_registry.keys())
-        for query, fn, sample_tools in raw_pairs:
-            candidates = dict(sample_tools)
-            if len(candidates) < 5 and len(all_names) >= 5:
-                distractors = [n for n in all_names if n != fn and n not in candidates]
-                sample_k = min(len(distractors), 5 - len(candidates))
-                if sample_k > 0:
-                    for d in rng.sample(distractors, sample_k):
-                        candidates[d] = tool_registry[d]
-            if fn in candidates:
-                cases.append(DecisionCase(
-                    state=query,
-                    questions=[Choice(name="tool", options=candidates, instruction="Select the tool to invoke:", target=fn)],
-                    category="function_calling",
-                ))
+        # Partition tools into strictly disjoint train and test subsets (Zero-Shot Tool Holdout)
+        all_tools = sorted(list(tool_registry.keys()))
+        rng.shuffle(all_tools)
+        test_tool_count = max(1, int(len(all_tools) * self.test_ratio)) if all_tools else 0
+        test_tool_set = set(all_tools[:test_tool_count])
+        train_tool_set = set(all_tools[test_tool_count:])
 
-        rng.shuffle(cases)
-        test_count = max(1, int(len(cases) * self.test_ratio)) if cases else 0
         records: List[SourceRecord] = []
-        for idx, c in enumerate(cases):
-            tag = "test" if idx < test_count else "train"
-            records.append(SourceRecord(sample=c, tag=tag))
+        for query, fn, sample_tools in raw_pairs:
+            is_test = fn in test_tool_set
+            pool = test_tool_set if is_test else train_tool_set
+            candidates = {k: v for k, v in sample_tools.items() if k in pool}
+            candidates[fn] = tool_registry[fn]
+            if len(candidates) < 5 and len(pool) >= 5:
+                distractor_names = [n for n in pool if n != fn and n not in candidates]
+                sample_k = min(len(distractor_names), 5 - len(candidates))
+                if sample_k > 0:
+                    for d in rng.sample(distractor_names, sample_k):
+                        candidates[d] = tool_registry[d]
+
+            case = DecisionCase(
+                state=query,
+                questions=[Choice(name="tool", options=candidates, instruction="Select the tool to invoke:", target=fn)],
+                category="function_calling",
+            )
+            records.append(SourceRecord(sample=case, tag="test" if is_test else "train"))
         return records
 
 __all__ = ["GlaiveSource"]
