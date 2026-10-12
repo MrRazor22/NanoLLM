@@ -29,6 +29,7 @@ def main() -> None:
     parser.add_argument("--output", type=str, default=default_out, help=f"Output weight checkpoint path (default: {default_out})")
     parser.add_argument("--metrics-output", type=str, default=str(DEFAULT_METRICS), help="Metrics JSON output path")
     parser.add_argument("--init-checkpoint", type=str, default=default_init, help=f"Initial weights path (default: {default_init})")
+    parser.add_argument("--from-scratch", action="store_true", help="Train from raw base backbone without loading previous checkpoints")
     parser.add_argument("--epochs", type=int, default=1, help="Number of training epochs")
     parser.add_argument("--batch-size", type=int, default=16)
     parser.add_argument("--lr", type=float, default=1.5e-5)
@@ -37,10 +38,12 @@ def main() -> None:
     parser.add_argument("--compile", action="store_true", help="Compile model with torch.compile for peak CUDA speed")
     args = parser.parse_args()
 
+    init_ckpt = None if args.from_scratch or (args.init_checkpoint and args.init_checkpoint.lower() in ("none", "")) else args.init_checkpoint
+
     from model import TorchModel
     model = TorchModel(
         backbone_name=args.backbone,
-        checkpoint_path=args.init_checkpoint,
+        checkpoint_path=init_ckpt,
         lr=args.lr,
         accum_steps=args.accum_steps,
         compile=args.compile,

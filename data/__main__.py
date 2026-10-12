@@ -8,7 +8,7 @@ def main() -> None:
     parser.add_argument("--train-quota", type=int, default=40000)
     parser.add_argument("--val-quota", type=int, default=2500)
     parser.add_argument("--test-quota", type=int, default=None)
-    parser.add_argument("--n-gram", type=int, default=13)
+    parser.add_argument("--n-gram", type=int, default=10)
     args = parser.parse_args()
 
     dataset = Dataset(
