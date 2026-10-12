@@ -19,7 +19,7 @@
     "count": 409,
     "Piqo": 0.8802,
     "Laya": 0.5941,
-    "Verdict": 0.4768,
+    "Verdict": 0.4792,
     "Kev": 0.577,
     "Gliner_decide": 0.2983
   },
@@ -75,15 +75,15 @@
     "count": 2700,
     "Piqo": 0.8281,
     "Laya": 0.6615,
-    "Verdict": 0.3985,
+    "Verdict": 0.3989,
     "Kev": 0.7974,
     "Gliner_decide": 0.2263
   },
   "LATENCY_P50_MS": {
     "count": "-",
-    "Piqo": 29.62,
-    "Laya": 0.0,
-    "Verdict": 0.0,
+    "Piqo": 32.34,
+    "Laya": 43.59,
+    "Verdict": 28.34,
     "Kev": 0.0,
     "Gliner_decide": 0.0
   },

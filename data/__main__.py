@@ -1,5 +1,5 @@
 import argparse
-from data import CORPUS_DIR, Dataset
+from data import BudgetSplitPolicy, CORPUS_DIR, Dataset, DiskCachePolicy, NGramLeakagePolicy
 
 def main() -> None:
     parser = argparse.ArgumentParser(description="Piqo Dataset Corpus Builder")
@@ -7,17 +7,19 @@ def main() -> None:
     parser.add_argument("--seed", type=int, default=42)
     parser.add_argument("--train-quota", type=int, default=40000)
     parser.add_argument("--val-quota", type=int, default=2500)
-    parser.add_argument("--test-quota", type=int, default=2500)
+    parser.add_argument("--test-quota", type=int, default=None)
     parser.add_argument("--n-gram", type=int, default=13)
     args = parser.parse_args()
 
     dataset = Dataset(
-        corpus_dir=args.corpus_dir,
-        train_quota=args.train_quota,
-        val_quota=args.val_quota,
-        test_quota=args.test_quota,
-        n_gram=args.n_gram,
-        seed=args.seed,
+        split_policy=BudgetSplitPolicy(
+            train_quota=args.train_quota,
+            val_quota=args.val_quota,
+            test_quota=args.test_quota,
+            seed=args.seed,
+        ),
+        leakage_policy=NGramLeakagePolicy(n_gram=args.n_gram),
+        cache_policy=DiskCachePolicy(root_dir=args.corpus_dir),
     )
 
     print(f"Building dataset corpus into {args.corpus_dir}...")

@@ -23,8 +23,8 @@ from training import (
 from data import (
     IDataset, Dataset, DataSplits, SourceRecord, DecisionCase,
     ICachePolicy, DiskCachePolicy, ISplitPolicy, BudgetSplitPolicy, ILeakagePolicy, NGramLeakagePolicy,
-    IDataSource, GlaiveSource, DecisionsSource, HuggingFaceSource, standard_sources,
-    DATA_DIR, CORPUS_DIR, RAW_DIR, ADAPTED_DIR,
+    IDataSource, GlaiveSource, DecisionsSource, HuggingFaceSource, BenchmarkSpec, standard_sources,
+    DATA_DIR, CORPUS_DIR, RAW_DIR,
 )
 from benchmark import (
     IScorecard, Scorecard, BenchmarkItem, BenchmarkReport, SCORES_FILE, CategoryHits,
@@ -44,7 +44,7 @@ __all__ = [
     "IResolver", "DecisionResolver",
     "ISplitPolicy", "BudgetSplitPolicy", "ILeakagePolicy", "NGramLeakagePolicy", "ICachePolicy", "DiskCachePolicy",
     "ILedgerPolicy", "DiskLedgerPolicy",
-    "IDataSource", "GlaiveSource", "DecisionsSource", "HuggingFaceSource", "standard_sources",
+    "IDataSource", "GlaiveSource", "DecisionsSource", "HuggingFaceSource", "BenchmarkSpec", "standard_sources",
     # Layers (Lambda: P -> P)
     "ProfilingLayer", "CheckpointingLayer", "MetricsLayer",
     # Domain DTOs & Models
@@ -55,7 +55,7 @@ __all__ = [
     "CheckpointInfo", "CheckpointMeta", "BenchmarkItem", "BenchmarkReport", "SCORES_FILE", "CategoryHits",
     # Transforms & Paths
     "format_state", "CHECKPOINTS_DIR", "DEFAULT_CHECKPOINT",
-    "DATA_DIR", "CORPUS_DIR", "RAW_DIR", "ADAPTED_DIR",
+    "DATA_DIR", "CORPUS_DIR", "RAW_DIR",
     "get_latest_checkpoint", "get_next_checkpoint_path", "list_all_checkpoints", "resolve_default_checkpoint",
     "save_checkpoint",
 ]

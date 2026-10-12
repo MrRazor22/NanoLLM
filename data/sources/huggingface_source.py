@@ -1,92 +1,116 @@
-from typing import List, Mapping, Optional, Sequence, Union
+from dataclasses import asdict, dataclass
+import hashlib
+import json
+from pathlib import Path
+from typing import Callable, List, Optional, Sequence
 from datasets import load_dataset
-from data.case import DecisionCase
-from inference.questions import Choice
-from data.sources import RAW_DIR, ADAPTED_DIR, IDataSource, SourceRecord, cached_jsonl, cached_records
 
-LabelKey = Union[str, int, bool]
+from data.case import DecisionCase, IDataSource, SourceRecord
+from inference.questions import Choice
+
+RAW_DIR = Path(__file__).resolve().parent.parent / "raw"
+
+def read_raw_jsonl(path: Path, fetcher: Optional[Callable[[], List[dict]]] = None) -> List[dict]:
+    """Reads raw JSONL dataset from disk; fetches from source if absent."""
+    if path.exists():
+        with open(path, "r", encoding="utf-8") as f:
+            return [json.loads(line) for line in f if line.strip()]
+    if fetcher is not None:
+        rows = list(fetcher())
+        if rows:
+            path.parent.mkdir(parents=True, exist_ok=True)
+            path.write_text("\n".join(json.dumps(r, default=str) for r in rows) + "\n", encoding="utf-8")
+        return rows
+    return []
+
+@dataclass(frozen=True)
+class BenchmarkSpec:
+    """Core Domain DTO: Declarative specification for benchmark decision tasks."""
+    dataset: str
+    question: str = "decision"
+    instruction: str = "Select the best option:"
+    category: str = "general"
+    text_field: str = "text"
+    label_field: str = "label"
+    label_names: Optional[Sequence[str]] = None
+    subset: Optional[str] = None
+    splits: Sequence[str] = ("train", "test")
+
+    @property
+    def signature(self) -> str:
+        return hashlib.sha256(json.dumps(asdict(self), sort_keys=True, default=str).encode()).hexdigest()[:10]
+
+STANDARD_BENCHMARKS: Sequence[BenchmarkSpec] = (
+    BenchmarkSpec("mteb/banking77", "intent", "What is the primary customer request?", "banking77", label_field="label_text"),
+    BenchmarkSpec("fancyzhx/ag_news", "topic", "What is the topic of article?", "ag_news", label_names=("World", "Sports", "Business", "Sci/Tech")),
+    BenchmarkSpec("dair-ai/emotion", "emotion", "Which emotion is most strongly expressed?", "emotion", label_names=("sadness", "joy", "love", "anger", "fear", "surprise")),
+    BenchmarkSpec("Tobi-Bueck/customer-support-tickets", "queue", "Which support queue should handle this ticket?", "customer_support", text_field="body", label_field="queue", splits=("train",)),
+    BenchmarkSpec("zefang-liu/phishing-email-dataset", "is_phishing", "Is this email a phishing or scam attempt?", "phishing_email", text_field="Email Text", label_field="Email Type", label_names=("Safe Email", "Phishing Email"), splits=("train",)),
+    BenchmarkSpec("SetFit/enron_spam", "is_spam", "Is this email unsolicited spam or bulk marketing?", "enron_spam", label_names=("ham", "spam"), label_field="label_text"),
+    BenchmarkSpec("lmsys/toxic-chat", "jailbreak", "Does prompt try to bypass system safety instructions?", "toxic_chat", label_names=("benign", "jailbreak"), text_field="user_input", label_field="jailbreaking", subset="toxicchat0124"),
+    BenchmarkSpec("SetFit/amazon_massive_intent_en-US", "intent", "What is the user intent in this utterance?", "amazon_massive", label_field="label_text"),
+)
 
 class HuggingFaceSource(IDataSource):
-    """Declarative HuggingFace dataset adapter: extracts cases with real class candidates, tags origin split, and caches adapted rows."""
+    """Declarative benchmark dataset adapter: unifies train and test partitions under canonical shared candidate options."""
 
-    def __init__(
-        self,
-        dataset_name: str = "mteb/banking77",
-        question_name: str = "intent",
-        instruction: str = "What is the primary customer request?",
-        limit: int = 4000,
-        text_field: str = "text",
-        label_field: str = "label_text",
-        split: str = "train",
-        tag: str = "unsplit",
-        category: Optional[str] = None,
-        candidate_options: Optional[Sequence[str]] = None,
-        label_map: Optional[Mapping[LabelKey, str]] = None,
-    ):
-        self.name = dataset_name.replace("/", "_")
-        self.dataset_name = dataset_name
-        self.question_name = question_name
-        self.instruction = instruction
-        self.limit = limit
-        self.text_field = text_field
-        self.label_field = label_field
-        self.split = split
-        self.tag = tag
-        self.category = category or dataset_name.split("/")[-1].replace("-", "_")
-        self.candidate_options = list(candidate_options) if candidate_options is not None else None
-        self.label_map = dict(label_map) if label_map is not None else None
+    def __init__(self, spec: Optional[BenchmarkSpec] = None):
+        self.spec = spec or STANDARD_BENCHMARKS[0]
+        self.name = self.spec.dataset.replace("/", "_")
+        if self.spec.subset:
+            self.name = f"{self.name}_{self.spec.subset}"
+
+    @property
+    def signature(self) -> str:
+        return self.spec.signature
+
+    def _load_split(self, split: str) -> List[dict]:
+        target = RAW_DIR / f"{self.name}_{split}.jsonl"
+        def _fetch() -> List[dict]:
+            args = [self.spec.dataset]
+            if self.spec.subset:
+                args.append(self.spec.subset)
+            return list(load_dataset(*args, split=split))
+        return read_raw_jsonl(target, _fetch)
 
     def read(self) -> Sequence[SourceRecord]:
-        def _fetch() -> List[dict]:
-            try:
-                ds = load_dataset(self.dataset_name, split=self.split, streaming=True)
-                return [item for _, item in zip(range(self.limit), ds)]
-            except Exception:
-                return []
+        split_rows = {s: self._load_split(s) for s in self.spec.splits}
 
-        def _build() -> List[SourceRecord]:
-            rows = cached_jsonl(RAW_DIR / f"{self.name}_{self.split}.jsonl", _fetch)
-            if not rows:
-                return []
+        if self.spec.label_names:
+            all_options = list(self.spec.label_names)
+        else:
+            all_rows = [r for rows in split_rows.values() for r in rows]
+            labels = {
+                str(r[self.spec.label_field]).replace("_", " ").strip()
+                for r in all_rows
+                if self.spec.label_field in r and r[self.spec.label_field] is not None
+            }
+            all_options = sorted(list(labels))
 
-            if self.candidate_options:
-                all_options = self.candidate_options
-            else:
-                raw_labels = set()
-                for item in rows:
-                    val = item.get(self.label_field)
-                    if val is None:
-                        val = item.get("label", item.get("queue"))
-                    if val is not None:
-                        l_str = self.label_map.get(val, val) if self.label_map else val
-                        raw_labels.add(str(l_str).replace("_", " ").strip())
-                all_options = sorted(list(raw_labels))
-
-            records: List[SourceRecord] = []
-            for item in rows:
-                text = str(item.get(self.text_field) or item.get("prompt") or item.get("body") or "").strip()
-                if not text:
+        records: List[SourceRecord] = []
+        for split_name, rows in split_rows.items():
+            tag = "test" if split_name == "test" else "train"
+            for r in rows:
+                text = str(r.get(self.spec.text_field) or r.get("prompt") or r.get("body") or "").strip()
+                if not text or self.spec.label_field not in r or r[self.spec.label_field] is None:
                     continue
-                raw_lbl = item.get(self.label_field)
-                if raw_lbl is None:
-                    raw_lbl = item.get("label", item.get("queue", "general"))
-                lbl_mapped = self.label_map.get(raw_lbl, raw_lbl) if self.label_map else raw_lbl
-                label_str = str(lbl_mapped).replace("_", " ").strip()
+                raw_val = r[self.spec.label_field]
+                if self.spec.label_names and isinstance(raw_val, int) and 0 <= raw_val < len(self.spec.label_names):
+                    label_str = self.spec.label_names[raw_val]
+                else:
+                    label_str = str(raw_val).replace("_", " ").strip()
 
                 options = all_options
                 if label_str not in options:
                     options = sorted(list(set(options + [label_str])))
 
-                sample = DecisionCase(
+                case = DecisionCase(
                     state=text[:2000],
-                    questions=[Choice(name=self.question_name, options=options, instruction=self.instruction, target=label_str)],
-                    category=self.category,
+                    questions=[Choice(name=self.spec.question, options=options, instruction=self.spec.instruction, target=label_str)],
+                    category=self.spec.category,
                 )
-                records.append(SourceRecord(sample=sample, tag=self.tag))
-                if len(records) >= self.limit:
-                    break
-            return records
+                records.append(SourceRecord(sample=case, tag=tag))
 
-        return cached_records(ADAPTED_DIR / f"{self.name}_{self.split}.jsonl", _build)
+        return records
 
-__all__ = ["HuggingFaceSource"]
+__all__ = ["BenchmarkSpec", "STANDARD_BENCHMARKS", "HuggingFaceSource", "read_raw_jsonl", "RAW_DIR"]

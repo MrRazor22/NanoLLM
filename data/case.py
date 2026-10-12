@@ -1,7 +1,8 @@
 from dataclasses import dataclass
-import json
-from typing import Mapping, Optional, Sequence, Union
+from typing import Literal, Mapping, Optional, Protocol, Sequence, Union, runtime_checkable
 from inference.questions import Choice, DecisionState, Noul, Question, Score
+
+SplitTag = Literal["train", "val", "test"]
 
 @dataclass(frozen=True)
 class DecisionCase:
@@ -48,4 +49,25 @@ class DecisionCase:
                     specs.append(Noul(name=name, instruction=ins, target=bool(tgt) if tgt is not None else False))
         return cls(state=state, questions=specs, category=cat)
 
-__all__ = ["DecisionCase"]
+@dataclass(frozen=True)
+class SourceRecord:
+    """Core Domain DTO: Ingested decision case tagged with origin partition."""
+    sample: DecisionCase
+    tag: SplitTag = "train"
+
+@dataclass(frozen=True)
+class DataSplits:
+    """Core Domain DTO: Consolidated partitioned dataset splits."""
+    train: Sequence[DecisionCase]
+    val: Sequence[DecisionCase]
+    test: Sequence[DecisionCase]
+
+@runtime_checkable
+class IDataSource(Protocol):
+    """Sovereign primitive contract: extracts domain records from external data origins."""
+    name: str
+    @property
+    def signature(self) -> str: ...
+    def read(self) -> Sequence[SourceRecord]: ...
+
+__all__ = ["DecisionCase", "SourceRecord", "DataSplits", "SplitTag", "IDataSource"]

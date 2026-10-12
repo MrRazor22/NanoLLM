@@ -1,6 +1,6 @@
-from data.policies.leakage import ILeakagePolicy, NGramLeakagePolicy
-from data.policies.split import ISplitPolicy, BudgetSplitPolicy
-from data.policies.cache import ICachePolicy, DiskCachePolicy
+from data.policies.ngram_leakage import ILeakagePolicy, NGramLeakagePolicy
+from data.policies.budget_split import ISplitPolicy, BudgetSplitPolicy
+from data.policies.disk_cache import ICachePolicy, DiskCachePolicy
 
 __all__ = [
     "ILeakagePolicy",

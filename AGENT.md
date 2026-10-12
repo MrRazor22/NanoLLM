@@ -33,3 +33,8 @@
   ```bash
   python -m benchmark
   ```
+
+## 3. Strict Operational Gating: Zero Autonomous Execution
+- **Zero Unprompted Data Builds, Training, or Tests:** NEVER run dataset preparation (`python -m data`, `dataset.prepare()`), model training (`python -m training`), benchmark evaluation (`python -m benchmark`), or tests automatically or in the background without an unmistakable, explicit user command.
+- **Explicit Command Barrier:** Focus strictly on sound architecture, contract design, and code edits. Always delegate execution to the user by providing the exact command line to run.
+

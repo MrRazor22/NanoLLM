@@ -8,6 +8,8 @@ DEFAULT_CORPUS_DIR = Path(__file__).resolve().parent.parent / "corpus"
 @runtime_checkable
 class ICachePolicy(Protocol):
     """Sovereign opinion sub-primitive contract: manages storage and retrieval of prepared dataset partitions."""
+    @property
+    def signature(self) -> str: ...
     def get(self, key: str, signature: Optional[str] = None) -> Optional[Sequence[DecisionCase]]: ...
     def put(self, key: str, samples: Sequence[DecisionCase], signature: Optional[str] = None) -> None: ...
 
@@ -16,6 +18,10 @@ class DiskCachePolicy(ICachePolicy):
 
     def __init__(self, root_dir: Optional[Union[str, Path]] = None):
         self.root_dir = Path(root_dir) if root_dir is not None else DEFAULT_CORPUS_DIR
+
+    @property
+    def signature(self) -> str:
+        return "disk_jsonl_v1"
 
     def get(self, key: str, signature: Optional[str] = None) -> Optional[Sequence[DecisionCase]]:
         if signature is not None:
