@@ -57,17 +57,25 @@ class TorchModel(nn.Module, IModel):
 
         self.loss_policy = loss_policy or CalibratedLoss()
         self.accum_steps, self.opt_count = accum_steps, 0
+        self._tok_cache: dict[str, list[int]] = {}
         params = list(self.backbone.parameters()) + list(self.head.parameters())
         self.optimizer = torch.optim.AdamW(params, lr=lr, fused=self.device.type == "cuda")
         self.scaler = torch.amp.GradScaler("cuda", enabled=self.device.type == "cuda")
         if compile and hasattr(torch, "compile"): self.backbone = torch.compile(self.backbone)
+
+    def _encode_text(self, text: str) -> list[int]:
+        cached = self._tok_cache.get(text)
+        if cached is None:
+            cached = self.tokenizer.encode(text, add_special_tokens=False)
+            self._tok_cache[text] = cached
+        return cached
 
     def _encode_layout(self, state: DecisionState, questions: Sequence[Question]) -> TokenLayout:
         cls_id = getattr(self.tokenizer, "cls_token_id", 50281)
         sep_id = getattr(self.tokenizer, "sep_token_id", 50282)
         mask_id = getattr(self.tokenizer, "mask_token_id", 50284)
 
-        state_tokens = self.tokenizer.encode(format_state(state), add_special_tokens=False)
+        state_tokens = self._encode_text(format_state(state))
         if len(state_tokens) > self.max_state_tokens:
             state_tokens = state_tokens[:self.max_state_tokens]
 
@@ -76,7 +84,7 @@ class TorchModel(nn.Module, IModel):
         for q in questions:
             ids.append(sep_id)
             q_text = f" {q.name}: {q.instruction}" if q.instruction else f" {q.name}:"
-            ids.extend(self.tokenizer.encode(q_text, add_special_tokens=False))
+            ids.extend(self._encode_text(q_text))
             if isinstance(q, Choice):
                 pos = []
                 opt_items = q.options.items() if isinstance(q.options, dict) else [(o, None) for o in q.options]
@@ -84,7 +92,7 @@ class TorchModel(nn.Module, IModel):
                     ids.append(mask_id)
                     pos.append(len(ids) - 1)
                     opt_text = f" {k}: {v}" if v else f" {k}"
-                    ids.extend(self.tokenizer.encode(opt_text, add_special_tokens=False))
+                    ids.extend(self._encode_text(opt_text))
                 slots.append(pos)
             else:
                 ids.append(mask_id)
@@ -125,8 +133,12 @@ class TorchModel(nn.Module, IModel):
 
         max_len = max((len(ids) for ids in all_ids), default=0)
         pad_id = getattr(self.tokenizer, "pad_token_id", 0)
-        padded_ids = [ids + [pad_id] * (max_len - len(ids)) for ids in all_ids]
-        masks = [[1.0] * len(ids) + [0.0] * (max_len - len(ids)) for ids in all_ids]
+        padded_ids = torch.full((len(all_ids), max_len), pad_id, dtype=torch.long)
+        masks = torch.zeros((len(all_ids), max_len), dtype=torch.float)
+        for i, ids in enumerate(all_ids):
+            sz = len(ids)
+            padded_ids[i, :sz] = torch.as_tensor(ids, dtype=torch.long)
+            masks[i, :sz] = 1.0
         return Batch(input_ids=padded_ids, mask=masks, targets=targets)
 
     def _score(self, ids: torch.Tensor, mask: torch.Tensor) -> torch.Tensor:
@@ -147,8 +159,8 @@ class TorchModel(nn.Module, IModel):
         batch = self._collate_batch(cases, shuffle_options=True)
         self.backbone.train()
         self.head.train()
-        ids = torch.as_tensor(batch.input_ids, dtype=torch.long, device=self.device)
-        mask = torch.as_tensor(batch.mask, dtype=torch.float, device=self.device)
+        ids = batch.input_ids.to(self.device, non_blocking=True)
+        mask = batch.mask.to(self.device, non_blocking=True)
         with torch.amp.autocast("cuda", enabled=self.device.type == "cuda"):
             loss = self.loss_policy.compute(self._score(ids, mask), batch.targets) / self.accum_steps
         (self.scaler.scale(loss) if self.scaler.is_enabled() else loss).backward()
@@ -166,8 +178,8 @@ class TorchModel(nn.Module, IModel):
         batch = self._collate_batch(cases, shuffle_options=False)
         self.backbone.eval()
         self.head.eval()
-        ids = torch.as_tensor(batch.input_ids, dtype=torch.long, device=self.device)
-        mask = torch.as_tensor(batch.mask, dtype=torch.float, device=self.device)
+        ids = batch.input_ids.to(self.device, non_blocking=True)
+        mask = batch.mask.to(self.device, non_blocking=True)
         with torch.no_grad(), torch.amp.autocast("cuda", enabled=self.device.type == "cuda"):
             loss = self.loss_policy.compute(self._score(ids, mask), batch.targets)
         return loss.item() if hasattr(loss, "item") else float(loss)

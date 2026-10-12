@@ -1,7 +1,7 @@
 {
   "banking77": {
     "count": 410,
-    "Piqo": 0.2341,
+    "Piqo": 0.9439,
     "Laya": 0.7756,
     "Verdict": 0.6829,
     "Kev": 0.9195,
@@ -9,7 +9,7 @@
   },
   "ag_news": {
     "count": 425,
-    "Piqo": 0.2565,
+    "Piqo": 0.9059,
     "Laya": 0.9506,
     "Verdict": 0.3765,
     "Kev": 0.9247,
@@ -17,7 +17,7 @@
   },
   "emotion": {
     "count": 409,
-    "Piqo": 0.2983,
+    "Piqo": 0.8802,
     "Laya": 0.5941,
     "Verdict": 0.4768,
     "Kev": 0.577,
@@ -25,7 +25,7 @@
   },
   "enron_spam": {
     "count": 411,
-    "Piqo": 0.4745,
+    "Piqo": 0.983,
     "Laya": 0.9635,
     "Verdict": 0.5085,
     "Kev": 0.9465,
@@ -33,7 +33,7 @@
   },
   "amazon_massive": {
     "count": 415,
-    "Piqo": 0.0289,
+    "Piqo": 0.8916,
     "Laya": 0.5566,
     "Verdict": 0.094,
     "Kev": 0.8193,
@@ -41,7 +41,7 @@
   },
   "typed_decisions": {
     "count": 600,
-    "Piqo": 0.485,
+    "Piqo": 0.515,
     "Laya": 0.2833,
     "Verdict": 0.3,
     "Kev": 0.6617,
@@ -49,7 +49,7 @@
   },
   "customer_support": {
     "count": 12,
-    "Piqo": 0.0,
+    "Piqo": 0.25,
     "Laya": 0.5,
     "Verdict": 0.25,
     "Kev": 0.3333,
@@ -65,7 +65,7 @@
   },
   "phishing_email": {
     "count": 10,
-    "Piqo": 0.6,
+    "Piqo": 1.0,
     "Laya": 1.0,
     "Verdict": 0.2,
     "Kev": 0.9,
@@ -73,7 +73,7 @@
   },
   "OVERALL": {
     "count": 2700,
-    "Piqo": 0.3107,
+    "Piqo": 0.8281,
     "Laya": 0.6615,
     "Verdict": 0.3985,
     "Kev": 0.7974,
@@ -81,7 +81,7 @@
   },
   "LATENCY_P50_MS": {
     "count": "-",
-    "Piqo": 30.3,
+    "Piqo": 29.62,
     "Laya": 0.0,
     "Verdict": 0.0,
     "Kev": 0.0,

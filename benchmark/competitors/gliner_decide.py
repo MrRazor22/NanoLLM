@@ -35,16 +35,12 @@ class GlinerDecideEngine(IDecisionEngine):
                 else:
                     opt_map = {opt: opt for opt in q.options}
                 labels = list(opt_map.keys())
-                try:
-                    if hasattr(model, "classify"):
-                        preds = model.classify(prompt_text, labels)
-                    else:
-                        preds = model.predict_entities(prompt_text, labels)
-                    top_label = preds[0]["label"] if preds else (labels[0] if labels else "")
-                    score = float(preds[0].get("score", 1.0)) if preds else 1.0
-                except Exception:
-                    top_label = labels[0] if labels else ""
-                    score = 1.0
+                if hasattr(model, "classify"):
+                    preds = model.classify(prompt_text, labels)
+                else:
+                    preds = model.predict_entities(prompt_text, labels)
+                top_label = preds[0]["label"] if preds else ""
+                score = float(preds[0].get("score", 0.0)) if preds else 0.0
                 chosen_key = opt_map.get(top_label, top_label)
                 answers[q.name] = ChoiceResult(choice=str(chosen_key), confidence=score, probabilities={str(chosen_key): score})
             elif isinstance(q, Noul):

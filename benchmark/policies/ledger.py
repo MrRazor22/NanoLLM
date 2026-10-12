@@ -34,7 +34,7 @@ class DiskLedgerPolicy(ILedgerPolicy):
                 return None
         scores = {}
         for track, entry in ledger.items():
-            if track not in ("DATASET", "LATENCY_P50_MS") and model in entry:
+            if track != "DATASET" and model in entry:
                 scores[track] = entry[model]
         return scores if scores else None
 

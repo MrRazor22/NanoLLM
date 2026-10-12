@@ -46,7 +46,20 @@ class Dataset(IDataset):
     @property
     def signature(self) -> str:
         import hashlib
-        raw = "|".join(f"{s.name}:{getattr(s, 'limit', '')}:{getattr(s, 'category', '')}" for s in self.sources)
+        import json
+
+        def _norm(obj):
+            if isinstance(obj, dict):
+                return {str(k): _norm(v) for k, v in sorted(obj.items(), key=lambda item: str(item[0]))}
+            if isinstance(obj, (list, tuple)):
+                return [_norm(x) for x in obj]
+            return obj
+
+        configs = []
+        for s in self.sources:
+            attrs = {k: _norm(v) for k, v in vars(s).items() if not k.startswith("_")}
+            configs.append(json.dumps(attrs, sort_keys=True, default=str))
+        raw = "|".join(configs)
         return hashlib.sha256(raw.encode()).hexdigest()[:12]
 
     def prepare(self, sources: Optional[Sequence[IDataSource]] = None) -> DataSplits:

@@ -147,7 +147,7 @@ trainer = (
 )
 
 # Stream training telemetry
-for stats in trainer.fit(train_cases, val_cases=val_cases, epochs=3):
+for stats in trainer.fit(train_cases, val_cases=val_cases, epochs=1):
     print(f"Epoch {stats.epoch} | Loss: {stats.loss:.4f} | Val: {stats.val_loss:.4f}")
 ```
 
@@ -160,7 +160,7 @@ python -m inference "Postgres CPU at 99%" --preset triage
 python -m data --train-quota 2000 --val-quota 500
 
 # Train model
-python -m training --epochs 3 --batch-size 16
+python -m training --epochs 1 --batch-size 16
 
 # Run benchmark evaluation
 python -m benchmark

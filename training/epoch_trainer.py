@@ -32,6 +32,18 @@ class EpochTrainer(ITrainer):
     def save(self, meta: Optional[CheckpointMeta] = None) -> None:
         save_checkpoint(self.model, meta=meta)
 
+    @staticmethod
+    def _estimate_length(case: DecisionCase) -> int:
+        s_len = len(case.state) // 4 if isinstance(case.state, str) else 30
+        q_len = sum(len(q.options) * 5 if hasattr(q, "options") and q.options else 10 for q in case.questions)
+        return s_len + q_len
+
+    def _bucketed_batches(self, items: list[DecisionCase]) -> list[list[DecisionCase]]:
+        sorted_items = sorted(items, key=self._estimate_length)
+        batches = [sorted_items[i : i + self.batch_size] for i in range(0, len(sorted_items), self.batch_size)]
+        random.shuffle(batches)
+        return batches
+
     def fit(
         self,
         cases: Sequence[DecisionCase],
@@ -42,11 +54,10 @@ class EpochTrainer(ITrainer):
         total_batches = (len(items) + self.batch_size - 1) // self.batch_size if items else 0
 
         for ep in range(1, epochs + 1):
-            random.shuffle(items)
+            batches = self._bucketed_batches(items)
             total_loss, last_t = 0.0, time.perf_counter()
 
-            for n, i in enumerate(range(0, len(items), self.batch_size)):
-                batch_cases = items[i : i + self.batch_size]
+            for n, batch_cases in enumerate(batches):
                 step_loss = self.model.train_step(batch_cases)
                 total_loss += step_loss
                 now = time.perf_counter()
