@@ -1,14 +1,20 @@
-from typing import Callable, Sequence
+from typing import Callable, Optional, Sequence
 from inference import (
     Choice, ChoiceResult, DecisionResult, DecisionState,
     IDecisionEngine, Noul, NoulResult, Question, Score, ScoreResult,
 )
+from model.device import resolve_device
 
 class GlinerDecideEngine(IDecisionEngine):
     """Sovereign competitor adapter: wraps Fastino's GLiNER2.5-Decide."""
 
-    def __init__(self, model_id: str = "fastino/GLiNER2.5-Decide"):
+    def __init__(
+        self,
+        model_id: str = "fastino/GLiNER2.5-Decide",
+        device: Optional[str] = None,
+    ):
         self.model_id = model_id
+        self.device = resolve_device(device)
         self._model = None
 
     def _get_model(self):
@@ -16,10 +22,14 @@ class GlinerDecideEngine(IDecisionEngine):
             try:
                 from gliner2 import AutoExtractor
                 self._model = AutoExtractor.from_pretrained(self.model_id)
+                if hasattr(self._model, "to"):
+                    self._model.to(self.device)
             except ImportError:
                 try:
                     from gliner import GLiNER
                     self._model = GLiNER.from_pretrained(self.model_id)
+                    if hasattr(self._model, "to"):
+                        self._model.to(self.device)
                 except ImportError as e:
                     raise ImportError(f"Cannot load GLiNER2.5-Decide ({self.model_id}): {e}. To run live: pip install gliner2")
         return self._model

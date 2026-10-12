@@ -1,21 +1,27 @@
-from typing import Callable, Sequence
+from typing import Callable, Optional, Sequence
 from inference import (
     Choice, ChoiceResult, DecisionResult, DecisionState,
     IDecisionEngine, Noul, NoulResult, Question, Score, ScoreResult,
 )
+from model.device import resolve_device
 
 class LayaEngine(IDecisionEngine):
     """Sovereign competitor adapter: wraps Convai Innovations' Laya decision router."""
 
-    def __init__(self, model_variant: str = "convaiinnovations/laya"):
+    def __init__(
+        self,
+        model_variant: str = "convaiinnovations/laya",
+        device: Optional[str] = None,
+    ):
         self.model_variant = model_variant
+        self.device = resolve_device(device)
         self._agent = None
 
     def _get_agent(self):
         if self._agent is None:
             try:
                 from laya import Agent
-                self._agent = Agent(self.model_variant)
+                self._agent = Agent(self.model_variant, device=self.device)
             except ImportError:
                 raise ImportError("Laya is not installed. To run live: pip install laya")
         return self._agent

@@ -11,6 +11,7 @@ if TYPE_CHECKING:
     from data.case import DecisionCase
 
 from inference.questions import Choice, DecisionState, Question, Score, format_state
+from model.device import resolve_device
 from model.layouts import Batch, PredictionLayout, SampleTargets, TargetSlot, TokenLayout
 from model.policies.calibrated_loss import CalibratedLoss, ILoss
 
@@ -38,7 +39,8 @@ class TorchModel(nn.Module, IModel):
         compile: bool = False,
     ):
         super().__init__()
-        self.device = torch.device(device) if isinstance(device, str) else (device or torch.device("cuda" if torch.cuda.is_available() else "cpu"))
+        target_dev = device if isinstance(device, torch.device) else resolve_device(device)
+        self.device = torch.device(target_dev) if isinstance(target_dev, str) else target_dev
         if self.device.type == "cuda":
             torch.backends.cuda.matmul.allow_tf32 = True
             torch.backends.cudnn.allow_tf32 = True

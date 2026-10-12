@@ -2,7 +2,7 @@
   "banking77": {
     "count": 400,
     "Piqo": 0.905,
-    "Laya": 0.465,
+    "Laya": 0.455,
     "Verdict": 0.4075,
     "Kev": 0.8425,
     "Gliner_decide": 0.0976
@@ -18,7 +18,7 @@
   "emotion": {
     "count": 400,
     "Piqo": 0.835,
-    "Laya": 0.5975,
+    "Laya": 0.6,
     "Verdict": 0.48,
     "Kev": 0.58,
     "Gliner_decide": 0.2983
@@ -26,7 +26,7 @@
   "enron_spam": {
     "count": 400,
     "Piqo": 0.97,
-    "Laya": 0.9725,
+    "Laya": 0.995,
     "Verdict": 0.5125,
     "Kev": 0.945,
     "Gliner_decide": 0.4745
@@ -34,7 +34,7 @@
   "amazon_massive": {
     "count": 400,
     "Piqo": 0.8775,
-    "Laya": 0.485,
+    "Laya": 0.495,
     "Verdict": 0.07,
     "Kev": 0.76,
     "Gliner_decide": 0.0289
@@ -42,7 +42,7 @@
   "typed_decisions": {
     "count": 600,
     "Piqo": 0.4633,
-    "Laya": 0.2833,
+    "Laya": 0.285,
     "Verdict": 0.3,
     "Kev": 0.6617,
     "Gliner_decide": 0.1983
@@ -58,9 +58,9 @@
   "function_calling": {
     "count": 158,
     "Piqo": 0.981,
-    "Laya": 0.9892,
-    "Verdict": 0.9964,
-    "Kev": 0.9964,
+    "Laya": 1.0,
+    "Verdict": 0.9684,
+    "Kev": 0.981,
     "Gliner_decide": 1.0
   },
   "phishing_email": {
@@ -74,17 +74,17 @@
   "OVERALL": {
     "count": 3158,
     "Piqo": 0.8243,
-    "Laya": 0.7287,
-    "Verdict": 0.7618,
-    "Kev": 0.899,
+    "Laya": 0.645,
+    "Verdict": 0.4493,
+    "Kev": 0.7888,
     "Gliner_decide": 0.2263
   },
   "LATENCY_P50_MS": {
     "count": "-",
     "Piqo": 31.02,
-    "Laya": 46.25,
-    "Verdict": 28.22,
-    "Kev": 75.09,
+    "Laya": 49.16,
+    "Verdict": 29.0,
+    "Kev": 148.04,
     "Gliner_decide": 0.0
   },
   "DATASET": {
@@ -94,8 +94,8 @@
   "toxic_chat": {
     "count": 400,
     "Piqo": 0.935,
-    "Laya": 0.7806,
-    "Verdict": 0.9581,
-    "Kev": 0.9569
+    "Laya": 0.775,
+    "Verdict": 0.87,
+    "Kev": 0.8
   }
 }

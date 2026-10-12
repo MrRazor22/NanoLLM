@@ -20,11 +20,16 @@ def main() -> None:
     parser.add_argument("--play", "-p", action="store_true", help="Interactive playground comparing Piqo with competitors")
     parser.add_argument("--split", type=str, default="test", help="Dataset split to evaluate")
     parser.add_argument("--limit", type=int, default=None, help="Limit number of test items")
+    parser.add_argument("--device", type=str, default=None, help="Target compute device (e.g. 'cuda', 'cpu'; default: auto)")
     parser.add_argument("--competitor", type=str, default="all", help=f"Competitor to benchmark live: {list(AVAILABLE_COMPETITORS.keys())}, 'all', or 'none' (default: all)")
     parser.add_argument("--force", action="store_true", help="Force re-evaluation even if competitor is already recorded in ledger")
     args = parser.parse_args()
 
-    model = TorchModel(checkpoint_path=args.checkpoint)
+    if args.device:
+        import os
+        os.environ["PIQO_DEVICE"] = args.device
+
+    model = TorchModel(checkpoint_path=args.checkpoint, device=args.device)
     engine = DecisionEngine(model=model)
 
     if args.play:

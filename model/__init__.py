@@ -1,5 +1,6 @@
 """Model Domain: Sovereign Neural Computation Primitive (PFD)."""
 
+from model.device import resolve_device
 from model.layouts import (
     Batch,
     PredictionLayout,
@@ -18,6 +19,8 @@ __all__ = [
     # Policies
     "ILoss",
     "CalibratedLoss",
+    # Device Resolution
+    "resolve_device",
     # Model Layout DTOs
     "TokenLayout",
     "ScoreLayout",

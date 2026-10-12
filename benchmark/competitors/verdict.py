@@ -1,14 +1,20 @@
-from typing import Callable, Sequence
+from typing import Callable, Optional, Sequence
 from inference import (
     Choice, ChoiceResult, DecisionResult, DecisionState,
     IDecisionEngine, Noul, NoulResult, Question, Score, ScoreResult,
 )
+from model.device import resolve_device
 
 class VerdictEngine(IDecisionEngine):
     """Sovereign competitor adapter: wraps Verdict 2.0 (heman10x/rlcd-modernbert-151m)."""
 
-    def __init__(self, model_id: str = "heman10x/rlcd-modernbert-151m"):
+    def __init__(
+        self,
+        model_id: str = "heman10x/rlcd-modernbert-151m",
+        device: Optional[str] = None,
+    ):
         self.model_id = model_id
+        self.device = resolve_device(device)
         self._pipeline = None
 
     def _get_pipeline(self):
@@ -19,7 +25,7 @@ class VerdictEngine(IDecisionEngine):
                 model = GLiClassModel.from_pretrained(self.model_id)
                 tokenizer = AutoTokenizer.from_pretrained(self.model_id)
                 self._pipeline = ZeroShotClassificationPipeline(
-                    model, tokenizer, classification_type="single_label", progress_bar=False
+                    model, tokenizer, classification_type="single_label", device=self.device, progress_bar=False
                 )
             except Exception as e:
                 raise ImportError(f"Cannot load Verdict ({self.model_id}): {e}. To run live: pip install gliclass transformers")

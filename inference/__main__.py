@@ -58,9 +58,7 @@ def main() -> None:
 
     ckpt = Path(args.checkpoint)
     if not ckpt.exists() and (CHECKPOINTS_DIR / ckpt.name).exists(): ckpt = CHECKPOINTS_DIR / ckpt.name
-    import torch
-    dev = torch.device(args.device) if args.device else None
-    model = TorchModel(checkpoint_path=ckpt, device=dev)
+    model = TorchModel(checkpoint_path=ckpt, device=args.device)
     engine = DecisionEngine(model=model) | ProfilingLayer()
 
     if args.play:
