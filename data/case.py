@@ -1,10 +1,10 @@
 from dataclasses import dataclass
-from typing import Literal, Mapping, Optional, Protocol, Sequence, Union, runtime_checkable
+from typing import Literal, Mapping, Protocol, Sequence, runtime_checkable
 from inference.questions import Choice, DecisionState, Noul, Question, Score
 
 SplitTag = Literal["train", "val", "test"]
 
-@dataclass(frozen=True)
+@dataclass(frozen=True, slots=True)
 class DecisionCase:
     """Core Domain DTO: Represents a situated decision problem with associated questions."""
     state: DecisionState
@@ -12,7 +12,7 @@ class DecisionCase:
     category: str = "general"
 
     @property
-    def gold(self) -> Mapping[str, Union[str, int, float, bool]]:
+    def gold(self) -> Mapping[str, str | int | float | bool]:
         return {q.name: q.target for q in self.questions if q.target is not None}
 
     def to_dict(self) -> dict:
@@ -49,13 +49,13 @@ class DecisionCase:
                     specs.append(Noul(name=name, instruction=ins, target=bool(tgt) if tgt is not None else False))
         return cls(state=state, questions=specs, category=cat)
 
-@dataclass(frozen=True)
+@dataclass(frozen=True, slots=True)
 class SourceRecord:
     """Core Domain DTO: Ingested decision case tagged with origin partition."""
     sample: DecisionCase
     tag: SplitTag = "train"
 
-@dataclass(frozen=True)
+@dataclass(frozen=True, slots=True)
 class DataSplits:
     """Core Domain DTO: Consolidated partitioned dataset splits."""
     train: Sequence[DecisionCase]
@@ -69,5 +69,3 @@ class IDataSource(Protocol):
     @property
     def signature(self) -> str: ...
     def read(self) -> Sequence[SourceRecord]: ...
-
-__all__ = ["DecisionCase", "SourceRecord", "DataSplits", "SplitTag", "IDataSource"]

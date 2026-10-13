@@ -42,5 +42,3 @@ class DecisionsSource(IDataSource):
             else:
                 records.extend(split_records)
         return records
-
-__all__ = ["DecisionsSource"]

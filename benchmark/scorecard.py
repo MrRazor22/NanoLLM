@@ -3,13 +3,13 @@ import json
 from pathlib import Path
 import time
 from typing import Dict, Mapping, Optional, Protocol, Sequence, Union, runtime_checkable
-from data import DecisionCase
-from inference import IDecisionEngine
+from data.case import DecisionCase
+from inference.decision_engine import IDecisionEngine
 
 BenchmarkItem = DecisionCase
 SCORES_FILE = Path(__file__).resolve().parent / "scores.json"
 
-@dataclass
+@dataclass(slots=True)
 class CategoryHits:
     correct: int = 0
     total: int = 0
@@ -17,7 +17,7 @@ class CategoryHits:
     def accuracy(self) -> float:
         return self.correct / max(1, self.total)
 
-@dataclass(frozen=True)
+@dataclass(frozen=True, slots=True)
 class BenchmarkReport:
     model: str
     overall: float
@@ -150,5 +150,3 @@ class Scorecard(IScorecard):
                 print(sep)
             print(f"{track:<32} | {str(cnt):>6} | " + " | ".join(cols))
         print("=" * len(hdr) + "\n")
-
-__all__ = ["CategoryHits", "BenchmarkItem", "BenchmarkReport", "IScorecard", "Scorecard", "SCORES_FILE"]

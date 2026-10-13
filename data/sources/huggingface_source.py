@@ -23,7 +23,7 @@ def read_raw_jsonl(path: Path, fetcher: Optional[Callable[[], List[dict]]] = Non
         return rows
     return []
 
-@dataclass(frozen=True)
+@dataclass(frozen=True, slots=True)
 class BenchmarkSpec:
     """Core Domain DTO: Declarative specification for benchmark decision tasks."""
     dataset: str
@@ -32,10 +32,10 @@ class BenchmarkSpec:
     category: str = "general"
     text_field: str = "text"
     label_field: str = "label"
-    label_names: Optional[Sequence[str]] = None
-    subset: Optional[str] = None
+    label_names: Sequence[str] | None = None
+    subset: str | None = None
     splits: Sequence[str] = ("train", "test")
-    test_limit: Optional[int] = 400
+    test_limit: int | None = 400
 
     @property
     def signature(self) -> str:
@@ -119,5 +119,3 @@ class HuggingFaceSource(IDataSource):
                 records.append(SourceRecord(sample=case, tag=tag))
 
         return records
-
-__all__ = ["BenchmarkSpec", "STANDARD_BENCHMARKS", "HuggingFaceSource", "read_raw_jsonl", "RAW_DIR"]

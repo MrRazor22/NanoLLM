@@ -1,7 +1,6 @@
 from dataclasses import dataclass
-from typing import Optional
 
-@dataclass(frozen=True)
+@dataclass(frozen=True, slots=True)
 class StepStats:
     """Immutable domain DTO for step-level optimization metrics."""
     epoch: int
@@ -11,8 +10,6 @@ class StepStats:
     loss: float
     elapsed_ms: float
     lr: float = 0.0
-    val_loss: Optional[float] = None
+    val_loss: float | None = None
     batch: int = 0
     total_batches: int = 0
-
-__all__ = ["StepStats"]

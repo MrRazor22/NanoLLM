@@ -55,5 +55,3 @@ class CalibratedLoss(nn.Module, ILoss):
         return torch.sum(torch.stack(losses)) / max(1, total_q) if losses else torch.tensor(0.0, device=dev)
 
     forward = compute
-
-__all__ = ["ILoss", "CalibratedLoss"]

@@ -1,17 +1,18 @@
-import argparse, os, sys, warnings
+import os, warnings
 from pathlib import Path
-from typing import Dict, List, Sequence, Union
+from typing import List, Optional
+import typer
+
 os.environ["TOKENIZERS_PARALLELISM"] = "false"
 warnings.filterwarnings("ignore")
 
-from inference.questions import (
-    Choice, ChoiceResult, DecisionResult, Noul, NoulResult, Question, Score, ScoreResult,
-)
+from inference.questions import Choice, ChoiceResult, DecisionResult, Noul, NoulResult, Question, Score, ScoreResult
 from inference.decision_engine import DecisionEngine
 from inference.profiling_layer import ProfilingLayer
-from model import (
-    CHECKPOINTS_DIR, DEFAULT_CHECKPOINT, TorchModel, get_latest_checkpoint, list_all_checkpoints,
-)
+from model.layouts.checkpoints import CHECKPOINTS_DIR, DEFAULT_CHECKPOINT, get_latest_checkpoint, list_all_checkpoints
+from model.torch_model import TorchModel
+
+app = typer.Typer(add_completion=False, help="Piqo Micro-Decision Engine CLI")
 
 PRESETS = {
     "triage": {
@@ -38,38 +39,42 @@ def _parse_q(arg: str, kind: str) -> Question:
     if kind == "choice": return Choice(name, [o.strip() for o in spec.split(",")] if spec else ["Yes", "No"])
     return Noul(name, instruction=spec) if kind == "noul" else Score(name, instruction=spec, min_value=0.0, max_value=100.0)
 
-def main() -> None:
-    latest, _ = get_latest_checkpoint()
-    p = argparse.ArgumentParser(description="Piqo Micro-Decision Engine CLI")
-    p.add_argument("state", nargs="?", default=None)
-    p.add_argument("--play", "-p", action="store_true")
-    p.add_argument("--models", "-m", action="store_true")
-    p.add_argument("--checkpoint", "-k", default=str(latest or DEFAULT_CHECKPOINT))
-    p.add_argument("--preset", choices=list(PRESETS.keys()), default="triage")
-    p.add_argument("--choice", action="append"); p.add_argument("--noul", action="append"); p.add_argument("--score", action="append"); p.add_argument("--device", default=None)
-    args = p.parse_args()
-
-    if args.models:
+@app.command()
+def main(
+    state: Optional[str] = typer.Argument(None),
+    play: bool = typer.Option(False, "--play", "-p"),
+    models: bool = typer.Option(False, "--models", "-m"),
+    checkpoint: Optional[str] = typer.Option(None, "--checkpoint", "-k"),
+    preset: str = typer.Option("triage", "--preset"),
+    choice: Optional[List[str]] = typer.Option(None, "--choice"),
+    noul: Optional[List[str]] = typer.Option(None, "--noul"),
+    score: Optional[List[str]] = typer.Option(None, "--score"),
+    device: Optional[str] = typer.Option(None, "--device"),
+) -> None:
+    if models:
         print(f"\n{'Checkpoint':<32} | {'Size':>8} | {'Val Loss':>9}\n" + "-" * 55)
         for c in list_all_checkpoints():
             print(f"{c.name:<32} | {c.size_mb:>5.1f} MB | {f'{c.val_loss:.4f}' if c.val_loss is not None else '-':>9}")
         return
 
-    ckpt = Path(args.checkpoint)
+    latest, _ = get_latest_checkpoint()
+    ckpt_path = checkpoint or str(latest or DEFAULT_CHECKPOINT)
+    ckpt = Path(ckpt_path)
     if not ckpt.exists() and (CHECKPOINTS_DIR / ckpt.name).exists(): ckpt = CHECKPOINTS_DIR / ckpt.name
-    model = TorchModel(checkpoint_path=ckpt, device=args.device)
+
+    model = TorchModel(checkpoint_path=ckpt, device=device)
     engine = DecisionEngine(model=model) | ProfilingLayer()
 
-    if args.play:
+    if play:
         print(f"Piqo Playground [{ckpt.name}]. Enter context (or 'q' to quit):")
         while (ctx := input("\nContext: ").strip()) and ctx.lower() not in ("q", "quit"):
             opts = [o.strip() for o in input("Choices (comma-separated): ").strip().split(",")]
             render_decision(engine.decide(ctx, [Choice("decision", opts)]), ctx)
         return
 
-    qs: List[Question] = [_parse_q(c, "choice") for c in (args.choice or [])] + [_parse_q(n, "noul") for n in (args.noul or [])] + [_parse_q(s, "score") for s in (args.score or [])]
-    state = args.state or PRESETS[args.preset]["default"]
-    render_decision(engine.decide(state, qs or PRESETS[args.preset]["questions"]), state)
+    qs: List[Question] = [_parse_q(c, "choice") for c in (choice or [])] + [_parse_q(n, "noul") for n in (noul or [])] + [_parse_q(s, "score") for s in (score or [])]
+    cur_state = state or PRESETS[preset]["default"]
+    render_decision(engine.decide(cur_state, qs or PRESETS[preset]["questions"]), cur_state)
 
 if __name__ == "__main__":
-    main()
+    app()

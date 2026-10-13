@@ -1,39 +1,39 @@
 from dataclasses import dataclass
 import json
-from typing import Mapping, Optional, Protocol, Sequence, Union, runtime_checkable
+from typing import Mapping, Protocol, Sequence, runtime_checkable
 
-DecisionState = Union[str, Mapping[str, str]]
+DecisionState = str | Mapping[str, str]
 
-@dataclass(frozen=True)
+@dataclass(frozen=True, slots=True)
 class Choice:
     name: str
-    options: Union[Sequence[str], Mapping[str, str]]
-    instruction: Optional[str] = None
-    target: Optional[Union[str, int]] = None
+    options: Sequence[str] | Mapping[str, str]
+    instruction: str | None = None
+    target: str | int | None = None
 
-@dataclass(frozen=True)
+@dataclass(frozen=True, slots=True)
 class Noul:
     name: str
-    instruction: Optional[str] = None
-    target: Optional[Union[bool, float, int]] = None
+    instruction: str | None = None
+    target: bool | float | int | None = None
 
-@dataclass(frozen=True)
+@dataclass(frozen=True, slots=True)
 class Score:
     name: str
     min_value: float = 0.0
     max_value: float = 100.0
-    instruction: Optional[str] = None
-    target: Optional[float] = None
+    instruction: str | None = None
+    target: float | None = None
 
-Question = Union[Choice, Noul, Score]
+Question = Choice | Noul | Score
 
 @runtime_checkable
 class IAnswer(Protocol):
     """Polymorphic Data Stream Contract: Shared capability for typed answer values."""
     @property
-    def value(self) -> Union[str, bool, float]: ...
+    def value(self) -> str | bool | float: ...
 
-@dataclass(frozen=True)
+@dataclass(frozen=True, slots=True)
 class ChoiceResult:
     choice: str
     confidence: float
@@ -41,23 +41,23 @@ class ChoiceResult:
     @property
     def value(self) -> str: return self.choice
 
-@dataclass(frozen=True)
+@dataclass(frozen=True, slots=True)
 class NoulResult:
     is_positive: bool
     probability: float
     @property
     def value(self) -> bool: return self.is_positive
 
-@dataclass(frozen=True)
+@dataclass(frozen=True, slots=True)
 class ScoreResult:
     score: float
     normalized: float
     @property
     def value(self) -> float: return self.score
 
-Answer = Union[ChoiceResult, NoulResult, ScoreResult]
+Answer = ChoiceResult | NoulResult | ScoreResult
 
-@dataclass
+@dataclass(slots=True)
 class DecisionResult:
     answers: Mapping[str, Answer]
     latency_ms: float = 0.0
@@ -71,9 +71,3 @@ def format_state(state: DecisionState) -> str:
             if isinstance(parsed, dict): return " | ".join(f"{k}: {v}" for k, v in parsed.items())
         except Exception: pass
     return str(state)
-
-__all__ = [
-    "DecisionState", "Choice", "Noul", "Score", "Question",
-    "IAnswer", "ChoiceResult", "NoulResult", "ScoreResult", "Answer",
-    "DecisionResult", "format_state",
-]

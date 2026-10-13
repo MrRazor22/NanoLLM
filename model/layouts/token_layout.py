@@ -1,7 +1,6 @@
 from dataclasses import dataclass
-from pathlib import Path
 import random
-from typing import TYPE_CHECKING, Dict, List, Optional, Sequence, Union
+from typing import TYPE_CHECKING, Sequence
 import torch
 
 if TYPE_CHECKING:
@@ -9,36 +8,36 @@ if TYPE_CHECKING:
 
 from inference.questions import Choice, DecisionState, Question, Score, format_state
 
-@dataclass(frozen=True)
+@dataclass(frozen=True, slots=True)
 class TokenLayout:
     """Explicit domain DTO for tokenized input sequence and question slot positions."""
     input_ids: Sequence[int]
     mask: Sequence[float]
     slots: Sequence[Sequence[int]]
 
-@dataclass(frozen=True)
+@dataclass(frozen=True, slots=True)
 class PredictionLayout:
     """Explicit domain DTO for model output scores and corresponding question slot positions."""
     scores: Sequence[float]
     slots: Sequence[Sequence[int]]
 
-@dataclass(frozen=True)
+@dataclass(frozen=True, slots=True)
 class TargetSlot:
     """Explicit domain DTO for a question's masked slot positions and target value."""
     target_type: str
     indices: Sequence[int]
-    value: Union[int, float]
+    value: int | float
 
-@dataclass(frozen=True)
+@dataclass(frozen=True, slots=True)
 class SampleTargets:
     """Explicit domain DTO for all target slots in a single sample."""
     slots: Sequence[TargetSlot]
 
-@dataclass(frozen=True)
+@dataclass(frozen=True, slots=True)
 class Batch:
     """Explicit domain DTO for a batch of encoded tokens and targets."""
-    input_ids: torch.Tensor
-    mask: torch.Tensor
+    input_ids: torch.Tensor | Sequence[Sequence[int]]
+    mask: torch.Tensor | Sequence[Sequence[float]]
     targets: Sequence[SampleTargets]
 
 def encode_layout(
@@ -46,14 +45,14 @@ def encode_layout(
     state: DecisionState,
     questions: Sequence[Question],
     max_state_tokens: int = 384,
-    tok_cache: Optional[Dict[str, List[int]]] = None,
+    tok_cache: dict[str, list[int]] | None = None,
 ) -> TokenLayout:
     """Colocated Transform: encodes decision state and questions into TokenLayout."""
     cls_id = getattr(tokenizer, "cls_token_id", 50281)
     sep_id = getattr(tokenizer, "sep_token_id", 50282)
     mask_id = getattr(tokenizer, "mask_token_id", 50284)
 
-    def _encode(text: str) -> List[int]:
+    def _encode(text: str) -> list[int]:
         if tok_cache is not None and text in tok_cache:
             return tok_cache[text]
         encoded = tokenizer.encode(text, add_special_tokens=False)
@@ -91,7 +90,7 @@ def collate_batch(
     cases: Sequence["DecisionCase"],
     max_state_tokens: int = 384,
     shuffle_options: bool = False,
-    tok_cache: Optional[Dict[str, List[int]]] = None,
+    tok_cache: dict[str, list[int]] | None = None,
 ) -> Batch:
     """Colocated Transform: batches domain DecisionCase instances into padded Batch."""
     all_ids, targets = [], []
@@ -130,13 +129,3 @@ def collate_batch(
         padded_ids[i, :sz] = torch.as_tensor(ids, dtype=torch.long)
         masks[i, :sz] = 1.0
     return Batch(input_ids=padded_ids, mask=masks, targets=targets)
-
-__all__ = [
-    "TokenLayout",
-    "PredictionLayout",
-    "TargetSlot",
-    "SampleTargets",
-    "Batch",
-    "encode_layout",
-    "collate_batch",
-]

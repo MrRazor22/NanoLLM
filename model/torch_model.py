@@ -134,5 +134,3 @@ class TorchModel(nn.Module, IModel):
         manifest = json.loads(manifest_p.read_text(encoding="utf-8")) if manifest_p.exists() else {}
         manifest[p.name] = meta_dict
         manifest_p.write_text(json.dumps(manifest, indent=2), encoding="utf-8")
-
-__all__ = ["IModel", "TorchModel"]

@@ -26,5 +26,3 @@ class ProfilingLayer(IDecisionEngine):
 
     def __or__(self, layer) -> IDecisionEngine:
         return layer(self)
-
-__all__ = ["ProfilingLayer"]

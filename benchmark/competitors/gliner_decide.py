@@ -1,9 +1,10 @@
 from typing import Callable, Optional, Sequence
-from inference import (
+from inference.decision_engine import IDecisionEngine
+from inference.questions import (
     Choice, ChoiceResult, DecisionResult, DecisionState,
-    IDecisionEngine, Noul, NoulResult, Question, Score, ScoreResult,
+    Noul, NoulResult, Question, Score, ScoreResult,
 )
-from model import resolve_device
+from model.layouts.checkpoints import resolve_device
 
 class GlinerDecideEngine(IDecisionEngine):
     """Sovereign competitor adapter: wraps Fastino's GLiNER2.5-Decide."""
@@ -71,5 +72,3 @@ class GlinerDecideEngine(IDecisionEngine):
 
     def __or__(self, layer: Callable[[IDecisionEngine], IDecisionEngine]) -> IDecisionEngine:
         return layer(self)
-
-__all__ = ["GlinerDecideEngine"]

@@ -69,5 +69,3 @@ class GlaiveSource(IDataSource):
             )
             records.append(SourceRecord(sample=case, tag="test" if is_test else "train"))
         return records
-
-__all__ = ["GlaiveSource"]

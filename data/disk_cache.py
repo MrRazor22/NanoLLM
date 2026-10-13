@@ -40,5 +40,3 @@ class DiskCachePolicy(ICachePolicy):
         target.write_text("\n".join(lines) + ("\n" if lines else ""), encoding="utf-8")
         if signature is not None:
             (self.root_dir / ".signature").write_text(signature, encoding="utf-8")
-
-__all__ = ["ICachePolicy", "DiskCachePolicy"]

@@ -3,7 +3,7 @@ import json
 import os
 from pathlib import Path
 import re
-from typing import TYPE_CHECKING, List, Optional, Tuple, Union
+from typing import TYPE_CHECKING
 import torch
 
 if TYPE_CHECKING:
@@ -11,7 +11,7 @@ if TYPE_CHECKING:
 
 CHECKPOINTS_DIR = Path(__file__).resolve().parent.parent.parent / "weights"
 
-def get_latest_checkpoint(prefix: str = "checkpoint_champion") -> Tuple[Optional[Path], int]:
+def get_latest_checkpoint(prefix: str = "checkpoint_champion") -> tuple[Path | None, int]:
     if not CHECKPOINTS_DIR.exists(): return None, 0
     files = []
     for f in CHECKPOINTS_DIR.glob(f"{prefix}*.pt"):
@@ -30,16 +30,16 @@ def get_next_checkpoint_path(prefix: str = "checkpoint_champion") -> Path:
     _, ver = get_latest_checkpoint(prefix)
     return CHECKPOINTS_DIR / f"{prefix}_v{ver + 1}.pt"
 
-@dataclass(frozen=True)
+@dataclass(frozen=True, slots=True)
 class CheckpointMeta:
     """Explicit domain DTO for persisted model checkpoint metadata."""
-    path: Union[str, Path] = DEFAULT_CHECKPOINT
+    path: str | Path = DEFAULT_CHECKPOINT
     epoch: int = 1
-    train_loss: Optional[float] = None
-    val_loss: Optional[float] = None
-    saved_at: Optional[str] = None
+    train_loss: float | None = None
+    val_loss: float | None = None
+    saved_at: str | None = None
 
-@dataclass(frozen=True)
+@dataclass(frozen=True, slots=True)
 class CheckpointInfo:
     """Explicit domain DTO for discovered checkpoint file information."""
     name: str
@@ -48,13 +48,13 @@ class CheckpointInfo:
     size_mb: float
     modified: float
     is_latest: bool
-    train_loss: Optional[float] = None
-    val_loss: Optional[float] = None
-    step: Optional[int] = None
-    epoch: Optional[int] = None
-    saved_at: Optional[str] = None
+    train_loss: float | None = None
+    val_loss: float | None = None
+    step: int | None = None
+    epoch: int | None = None
+    saved_at: str | None = None
 
-def list_all_checkpoints() -> List[CheckpointInfo]:
+def list_all_checkpoints() -> list[CheckpointInfo]:
     if not CHECKPOINTS_DIR.exists(): return []
     manifest_p = CHECKPOINTS_DIR / "manifest.json"
     manifest = json.loads(manifest_p.read_text(encoding="utf-8")) if manifest_p.exists() else {}
@@ -73,7 +73,7 @@ def list_all_checkpoints() -> List[CheckpointInfo]:
         ))
     return sorted(items, key=lambda x: x.version, reverse=True)
 
-def resolve_device(preferred: Optional[str] = None) -> str:
+def resolve_device(preferred: str | None = None) -> str:
     """Domain Extension: Resolves optimal compute target device name without substrate leakage."""
     if preferred and preferred.strip():
         return preferred.strip().lower()
@@ -91,15 +91,3 @@ def resolve_device(preferred: Optional[str] = None) -> str:
         pass
 
     return "cpu"
-
-__all__ = [
-    "CHECKPOINTS_DIR",
-    "DEFAULT_CHECKPOINT",
-    "CheckpointMeta",
-    "CheckpointInfo",
-    "get_latest_checkpoint",
-    "get_next_checkpoint_path",
-    "list_all_checkpoints",
-    "resolve_default_checkpoint",
-    "resolve_device",
-]

@@ -55,5 +55,3 @@ class DecisionResolver(IResolver):
                 val = q.min_value + norm * (q.max_value - q.min_value)
                 answers[q.name] = ScoreResult(score=val, normalized=norm)
         return answers
-
-__all__ = ["IResolver", "DecisionResolver"]

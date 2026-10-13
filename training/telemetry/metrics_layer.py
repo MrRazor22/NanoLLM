@@ -1,7 +1,7 @@
 from pathlib import Path
 import time
 from typing import Callable, Iterator, Optional, Union
-from model import CheckpointMeta
+from model.layouts.checkpoints import CheckpointMeta
 from training.stats import StepStats
 from training.epoch_trainer import ITrainer
 
@@ -50,5 +50,3 @@ class MetricsLayer(ITrainer):
 
     def __or__(self, layer: Callable[[ITrainer], ITrainer]) -> ITrainer:
         return layer(self)
-
-__all__ = ["MetricsLayer"]

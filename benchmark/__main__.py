@@ -1,43 +1,60 @@
-import argparse, os, warnings
+import os, warnings
+from typing import Optional
 import transformers
+import typer
+
 os.environ["TOKENIZERS_PARALLELISM"] = "false"
 os.environ["HF_HUB_DISABLE_PROGRESS_BARS"] = "1"
 warnings.filterwarnings("ignore")
 transformers.logging.set_verbosity_error()
 
-from benchmark import Scorecard
-from benchmark.competitors import AVAILABLE_COMPETITORS
-from data import Dataset
-from inference import DecisionEngine
-from model import DEFAULT_CHECKPOINT, TorchModel, get_latest_checkpoint
+from benchmark.scorecard import Scorecard
+from benchmark.competitors.gliner_decide import GlinerDecideEngine
+from benchmark.competitors.kev import KevEngine
+from benchmark.competitors.laya import LayaEngine
+from benchmark.competitors.verdict import VerdictEngine
+from data.dataset import Dataset
+from inference.decision_engine import DecisionEngine
+from model.layouts.checkpoints import DEFAULT_CHECKPOINT, get_latest_checkpoint
+from model.torch_model import TorchModel
 
-def main() -> None:
+app = typer.Typer(add_completion=False, help="Piqo Benchmark Runner CLI")
+
+@app.command()
+def main(
+    checkpoint: Optional[str] = typer.Option(None, help="Model checkpoint path"),
+    name: str = typer.Option("Piqo", help="Model label"),
+    play: bool = typer.Option(False, "--play", "-p", help="Playground mode"),
+    split: str = typer.Option("test", help="Dataset split"),
+    limit: Optional[int] = typer.Option(None, help="Item limit"),
+    device: Optional[str] = typer.Option(None, help="Target compute device"),
+    competitor: str = typer.Option("all", help="Competitor to benchmark"),
+    force: bool = typer.Option(False, "--force", help="Force re-evaluation"),
+) -> None:
     latest_ckpt, _ = get_latest_checkpoint()
-    parser = argparse.ArgumentParser(description="Piqo Benchmark Runner")
-    parser.add_argument("--checkpoint", type=str, default=str(latest_ckpt or DEFAULT_CHECKPOINT))
-    parser.add_argument("--name", type=str, default="Piqo", help="Model name label in leaderboard")
-    parser.add_argument("--play", "-p", action="store_true", help="Interactive playground comparing Piqo with competitors")
-    parser.add_argument("--split", type=str, default="test", help="Dataset split to evaluate")
-    parser.add_argument("--limit", type=int, default=None, help="Limit number of test items")
-    parser.add_argument("--device", type=str, default=None, help="Target compute device (e.g. 'cuda', 'cpu'; default: auto)")
-    parser.add_argument("--competitor", type=str, default="all", help=f"Competitor to benchmark live: {list(AVAILABLE_COMPETITORS.keys())}, 'all', or 'none' (default: all)")
-    parser.add_argument("--force", action="store_true", help="Force re-evaluation even if competitor is already recorded in ledger")
-    args = parser.parse_args()
+    ckpt_path = checkpoint or str(latest_ckpt or DEFAULT_CHECKPOINT)
 
-    model = TorchModel(checkpoint_path=args.checkpoint, device=args.device)
+    model = TorchModel(checkpoint_path=ckpt_path, device=device)
     engine = DecisionEngine(model=model)
 
-    if args.play:
-        from inference import Choice, ChoiceResult, ProfilingLayer
+    if play:
+        from inference.questions import Choice, ChoiceResult
+        from inference.profiling_layer import ProfilingLayer
+        available_competitors = {
+            "laya": LayaEngine,
+            "verdict": VerdictEngine,
+            "kev": KevEngine,
+            "gliner": GlinerDecideEngine,
+        }
         print("Loading models...")
-        engines = [(args.name, engine | ProfilingLayer())]
-        targets = list(AVAILABLE_COMPETITORS.keys()) if args.competitor == "all" else [args.competitor]
+        engines = [(name, engine | ProfilingLayer())]
+        targets = list(available_competitors.keys()) if competitor == "all" else [competitor]
         warmup_q = [Choice("warmup", ["yes", "no"])]
         for c_name in targets:
-            if c_name in AVAILABLE_COMPETITORS:
+            if c_name in available_competitors:
                 try:
-                    c_eng = AVAILABLE_COMPETITORS[c_name](device=args.device) | ProfilingLayer()
-                    c_eng.decide("warmup", warmup_q)  # warm up so first run isn't skewed by download/init
+                    c_eng = available_competitors[c_name](device=device) | ProfilingLayer()
+                    c_eng.decide("warmup", warmup_q)
                     engines.append((c_name.capitalize(), c_eng))
                 except Exception as e:
                     print(f"Skipping competitor '{c_name}': {e}")
@@ -49,9 +66,7 @@ def main() -> None:
                 ctx = input("\nContext: ").strip()
             except (EOFError, KeyboardInterrupt):
                 break
-            if not ctx:
-                continue
-            if ctx.lower() in ("q", "quit", "exit"):
+            if not ctx or ctx.lower() in ("q", "quit", "exit"):
                 break
 
             try:
@@ -64,38 +79,38 @@ def main() -> None:
 
             qs = [Choice("decision", opts)]
             print(f"\nState: {ctx}\n" + "-" * 55)
-            for name, eng in engines:
+            for m_name, eng in engines:
                 try:
                     res = eng.decide(ctx, qs)
                     ans = res.answers.get("decision")
                     if isinstance(ans, ChoiceResult):
-                        print(f"  {name:<15s} -> {ans.choice:<16s} ({ans.confidence * 100:5.1f}%) | {res.latency_ms:6.2f} ms")
+                        print(f"  {m_name:<15s} -> {ans.choice:<16s} ({ans.confidence * 100:5.1f}%) | {res.latency_ms:6.2f} ms")
                     else:
-                        print(f"  {name:<15s} -> {str(ans):<16s} | {res.latency_ms:6.2f} ms")
+                        print(f"  {m_name:<15s} -> {str(ans):<16s} | {res.latency_ms:6.2f} ms")
                 except Exception as e:
-                    print(f"  {name:<15s} -> Error: {e}")
+                    print(f"  {m_name:<15s} -> Error: {e}")
         return
 
     card = Scorecard()
     dataset = Dataset()
-    items = dataset.load(args.split)
-    if args.limit:
-        items = items[:args.limit]
+    items = dataset.load(split)
+    if limit:
+        items = items[:limit]
 
-    print(f"Benchmarking {args.name} on {len(items)} items ({args.split} split)...")
-    card.evaluate(engine, items, model_name=args.name, force=args.force)
+    print(f"Benchmarking {name} on {len(items)} items ({split} split)...")
+    card.evaluate(engine, items, model_name=name, force=force)
 
-    if args.competitor and args.competitor != "none":
-        targets = list(AVAILABLE_COMPETITORS.keys()) if args.competitor == "all" else [args.competitor]
+    if competitor and competitor != "none":
+        targets = list(AVAILABLE_COMPETITORS.keys()) if competitor == "all" else [competitor]
         for c_name in targets:
             if c_name in AVAILABLE_COMPETITORS:
                 cls = AVAILABLE_COMPETITORS[c_name]
                 try:
-                    card.evaluate(cls(device=args.device), items, model_name=c_name.capitalize(), force=args.force)
+                    card.evaluate(cls(device=device), items, model_name=c_name.capitalize(), force=force)
                 except Exception as e:
                     print(f"Skipping live run for competitor '{c_name}': {e}")
 
     card.render()
 
 if __name__ == "__main__":
-    main()
+    app()

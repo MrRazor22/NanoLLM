@@ -3,7 +3,8 @@ import time
 from typing import Callable, Iterator, Optional, Protocol, Sequence, runtime_checkable
 
 from data.case import DecisionCase
-from model import CheckpointMeta, IModel, TorchModel
+from model.layouts.checkpoints import CheckpointMeta
+from model.torch_model import IModel, TorchModel
 from training.stats import StepStats
 
 @runtime_checkable
@@ -89,5 +90,3 @@ class EpochTrainer(ITrainer):
 
     def __or__(self, layer: Callable[["ITrainer"], "ITrainer"]) -> "ITrainer":
         return layer(self)
-
-__all__ = ["ITrainer", "EpochTrainer"]

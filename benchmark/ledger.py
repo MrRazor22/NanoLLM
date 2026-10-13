@@ -54,5 +54,3 @@ class DiskLedgerPolicy(ILedgerPolicy):
 
     def all(self) -> Dict[str, dict]:
         return self._read()
-
-__all__ = ["ILedgerPolicy", "DiskLedgerPolicy"]
