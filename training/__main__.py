@@ -28,8 +28,8 @@ def main(
     from_scratch: bool = typer.Option(False, "--from-scratch", help="Train from raw base backbone"),
     epochs: int = typer.Option(1, help="Number of training epochs"),
     batch_size: int = typer.Option(16, help="Batch size"),
-    lr: float = typer.Option(1.5e-5, help="Learning rate"),
-    accum_steps: int = typer.Option(2, help="Gradient accumulation steps"),
+    lr: float = typer.Option(2e-5, help="Learning rate"),
+    accum_steps: int = typer.Option(1, help="Gradient accumulation steps"),
     seed: int = typer.Option(42, help="Random seed"),
     compile: bool = typer.Option(False, "--compile", help="Compile model with torch.compile"),
 ) -> None:

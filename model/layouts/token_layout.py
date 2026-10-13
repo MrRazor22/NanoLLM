@@ -88,6 +88,41 @@ def encode_layout(
     ids.append(sep_id)
     return TokenLayout(input_ids=ids, mask=[1.0] * len(ids), slots=slots)
 
+def encode_case(
+    tokenizer: object,
+    case: "DecisionCase",
+    max_state_tokens: int = 384,
+    tok_cache: dict[str, list[int]] | None = None,
+) -> tuple[TokenLayout, list[TargetSlot]]:
+    """Encodes a single domain DecisionCase into TokenLayout and TargetSlots."""
+    layout = encode_layout(tokenizer, case.state, case.questions, max_state_tokens=max_state_tokens, tok_cache=tok_cache)
+    sample_targets = []
+    for q, pos in zip(case.questions, layout.slots):
+        if isinstance(q, Choice):
+            keys = list(q.options.keys()) if isinstance(q.options, dict) else list(q.options)
+            raw = q.target
+            idx = raw if isinstance(raw, int) else (keys.index(raw) if raw in keys else (int(raw) if str(raw).isdigit() else 0))
+            sample_targets.append(TargetSlot("choice", pos, idx))
+        else:
+            sample_targets.append(TargetSlot("score" if isinstance(q, Score) else "noul", pos, float(q.target) if q.target is not None else 0.0))
+    return layout, sample_targets
+
+def pad_batch(
+    encoded_pairs: Sequence[tuple[TokenLayout, Sequence[TargetSlot]]],
+    pad_id: int = 50283,
+) -> Batch:
+    """Colocated Transform: stacks pre-encoded layouts into a padded tensor Batch."""
+    max_len = max((len(layout.input_ids) for layout, _ in encoded_pairs), default=0)
+    padded_ids = torch.full((len(encoded_pairs), max_len), pad_id, dtype=torch.long)
+    masks = torch.zeros((len(encoded_pairs), max_len), dtype=torch.float)
+    targets = []
+    for i, (layout, sample_targets) in enumerate(encoded_pairs):
+        sz = len(layout.input_ids)
+        padded_ids[i, :sz] = torch.as_tensor(layout.input_ids, dtype=torch.long)
+        masks[i, :sz] = 1.0
+        targets.append(SampleTargets(sample_targets))
+    return Batch(input_ids=padded_ids, mask=masks, targets=targets)
+
 def collate_batch(
     tokenizer: object,
     cases: Sequence["DecisionCase"],
@@ -96,11 +131,16 @@ def collate_batch(
     tok_cache: dict[str, list[int]] | None = None,
 ) -> Batch:
     """Colocated Transform: batches domain DecisionCase instances into padded Batch."""
-    all_ids, targets = [], []
+    pad_id = getattr(tokenizer, "pad_token_id", 50283)
+    if not shuffle_options:
+        pairs = [encode_case(tokenizer, c, max_state_tokens=max_state_tokens, tok_cache=tok_cache) for c in cases]
+        return pad_batch(pairs, pad_id=pad_id)
+
+    pairs = []
     for c in cases:
         q_list = []
         for q in c.questions:
-            if shuffle_options and isinstance(q, Choice):
+            if isinstance(q, Choice):
                 keys = list(q.options.keys()) if isinstance(q.options, dict) else list(q.options)
                 raw_idx = q.target if isinstance(q.target, int) else (keys.index(q.target) if q.target in keys else (int(q.target) if str(q.target).isdigit() else 0))
                 indices = list(range(len(keys)))
@@ -120,15 +160,7 @@ def collate_batch(
                 sample_targets.append(TargetSlot("choice", pos, idx))
             else:
                 sample_targets.append(TargetSlot("score" if isinstance(q, Score) else "noul", pos, float(q.target) if q.target is not None else 0.0))
-        all_ids.append(list(layout.input_ids))
-        targets.append(SampleTargets(sample_targets))
+        pairs.append((layout, sample_targets))
 
-    max_len = max((len(ids) for ids in all_ids), default=0)
-    pad_id = getattr(tokenizer, "pad_token_id", 0)
-    padded_ids = torch.full((len(all_ids), max_len), pad_id, dtype=torch.long)
-    masks = torch.zeros((len(all_ids), max_len), dtype=torch.float)
-    for i, ids in enumerate(all_ids):
-        sz = len(ids)
-        padded_ids[i, :sz] = torch.as_tensor(ids, dtype=torch.long)
-        masks[i, :sz] = 1.0
-    return Batch(input_ids=padded_ids, mask=masks, targets=targets)
+    return pad_batch(pairs, pad_id=pad_id)
+

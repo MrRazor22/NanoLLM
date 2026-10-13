@@ -34,32 +34,39 @@ class CalibratedLoss(nn.Module, ILoss):
                 elif t == "score":
                     s_idx.append(b); s_pos.append(pos[0]); s_tgts.append(float(val))
 
-        losses = []
+        losses, counts = [], []
         if c_logits:
             max_c = max(l.size(0) for l in c_logits)
             pad = torch.full((len(c_logits), max_c), -1e4, device=dev)
             for i, l in enumerate(c_logits):
                 pad[i, :l.size(0)] = l
             tgt_tensor = torch.as_tensor(c_tgts, dtype=torch.long, device=dev)
-            ce_loss = F.cross_entropy(pad, tgt_tensor, reduction="sum")
+            ce_loss = F.cross_entropy(pad, tgt_tensor, reduction="mean")
             if self.brier_weight > 0:
                 probs = F.softmax(pad, dim=-1)
                 one_hot = F.one_hot(tgt_tensor, num_classes=max_c).float()
-                brier_loss = torch.sum((probs - one_hot) ** 2)
+                brier_loss = torch.mean(torch.sum((probs - one_hot) ** 2, dim=-1))
                 losses.append((1.0 - self.brier_weight) * ce_loss + self.brier_weight * brier_loss)
             else:
                 losses.append(ce_loss)
+            counts.append(len(c_logits))
         if b_idx:
             pred = predictions[torch.as_tensor(b_idx, device=dev), torch.as_tensor(b_pos, device=dev)]
             tgt = torch.as_tensor(b_tgts, dtype=torch.float, device=dev)
             prob = torch.sigmoid(pred)
-            losses.append((1.0 - self.brier_weight) * F.binary_cross_entropy_with_logits(pred, tgt, reduction="sum") + self.brier_weight * torch.sum((prob - tgt) ** 2))
+            bce_loss = F.binary_cross_entropy_with_logits(pred, tgt, reduction="mean")
+            brier_bce = torch.mean((prob - tgt) ** 2)
+            losses.append((1.0 - self.brier_weight) * bce_loss + self.brier_weight * brier_bce)
+            counts.append(len(b_idx))
         if s_idx:
             pred = predictions[torch.as_tensor(s_idx, device=dev), torch.as_tensor(s_pos, device=dev)]
             tgt = torch.as_tensor(s_tgts, dtype=torch.float, device=dev)
-            losses.append(torch.sum(4.0 * (torch.sigmoid(pred) - tgt) ** 2))
+            losses.append(torch.mean(4.0 * (torch.sigmoid(pred) - tgt) ** 2))
+            counts.append(len(s_idx))
 
-        total_q = len(c_logits) + len(b_idx) + len(s_idx)
-        return torch.sum(torch.stack(losses)) / max(1, total_q) if losses else torch.tensor(0.0, device=dev)
+        if not losses:
+            return torch.tensor(0.0, device=dev)
+        weights = torch.as_tensor(counts, dtype=torch.float, device=dev)
+        return torch.sum(torch.stack(losses) * weights) / torch.sum(weights)
 
     forward = compute

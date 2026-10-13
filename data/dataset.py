@@ -12,13 +12,20 @@ from data.sources.huggingface_source import (
     HuggingFaceSource,
     STANDARD_BENCHMARKS,
 )
+from data.sources.multichoice_source import (
+    MultiChoiceReasoningSource,
+    MULTICHOICE_REASONING_BENCHMARKS,
+)
+from data.sources.anli_source import ANLISource
 
 def standard_sources(seed: int = 42) -> list[IDataSource]:
-    """Default collection of diverse multi-task decision sources with unified train/test options."""
+    """Default collection of diverse multi-task decision and reasoning sources with unified train/test options."""
     return [
         GlaiveSource(seed=seed),
         DecisionsSource(repeat=5),
         *(HuggingFaceSource(spec) for spec in STANDARD_BENCHMARKS),
+        *(MultiChoiceReasoningSource(spec) for spec in MULTICHOICE_REASONING_BENCHMARKS),
+        ANLISource(),
     ]
 
 DATA_DIR = Path(__file__).resolve().parent

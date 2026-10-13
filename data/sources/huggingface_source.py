@@ -35,6 +35,7 @@ class BenchmarkSpec:
     label_names: Sequence[str] | None = None
     subset: str | None = None
     splits: Sequence[str] = ("train", "test")
+    train_limit: int | None = None
     test_limit: int | None = 400
 
     @property
@@ -43,13 +44,13 @@ class BenchmarkSpec:
 
 STANDARD_BENCHMARKS: Sequence[BenchmarkSpec] = (
     BenchmarkSpec("mteb/banking77", "intent", "What is the primary customer request?", "banking77", label_field="label_text"),
-    BenchmarkSpec("fancyzhx/ag_news", "topic", "What is the topic of article?", "ag_news", label_names=("World", "Sports", "Business", "Sci/Tech")),
-    BenchmarkSpec("dair-ai/emotion", "emotion", "Which emotion is most strongly expressed?", "emotion", label_names=("sadness", "joy", "love", "anger", "fear", "surprise")),
+    BenchmarkSpec("fancyzhx/ag_news", "topic", "What is the topic of article?", "ag_news", label_names=("World", "Sports", "Business", "Sci/Tech"), train_limit=1000),
+    BenchmarkSpec("dair-ai/emotion", "emotion", "Which emotion is most strongly expressed?", "emotion", label_names=("sadness", "joy", "love", "anger", "fear", "surprise"), train_limit=1000),
     BenchmarkSpec("Tobi-Bueck/customer-support-tickets", "queue", "Which support queue should handle this ticket?", "customer_support", text_field="body", label_field="queue", splits=("train",)),
-    BenchmarkSpec("zefang-liu/phishing-email-dataset", "is_phishing", "Is this email a phishing or scam attempt?", "phishing_email", text_field="Email Text", label_field="Email Type", label_names=("Safe Email", "Phishing Email"), splits=("train",)),
-    BenchmarkSpec("SetFit/enron_spam", "is_spam", "Is this email unsolicited spam or bulk marketing?", "enron_spam", label_names=("ham", "spam"), label_field="label_text"),
-    BenchmarkSpec("lmsys/toxic-chat", "jailbreak", "Does prompt try to bypass system safety instructions?", "toxic_chat", label_names=("benign", "jailbreak"), text_field="user_input", label_field="jailbreaking", subset="toxicchat0124"),
-    BenchmarkSpec("SetFit/amazon_massive_intent_en-US", "intent", "What is the user intent in this utterance?", "amazon_massive", label_field="label_text"),
+    BenchmarkSpec("zefang-liu/phishing-email-dataset", "is_phishing", "Is this email a phishing or scam attempt?", "phishing_email", text_field="Email Text", label_field="Email Type", label_names=("Safe Email", "Phishing Email"), splits=("train",), train_limit=1000),
+    BenchmarkSpec("SetFit/enron_spam", "is_spam", "Is this email unsolicited spam or bulk marketing?", "enron_spam", label_names=("ham", "spam"), label_field="label_text", train_limit=1000),
+    BenchmarkSpec("lmsys/toxic-chat", "jailbreak", "Does prompt try to bypass system safety instructions?", "toxic_chat", label_names=("benign", "jailbreak"), text_field="user_input", label_field="jailbreaking", subset="toxicchat0124", train_limit=1000),
+    BenchmarkSpec("SetFit/amazon_massive_intent_en-US", "intent", "What is the user intent in this utterance?", "amazon_massive", label_field="label_text", train_limit=2000),
 )
 
 class HuggingFaceSource(IDataSource):
@@ -67,17 +68,18 @@ class HuggingFaceSource(IDataSource):
 
     def _load_split(self, split: str) -> List[dict]:
         target = RAW_DIR / f"{self.name}_{split}.jsonl"
+        limit = self.spec.test_limit if split == "test" else self.spec.train_limit
         def _fetch() -> List[dict]:
             args = [self.spec.dataset]
             if self.spec.subset:
                 args.append(self.spec.subset)
             rows = list(load_dataset(*args, split=split))
-            if split == "test" and self.spec.test_limit is not None:
-                rows = rows[: self.spec.test_limit]
+            if limit is not None:
+                rows = rows[:limit]
             return rows
         rows = read_raw_jsonl(target, _fetch)
-        if split == "test" and self.spec.test_limit is not None and len(rows) > self.spec.test_limit:
-            rows = rows[: self.spec.test_limit]
+        if limit is not None and len(rows) > limit:
+            rows = rows[:limit]
         return rows
 
     def read(self) -> Sequence[SourceRecord]:

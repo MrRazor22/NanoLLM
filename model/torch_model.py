@@ -43,8 +43,8 @@ class TorchModel(nn.Module, IModel):
         tokenizer: Optional[AutoTokenizer] = None,
         checkpoint_path: Optional[Union[str, Path]] = None,
         loss_policy: Optional[ILoss] = None,
-        lr: float = 1.5e-5,
-        accum_steps: int = 2,
+        lr: float = 2e-5,
+        accum_steps: int = 1,
         max_state_tokens: int = 384,
         device: Optional[Union[str, torch.device]] = None,
         compile: bool = False,
@@ -55,7 +55,11 @@ class TorchModel(nn.Module, IModel):
         if self.device.type == "cuda":
             torch.backends.cuda.matmul.allow_tf32 = True
             torch.backends.cudnn.allow_tf32 = True
-        self.backbone = (backbone or AutoModel.from_pretrained(backbone_name)).to(self.device)
+            if hasattr(torch.backends.cuda, "enable_flash_sdp"):
+                torch.backends.cuda.enable_flash_sdp(True)
+                torch.backends.cuda.enable_mem_efficient_sdp(True)
+        model_kwargs = {"attn_implementation": "sdpa"} if self.device.type == "cuda" else {}
+        self.backbone = (backbone or AutoModel.from_pretrained(backbone_name, **model_kwargs)).to(self.device)
         self.tokenizer = tokenizer or AutoTokenizer.from_pretrained(backbone_name)
         self.max_state_tokens = max_state_tokens
 
@@ -67,6 +71,10 @@ class TorchModel(nn.Module, IModel):
             nn.GELU(),
             nn.Linear(hidden_dim, 1),
         ).to(self.device)
+        nn.init.xavier_uniform_(self.head[2].weight)
+        nn.init.zeros_(self.head[2].bias)
+        nn.init.xavier_uniform_(self.head[4].weight)
+        nn.init.zeros_(self.head[4].bias)
 
         ckpt = DEFAULT_CHECKPOINT if checkpoint_path is None and DEFAULT_CHECKPOINT.exists() else checkpoint_path
         if ckpt:
@@ -94,8 +102,8 @@ class TorchModel(nn.Module, IModel):
         raw = logits.squeeze(0).cpu().tolist() if logits.ndim > 1 else logits.cpu().tolist()
         return PredictionLayout(scores=raw, slots=layout.slots)
 
-    def train_step(self, cases: Sequence["DecisionCase"]) -> float:
-        batch = collate_batch(self.tokenizer, cases, max_state_tokens=self.max_state_tokens, shuffle_options=True, tok_cache=self._tok_cache)
+    def train_step(self, cases: Union[Batch, Sequence["DecisionCase"]]) -> float:
+        batch = cases if isinstance(cases, Batch) else collate_batch(self.tokenizer, cases, max_state_tokens=self.max_state_tokens, shuffle_options=True, tok_cache=self._tok_cache)
         self.backbone.train()
         self.head.train()
         ids = batch.input_ids.to(self.device, non_blocking=True)
@@ -113,8 +121,8 @@ class TorchModel(nn.Module, IModel):
             self.optimizer.zero_grad(set_to_none=True)
         return (loss.detach() * self.accum_steps).item()
 
-    def eval_step(self, cases: Sequence["DecisionCase"]) -> float:
-        batch = collate_batch(self.tokenizer, cases, max_state_tokens=self.max_state_tokens, shuffle_options=False, tok_cache=self._tok_cache)
+    def eval_step(self, cases: Union[Batch, Sequence["DecisionCase"]]) -> float:
+        batch = cases if isinstance(cases, Batch) else collate_batch(self.tokenizer, cases, max_state_tokens=self.max_state_tokens, shuffle_options=False, tok_cache=self._tok_cache)
         self.backbone.eval()
         self.head.eval()
         ids = batch.input_ids.to(self.device, non_blocking=True)

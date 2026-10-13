@@ -26,7 +26,7 @@ class EpochTrainer(ITrainer):
         model: Optional[IModel] = None,
         batch_size: int = 16,
     ):
-        self.model = model or TorchModel()
+        self.model = model or TorchModel(accum_steps=1)
         self.batch_size = batch_size
 
     def save(self, meta: Optional[CheckpointMeta] = None) -> None:
@@ -54,26 +54,63 @@ class EpochTrainer(ITrainer):
         items = list(cases)
         total_batches = (len(items) + self.batch_size - 1) // self.batch_size if items else 0
 
-        for ep in range(1, epochs + 1):
-            batches = self._bucketed_batches(items)
-            total_loss, last_t = 0.0, time.perf_counter()
+        # Pre-encode validation cases once
+        v_batches = []
+        if val_cases and hasattr(self.model, "tokenizer"):
+            from model.layouts.token_layout import collate_batch
+            tok = getattr(self.model, "tokenizer")
+            v_items = list(val_cases)
+            for vi in range(0, len(v_items), self.batch_size):
+                v_batches.append(collate_batch(tok, v_items[vi : vi + self.batch_size], shuffle_options=False))
 
-            for n, batch_cases in enumerate(batches):
-                step_loss = self.model.train_step(batch_cases)
+        # Pre-cache tokenized layouts for training cases to avoid tokenization bottleneck in loop
+        has_tok = hasattr(self.model, "tokenizer")
+        tok = getattr(self.model, "tokenizer", None)
+        max_state_tokens = getattr(self.model, "max_state_tokens", 384)
+        encoded_cache = None
+        if has_tok:
+            from model.layouts.token_layout import encode_case
+            encoded_cache = [encode_case(tok, c, max_state_tokens=max_state_tokens) for c in items]
+
+        for ep in range(1, epochs + 1):
+            if encoded_cache is not None:
+                from model.layouts.token_layout import pad_batch
+                # Sort indices by length for minimal padding
+                sorted_indices = sorted(range(len(items)), key=lambda idx: len(encoded_cache[idx][0].input_ids))
+                batch_indices = [sorted_indices[i : i + self.batch_size] for i in range(0, len(sorted_indices), self.batch_size)]
+                random.shuffle(batch_indices)
+                batches = [[encoded_cache[i] for i in b_idx] for b_idx in batch_indices]
+                use_pre_encoded = True
+            else:
+                batches = self._bucketed_batches(items)
+                use_pre_encoded = False
+
+            total_loss = 0.0
+
+            for n, batch_data in enumerate(batches):
+                step_start = time.perf_counter()
+                if use_pre_encoded:
+                    from model.layouts.token_layout import pad_batch
+                    batch_obj = pad_batch(batch_data)
+                    step_loss = self.model.train_step(batch_obj)
+                else:
+                    step_loss = self.model.train_step(batch_data)
                 total_loss += step_loss
-                now = time.perf_counter()
-                dt = (now - last_t) * 1000.0
-                last_t = now
+                dt = (time.perf_counter() - step_start) * 1000.0
 
                 v_loss = None
                 if (n + 1 == total_batches) and val_cases:
-                    v_items = list(val_cases)
-                    v_total, v_count = 0.0, 0
-                    for vi in range(0, len(v_items), self.batch_size):
-                        v_batch = v_items[vi : vi + self.batch_size]
-                        v_total += self.model.eval_step(v_batch)
-                        v_count += 1
-                    v_loss = v_total / max(1, v_count)
+                    if v_batches:
+                        v_total = sum(self.model.eval_step(vb) for vb in v_batches)
+                        v_loss = v_total / max(1, len(v_batches))
+                    else:
+                        v_items = list(val_cases)
+                        v_total, v_count = 0.0, 0
+                        for vi in range(0, len(v_items), self.batch_size):
+                            v_batch = v_items[vi : vi + self.batch_size]
+                            v_total += self.model.eval_step(v_batch)
+                            v_count += 1
+                        v_loss = v_total / max(1, v_count)
 
                 yield StepStats(
                     epoch=ep,
