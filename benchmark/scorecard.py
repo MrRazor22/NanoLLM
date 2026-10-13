@@ -2,7 +2,7 @@ from dataclasses import dataclass
 import json
 from pathlib import Path
 import time
-from typing import Dict, Mapping, Optional, Protocol, Sequence, runtime_checkable
+from typing import Dict, Mapping, Optional, Protocol, Sequence, Union, runtime_checkable
 from data import DecisionCase
 from inference import IDecisionEngine, ProfilingLayer
 
@@ -41,7 +41,7 @@ class Scorecard(IScorecard):
         show_progress: bool = True,
         log_interval_sec: float = 3.0,
     ):
-        from benchmark.policies.ledger import DiskLedgerPolicy
+        from benchmark.ledger import DiskLedgerPolicy
         self.ledger_policy = ledger_policy or DiskLedgerPolicy()
         self.show_progress = show_progress
         self.log_interval_sec = log_interval_sec
@@ -83,7 +83,7 @@ class Scorecard(IScorecard):
             if res.latency_ms: latencies.append(res.latency_ms)
 
             q_by_name = {q.name: q for q in item.questions}
-            def _matches(qid: str, target) -> bool:
+            def _matches(qid: str, target: Union[str, int, float, bool]) -> bool:
                 if qid not in res.answers: return False
                 ans_val = str(res.answers[qid].value)
                 if ans_val == str(target): return True

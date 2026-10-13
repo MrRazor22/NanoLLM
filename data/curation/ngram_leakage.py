@@ -1,6 +1,7 @@
 import re
-from typing import Protocol, Sequence, Set, Tuple, runtime_checkable
+from typing import Protocol, Sequence, Set, Tuple, Union, runtime_checkable
 from data.case import DecisionCase
+from inference.questions import DecisionState
 
 @runtime_checkable
 class ILeakagePolicy(Protocol):
@@ -41,7 +42,7 @@ class NGramLeakagePolicy(ILeakagePolicy):
         }
         return hashlib.sha256(json.dumps(payload, sort_keys=True).encode()).hexdigest()[:10]
 
-    def state_tokens(self, state: object) -> Tuple[str, ...]:
+    def state_tokens(self, state: Union[DecisionState, str, dict]) -> Tuple[str, ...]:
         if isinstance(state, dict):
             text = " ".join(f"{k} {v}" for k, v in state.items())
         else:
@@ -94,7 +95,6 @@ class NGramLeakagePolicy(ILeakagePolicy):
         for c in candidates:
             cat = c.category or "general"
 
-            # 1. Enforce entity disjointness for isolated categories (e.g. zero-shot tools)
             if cat in disjoint_set and c.gold and cat in holdout_targets_by_cat:
                 if any(str(tgt) in holdout_targets_by_cat[cat] for tgt in c.gold.values()):
                     leaked.append(c)
@@ -104,12 +104,10 @@ class NGramLeakagePolicy(ILeakagePolicy):
             if not toks:
                 continue
 
-            # 2. Exact input/state duplicate
             if toks in exact_holdouts:
                 leaked.append(c)
                 continue
 
-            # 3. Continuous n-gram state overlap or embedded short holdout
             if len(toks) >= self.n_gram:
                 if self.extract_shingles(toks) & holdout_shingles:
                     leaked.append(c)
@@ -120,13 +118,11 @@ class NGramLeakagePolicy(ILeakagePolicy):
                     leaked.append(c)
                     continue
             elif len(toks) >= self.min_short_tokens:
-                # 4. Short candidate query appearing as contiguous sub-sequence in holdout state
                 cand_str = f" {' '.join(toks)} "
                 if cand_str in holdout_blob:
                     leaked.append(c)
                     continue
 
-            # 5. Token Jaccard fuzzy match on short/medium queries (< 30 tokens) to catch template slot variations
             if len(toks) < 30 and cat in holdouts_by_cat:
                 cand_set = set(toks)
                 cand_len = len(cand_set)

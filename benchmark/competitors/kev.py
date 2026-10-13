@@ -1,5 +1,5 @@
 import json
-from typing import Callable, Sequence
+from typing import Callable, Optional, Sequence
 import urllib.request
 from inference import (
     Choice, ChoiceResult, DecisionResult, DecisionState,
@@ -9,7 +9,7 @@ from inference import (
 class KevEngine(IDecisionEngine):
     """Sovereign competitor adapter: wraps Jared Palmer's Kev decision server (/v1/systemone)."""
 
-    def __init__(self, endpoint: str = "", timeout: float = 30.0):
+    def __init__(self, endpoint: str = "", timeout: float = 30.0, device: Optional[str] = None):
         import os
         self.endpoint = endpoint or os.environ.get("KEV_ENDPOINT", "")
         self.timeout = timeout

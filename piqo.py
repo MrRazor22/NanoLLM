@@ -2,8 +2,11 @@
 
 from model import (
     IModel, TorchModel,
-    TokenLayout, ScoreLayout, PredictionLayout, Batch, SampleTargets, TargetSlot,
+    TokenLayout, PredictionLayout, Batch, SampleTargets, TargetSlot,
     ILoss, CalibratedLoss,
+    CHECKPOINTS_DIR, DEFAULT_CHECKPOINT, CheckpointInfo, CheckpointMeta,
+    get_latest_checkpoint, get_next_checkpoint_path, list_all_checkpoints, resolve_default_checkpoint,
+    resolve_device,
 )
 from inference import (
     IDecisionEngine, DecisionEngine,
@@ -17,8 +20,6 @@ from training import (
     ITrainer, EpochTrainer,
     CheckpointingLayer, MetricsLayer,
     StepStats,
-    CHECKPOINTS_DIR, DEFAULT_CHECKPOINT, CheckpointInfo, CheckpointMeta,
-    get_latest_checkpoint, get_next_checkpoint_path, list_all_checkpoints, resolve_default_checkpoint, save_checkpoint,
 )
 from data import (
     IDataset, Dataset, DataSplits, SourceRecord, DecisionCase,
@@ -29,7 +30,7 @@ from data import (
 from benchmark import (
     IScorecard, Scorecard, BenchmarkItem, BenchmarkReport, SCORES_FILE, CategoryHits,
     ILedgerPolicy, DiskLedgerPolicy,
-    LayaEngine, VerdictEngine,
+    GlinerDecideEngine, LayaEngine, VerdictEngine,
 )
 
 __all__ = [
@@ -38,7 +39,7 @@ __all__ = [
     "IDecisionEngine", "DecisionEngine",
     "ITrainer", "EpochTrainer",
     "IDataset", "Dataset",
-    "IScorecard", "Scorecard", "LayaEngine", "VerdictEngine",
+    "IScorecard", "Scorecard", "GlinerDecideEngine", "LayaEngine", "VerdictEngine",
     # Policies & Injected Sub-Primitives
     "ILoss", "CalibratedLoss",
     "IResolver", "DecisionResolver",
@@ -50,12 +51,12 @@ __all__ = [
     # Domain DTOs & Models
     "DecisionState", "Choice", "Noul", "Score", "Question",
     "IAnswer", "ChoiceResult", "NoulResult", "ScoreResult", "Answer", "DecisionResult",
-    "TokenLayout", "ScoreLayout", "PredictionLayout", "DecisionCase",
+    "TokenLayout", "PredictionLayout", "DecisionCase",
     "Batch", "StepStats", "TargetSlot", "SampleTargets",
     "CheckpointInfo", "CheckpointMeta", "BenchmarkItem", "BenchmarkReport", "SCORES_FILE", "CategoryHits",
     # Transforms & Paths
     "format_state", "CHECKPOINTS_DIR", "DEFAULT_CHECKPOINT",
     "DATA_DIR", "CORPUS_DIR", "RAW_DIR",
     "get_latest_checkpoint", "get_next_checkpoint_path", "list_all_checkpoints", "resolve_default_checkpoint",
-    "save_checkpoint",
+    "resolve_device",
 ]

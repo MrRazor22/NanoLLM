@@ -3,7 +3,7 @@ from inference import (
     Choice, ChoiceResult, DecisionResult, DecisionState,
     IDecisionEngine, Noul, NoulResult, Question, Score, ScoreResult,
 )
-from model.device import resolve_device
+from model import resolve_device
 
 class LayaEngine(IDecisionEngine):
     """Sovereign competitor adapter: wraps Convai Innovations' Laya decision router."""

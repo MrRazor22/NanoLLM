@@ -3,9 +3,8 @@ import time
 from typing import Callable, Iterator, Optional, Protocol, Sequence, runtime_checkable
 
 from data.case import DecisionCase
-from model import IModel, TorchModel
+from model import CheckpointMeta, IModel, TorchModel
 from training.stats import StepStats
-from training.checkpoints import CheckpointMeta, save_checkpoint
 
 @runtime_checkable
 class ITrainer(Protocol):
@@ -30,7 +29,8 @@ class EpochTrainer(ITrainer):
         self.batch_size = batch_size
 
     def save(self, meta: Optional[CheckpointMeta] = None) -> None:
-        save_checkpoint(self.model, meta=meta)
+        m = meta or CheckpointMeta()
+        self.model.save(m.path, meta=m)
 
     @staticmethod
     def _estimate_length(case: DecisionCase) -> int:

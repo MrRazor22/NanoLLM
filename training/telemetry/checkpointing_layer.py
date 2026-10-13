@@ -1,18 +1,18 @@
 from pathlib import Path
 import time
-from typing import TYPE_CHECKING, Callable, Iterator, Optional, Union
-from training.checkpoints import CheckpointMeta
+from typing import Callable, Iterator, Optional
+from model import CheckpointMeta
 from training.stats import StepStats
 from training.epoch_trainer import ITrainer
 
 class CheckpointingLayer(ITrainer):
     """Layer Decorator (lambda: P -> P): Saves model checkpoint at epoch-end."""
 
-    def __init__(self, inner: Optional["ITrainer"] = None, output_path: Optional[str] = None):
+    def __init__(self, inner: Optional[ITrainer] = None, output_path: Optional[str] = None):
         self.inner = inner
         self.output_path = Path(output_path) if output_path else None
 
-    def __call__(self, inner: "ITrainer") -> "CheckpointingLayer":
+    def __call__(self, inner: ITrainer) -> "CheckpointingLayer":
         self.inner = inner
         return self
 
@@ -42,7 +42,7 @@ class CheckpointingLayer(ITrainer):
                 self._save(self.output_path, stats=s)
             yield s
 
-    def __or__(self, layer: Callable[["ITrainer"], "ITrainer"]) -> "ITrainer":
+    def __or__(self, layer: Callable[[ITrainer], ITrainer]) -> ITrainer:
         return layer(self)
 
 __all__ = ["CheckpointingLayer"]

@@ -1,8 +1,8 @@
 """Benchmark Domain: Sovereign Micro-Decision Evaluation & Benchmarking (PFD)."""
 
 from benchmark.scorecard import BenchmarkItem, BenchmarkReport, CategoryHits, IScorecard, SCORES_FILE, Scorecard
-from benchmark.policies import ILedgerPolicy, DiskLedgerPolicy
-from benchmark.competitors import AVAILABLE_COMPETITORS, LayaEngine, VerdictEngine
+from benchmark.ledger import DiskLedgerPolicy, ILedgerPolicy
+from benchmark.competitors import AVAILABLE_COMPETITORS, GlinerDecideEngine, KevEngine, LayaEngine, VerdictEngine
 
 __all__ = [
     # Core Primitive
@@ -13,6 +13,8 @@ __all__ = [
     "DiskLedgerPolicy",
     # Competitor Adapters & Registry
     "AVAILABLE_COMPETITORS",
+    "GlinerDecideEngine",
+    "KevEngine",
     "LayaEngine",
     "VerdictEngine",
     # DTOs

@@ -58,7 +58,6 @@ class BudgetSplitPolicy(ISplitPolicy):
             else:
                 raise ValueError(f"Invalid split tag '{r.tag}'. Must be 'train', 'val', or 'test'.")
 
-        # Stratified, balanced quota enforcement per category
         if self.test_quota_per_category is not None and test_recs:
             by_category: dict[str, list[DecisionCase]] = {}
             for c in test_recs:
@@ -103,7 +102,6 @@ class BudgetSplitPolicy(ISplitPolicy):
 
             test_recs = balanced_test_recs
 
-        # Carve validation holdout from train if needed without starving training pool
         needed_val = max(0, self.val_quota - len(val_recs))
         if needed_val > 0 and train_recs:
             take = min(needed_val, max(1, len(train_recs) // 5)) if len(train_recs) <= needed_val else needed_val

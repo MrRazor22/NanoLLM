@@ -1,9 +1,13 @@
 from dataclasses import dataclass
 import json
+import os
 from pathlib import Path
 import re
-from typing import List, Optional, Tuple, Union
+from typing import TYPE_CHECKING, List, Optional, Tuple, Union
 import torch
+
+if TYPE_CHECKING:
+    from model.torch_model import IModel
 
 CHECKPOINTS_DIR = Path(__file__).resolve().parent.parent / "weights"
 
@@ -21,6 +25,11 @@ def resolve_default_checkpoint(prefix: str = "checkpoint_champion") -> Path:
 
 DEFAULT_CHECKPOINT = resolve_default_checkpoint()
 
+def get_next_checkpoint_path(prefix: str = "checkpoint_champion") -> Path:
+    CHECKPOINTS_DIR.mkdir(parents=True, exist_ok=True)
+    _, ver = get_latest_checkpoint(prefix)
+    return CHECKPOINTS_DIR / f"{prefix}_v{ver + 1}.pt"
+
 @dataclass(frozen=True)
 class CheckpointMeta:
     """Explicit domain DTO for persisted model checkpoint metadata."""
@@ -32,6 +41,7 @@ class CheckpointMeta:
 
 @dataclass(frozen=True)
 class CheckpointInfo:
+    """Explicit domain DTO for discovered checkpoint file information."""
     name: str
     path: Path
     version: int
@@ -43,32 +53,6 @@ class CheckpointInfo:
     step: Optional[int] = None
     epoch: Optional[int] = None
     saved_at: Optional[str] = None
-
-def save_checkpoint(
-    model: object,
-    meta: Optional[CheckpointMeta] = None,
-) -> None:
-    """Persists model state dictionary and metadata to disk."""
-    m = meta or CheckpointMeta()
-    p = Path(m.path)
-    p.parent.mkdir(parents=True, exist_ok=True)
-    meta_dict = {
-        "epoch": m.epoch,
-        "train_loss": m.train_loss,
-        "val_loss": m.val_loss,
-        "saved_at": m.saved_at,
-    }
-    state_dict = model.state_dict() if hasattr(model, "state_dict") else {}
-    torch.save({"model_state_dict": state_dict, "meta": meta_dict}, str(p))
-    manifest_p = p.parent / "manifest.json"
-    manifest = json.loads(manifest_p.read_text(encoding="utf-8")) if manifest_p.exists() else {}
-    manifest[p.name] = meta_dict
-    manifest_p.write_text(json.dumps(manifest, indent=2), encoding="utf-8")
-
-def get_next_checkpoint_path(prefix: str = "checkpoint_champion") -> Path:
-    CHECKPOINTS_DIR.mkdir(parents=True, exist_ok=True)
-    _, ver = get_latest_checkpoint(prefix)
-    return CHECKPOINTS_DIR / f"{prefix}_v{ver + 1}.pt"
 
 def list_all_checkpoints() -> List[CheckpointInfo]:
     if not CHECKPOINTS_DIR.exists(): return []
@@ -89,8 +73,33 @@ def list_all_checkpoints() -> List[CheckpointInfo]:
         ))
     return sorted(items, key=lambda x: x.version, reverse=True)
 
+def resolve_device(preferred: Optional[str] = None) -> str:
+    """Domain Extension: Resolves optimal compute target device name without substrate leakage."""
+    if preferred and preferred.strip():
+        return preferred.strip().lower()
+
+    env = os.environ.get("PIQO_DEVICE")
+    if env and env.strip():
+        return env.strip().lower()
+
+    try:
+        if torch.cuda.is_available():
+            return "cuda"
+        if hasattr(torch.backends, "mps") and torch.backends.mps.is_available():
+            return "mps"
+    except ImportError:
+        pass
+
+    return "cpu"
+
 __all__ = [
-    "CHECKPOINTS_DIR", "DEFAULT_CHECKPOINT", "CheckpointMeta", "CheckpointInfo",
-    "save_checkpoint", "get_latest_checkpoint", "get_next_checkpoint_path",
-    "list_all_checkpoints", "resolve_default_checkpoint",
+    "CHECKPOINTS_DIR",
+    "DEFAULT_CHECKPOINT",
+    "CheckpointMeta",
+    "CheckpointInfo",
+    "get_latest_checkpoint",
+    "get_next_checkpoint_path",
+    "list_all_checkpoints",
+    "resolve_default_checkpoint",
+    "resolve_device",
 ]

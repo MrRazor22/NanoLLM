@@ -3,7 +3,7 @@ from pathlib import Path
 from typing import Dict, Optional, Protocol, Union, runtime_checkable
 from benchmark.scorecard import BenchmarkReport
 
-DEFAULT_SCORES_FILE = Path(__file__).resolve().parent.parent / "scores.json"
+DEFAULT_SCORES_FILE = Path(__file__).resolve().parent / "scores.json"
 
 @runtime_checkable
 class ILedgerPolicy(Protocol):

@@ -3,7 +3,7 @@ from inference import (
     Choice, ChoiceResult, DecisionResult, DecisionState,
     IDecisionEngine, Noul, NoulResult, Question, Score, ScoreResult,
 )
-from model.device import resolve_device
+from model import resolve_device
 
 class VerdictEngine(IDecisionEngine):
     """Sovereign competitor adapter: wraps Verdict 2.0 (heman10x/rlcd-modernbert-151m)."""

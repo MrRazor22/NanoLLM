@@ -1,5 +1,5 @@
+import json
 from pathlib import Path
-import random
 from typing import TYPE_CHECKING, Optional, Protocol, Sequence, Union, runtime_checkable
 import torch
 import torch.nn as nn
@@ -10,10 +10,10 @@ logging.set_verbosity_error()
 if TYPE_CHECKING:
     from data.case import DecisionCase
 
-from inference.questions import Choice, DecisionState, Question, Score, format_state
-from model.device import resolve_device
-from model.layouts import Batch, PredictionLayout, SampleTargets, TargetSlot, TokenLayout
-from model.policies.calibrated_loss import CalibratedLoss, ILoss
+from inference.questions import DecisionState, Question
+from model.calibrated_loss import CalibratedLoss, ILoss
+from model.checkpoints import DEFAULT_CHECKPOINT, CheckpointMeta, resolve_device
+from model.layouts import Batch, PredictionLayout, collate_batch, encode_layout
 
 @runtime_checkable
 class IModel(Protocol):
@@ -21,9 +21,11 @@ class IModel(Protocol):
     def predict(self, state: DecisionState, questions: Sequence[Question]) -> PredictionLayout: ...
     def train_step(self, cases: Sequence["DecisionCase"]) -> float: ...
     def eval_step(self, cases: Sequence["DecisionCase"]) -> float: ...
+    def save(self, path: Union[str, Path], meta: Optional[CheckpointMeta] = None) -> None: ...
+    def load(self, path: Union[str, Path]) -> None: ...
 
 class TorchModel(nn.Module, IModel):
-    """Concrete PyTorch neural model: ModernBERT backbone with tokenizer, slot layout, and scalar linear head."""
+    """Concrete PyTorch neural model: ModernBERT backbone with tokenizer, slot layout, and scalar head."""
 
     def __init__(
         self,
@@ -51,11 +53,9 @@ class TorchModel(nn.Module, IModel):
         hidden_dim = getattr(self.backbone.config, "hidden_size", 768) if hasattr(self.backbone, "config") else 768
         self.head = nn.Linear(hidden_dim, 1).to(self.device)
 
-        if checkpoint_path and Path(checkpoint_path).exists():
-            ckpt = torch.load(str(checkpoint_path), map_location=self.device)
-            sd = ckpt.get("model_state_dict", ckpt) if isinstance(ckpt, dict) and "model_state_dict" in ckpt else ckpt
-            self.backbone.load_state_dict({k.replace("backbone.", ""): v for k, v in sd.items() if k.startswith("backbone.")}, strict=False)
-            self.head.load_state_dict({k.replace("head.", ""): v for k, v in sd.items() if k.startswith("head.")}, strict=False)
+        ckpt = DEFAULT_CHECKPOINT if checkpoint_path is None and DEFAULT_CHECKPOINT.exists() else checkpoint_path
+        if ckpt:
+            self.load(ckpt)
 
         self.loss_policy = loss_policy or CalibratedLoss()
         self.accum_steps, self.opt_count = accum_steps, 0
@@ -65,89 +65,11 @@ class TorchModel(nn.Module, IModel):
         self.scaler = torch.amp.GradScaler("cuda", enabled=self.device.type == "cuda")
         if compile and hasattr(torch, "compile"): self.backbone = torch.compile(self.backbone)
 
-    def _encode_text(self, text: str) -> list[int]:
-        cached = self._tok_cache.get(text)
-        if cached is None:
-            cached = self.tokenizer.encode(text, add_special_tokens=False)
-            self._tok_cache[text] = cached
-        return cached
-
-    def _encode_layout(self, state: DecisionState, questions: Sequence[Question]) -> TokenLayout:
-        cls_id = getattr(self.tokenizer, "cls_token_id", 50281)
-        sep_id = getattr(self.tokenizer, "sep_token_id", 50282)
-        mask_id = getattr(self.tokenizer, "mask_token_id", 50284)
-
-        state_tokens = self._encode_text(format_state(state))
-        if len(state_tokens) > self.max_state_tokens:
-            state_tokens = state_tokens[:self.max_state_tokens]
-
-        ids = [cls_id] + list(state_tokens)
-        slots = []
-        for q in questions:
-            ids.append(sep_id)
-            q_text = f" {q.name}: {q.instruction}" if q.instruction else f" {q.name}:"
-            ids.extend(self._encode_text(q_text))
-            if isinstance(q, Choice):
-                pos = []
-                opt_items = q.options.items() if isinstance(q.options, dict) else [(o, None) for o in q.options]
-                for k, v in opt_items:
-                    ids.append(mask_id)
-                    pos.append(len(ids) - 1)
-                    opt_text = f" {k}: {v}" if v else f" {k}"
-                    ids.extend(self._encode_text(opt_text))
-                slots.append(pos)
-            else:
-                ids.append(mask_id)
-                slots.append([len(ids) - 1])
-        ids.append(sep_id)
-        return TokenLayout(input_ids=ids, mask=[1.0] * len(ids), slots=slots)
-
-    def _collate_batch(self, cases: Sequence["DecisionCase"], shuffle_options: bool = False) -> Batch:
-        all_ids, targets = [], []
-        for c in cases:
-            q_list = []
-            for q in c.questions:
-                if shuffle_options and isinstance(q, Choice):
-                    keys = list(q.options.keys()) if isinstance(q.options, dict) else list(q.options)
-                    raw_idx = q.target if isinstance(q.target, int) else (keys.index(q.target) if q.target in keys else (int(q.target) if str(q.target).isdigit() else 0))
-                    indices = list(range(len(keys)))
-                    random.shuffle(indices)
-                    new_idx = indices.index(raw_idx) if 0 <= raw_idx < len(indices) else 0
-                    if isinstance(q.options, dict):
-                        shuffled_opts = {keys[i]: q.options[keys[i]] for i in indices}
-                    else:
-                        shuffled_opts = [keys[i] for i in indices]
-                    q_list.append(Choice(name=q.name, options=shuffled_opts, instruction=q.instruction, target=new_idx))
-                else:
-                    q_list.append(q)
-
-            layout = self._encode_layout(c.state, q_list)
-            sample_targets = []
-            for q, pos in zip(q_list, layout.slots):
-                if isinstance(q, Choice):
-                    keys = list(q.options.keys()) if isinstance(q.options, dict) else list(q.options)
-                    idx = q.target if isinstance(q.target, int) else (keys.index(q.target) if q.target in keys else (int(q.target) if str(q.target).isdigit() else 0))
-                    sample_targets.append(TargetSlot("choice", pos, idx))
-                else:
-                    sample_targets.append(TargetSlot("score" if isinstance(q, Score) else "noul", pos, float(q.target) if q.target is not None else 0.0))
-            all_ids.append(list(layout.input_ids))
-            targets.append(SampleTargets(sample_targets))
-
-        max_len = max((len(ids) for ids in all_ids), default=0)
-        pad_id = getattr(self.tokenizer, "pad_token_id", 0)
-        padded_ids = torch.full((len(all_ids), max_len), pad_id, dtype=torch.long)
-        masks = torch.zeros((len(all_ids), max_len), dtype=torch.float)
-        for i, ids in enumerate(all_ids):
-            sz = len(ids)
-            padded_ids[i, :sz] = torch.as_tensor(ids, dtype=torch.long)
-            masks[i, :sz] = 1.0
-        return Batch(input_ids=padded_ids, mask=masks, targets=targets)
-
     def _score(self, ids: torch.Tensor, mask: torch.Tensor) -> torch.Tensor:
         return self.head(self.backbone(input_ids=ids, attention_mask=mask).last_hidden_state).squeeze(-1)
 
     def predict(self, state: DecisionState, questions: Sequence[Question]) -> PredictionLayout:
-        layout = self._encode_layout(state, questions)
+        layout = encode_layout(self.tokenizer, state, questions, max_state_tokens=self.max_state_tokens, tok_cache=self._tok_cache)
         self.backbone.eval()
         self.head.eval()
         ids = torch.as_tensor(layout.input_ids, dtype=torch.long, device=self.device).unsqueeze(0)
@@ -158,7 +80,7 @@ class TorchModel(nn.Module, IModel):
         return PredictionLayout(scores=raw, slots=layout.slots)
 
     def train_step(self, cases: Sequence["DecisionCase"]) -> float:
-        batch = self._collate_batch(cases, shuffle_options=True)
+        batch = collate_batch(self.tokenizer, cases, max_state_tokens=self.max_state_tokens, shuffle_options=True, tok_cache=self._tok_cache)
         self.backbone.train()
         self.head.train()
         ids = batch.input_ids.to(self.device, non_blocking=True)
@@ -177,7 +99,7 @@ class TorchModel(nn.Module, IModel):
         return (loss.detach() * self.accum_steps).item()
 
     def eval_step(self, cases: Sequence["DecisionCase"]) -> float:
-        batch = self._collate_batch(cases, shuffle_options=False)
+        batch = collate_batch(self.tokenizer, cases, max_state_tokens=self.max_state_tokens, shuffle_options=False, tok_cache=self._tok_cache)
         self.backbone.eval()
         self.head.eval()
         ids = batch.input_ids.to(self.device, non_blocking=True)
@@ -186,7 +108,24 @@ class TorchModel(nn.Module, IModel):
             loss = self.loss_policy.compute(self._score(ids, mask), batch.targets)
         return loss.item() if hasattr(loss, "item") else float(loss)
 
-    def state_dict(self) -> dict:
-        return {**{f"backbone.{k}": v for k, v in self.backbone.state_dict().items()}, **{f"head.{k}": v for k, v in self.head.state_dict().items()}}
+    def load(self, path: Union[str, Path]) -> None:
+        p = Path(path)
+        if not p.exists():
+            raise FileNotFoundError(f"Model checkpoint not found: {p}")
+        ckpt = torch.load(str(p), map_location=self.device)
+        sd = ckpt.get("model_state_dict", ckpt) if isinstance(ckpt, dict) and "model_state_dict" in ckpt else ckpt
+        self.backbone.load_state_dict({k.replace("backbone.", ""): v for k, v in sd.items() if k.startswith("backbone.")}, strict=False)
+        self.head.load_state_dict({k.replace("head.", ""): v for k, v in sd.items() if k.startswith("head.")}, strict=False)
+
+    def save(self, path: Union[str, Path], meta: Optional[CheckpointMeta] = None) -> None:
+        p = Path(path)
+        p.parent.mkdir(parents=True, exist_ok=True)
+        sd = {**{f"backbone.{k}": v for k, v in self.backbone.state_dict().items()}, **{f"head.{k}": v for k, v in self.head.state_dict().items()}}
+        meta_dict = {"epoch": meta.epoch, "train_loss": meta.train_loss, "val_loss": meta.val_loss, "saved_at": meta.saved_at} if meta else {}
+        torch.save({"model_state_dict": sd, "meta": meta_dict}, str(p))
+        manifest_p = p.parent / "manifest.json"
+        manifest = json.loads(manifest_p.read_text(encoding="utf-8")) if manifest_p.exists() else {}
+        manifest[p.name] = meta_dict
+        manifest_p.write_text(json.dumps(manifest, indent=2), encoding="utf-8")
 
 __all__ = ["IModel", "TorchModel"]

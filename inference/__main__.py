@@ -4,15 +4,14 @@ from typing import Dict, List, Sequence, Union
 os.environ["TOKENIZERS_PARALLELISM"] = "false"
 warnings.filterwarnings("ignore")
 
-from training.checkpoints import (
-    CHECKPOINTS_DIR, DEFAULT_CHECKPOINT, get_latest_checkpoint, list_all_checkpoints,
-)
 from inference.questions import (
     Choice, ChoiceResult, DecisionResult, Noul, NoulResult, Question, Score, ScoreResult,
 )
 from inference.decision_engine import DecisionEngine
-from inference.layers.profiling_layer import ProfilingLayer
-from model import TorchModel
+from inference.profiling_layer import ProfilingLayer
+from model import (
+    CHECKPOINTS_DIR, DEFAULT_CHECKPOINT, TorchModel, get_latest_checkpoint, list_all_checkpoints,
+)
 
 PRESETS = {
     "triage": {

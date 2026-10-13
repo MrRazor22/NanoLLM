@@ -7,14 +7,13 @@ from data.dataset import (
     IDataset,
     Dataset,
 )
-from data.policies import (
-    ICachePolicy,
-    DiskCachePolicy,
-    ILeakagePolicy,
-    NGramLeakagePolicy,
-    ISplitPolicy,
+from data.curation import (
     BudgetSplitPolicy,
+    ILeakagePolicy,
+    ISplitPolicy,
+    NGramLeakagePolicy,
 )
+from data.disk_cache import DiskCachePolicy, ICachePolicy
 from data.sources import (
     RAW_DIR,
     BenchmarkSpec,

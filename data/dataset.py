@@ -2,14 +2,13 @@ from pathlib import Path
 from typing import List, Optional, Protocol, Sequence, Union, runtime_checkable
 
 from data.case import DataSplits, DecisionCase, IDataSource, SourceRecord, SplitTag
-from data.policies import (
+from data.curation import (
     BudgetSplitPolicy,
-    DiskCachePolicy,
-    ICachePolicy,
     ILeakagePolicy,
     ISplitPolicy,
     NGramLeakagePolicy,
 )
+from data.disk_cache import DiskCachePolicy, ICachePolicy
 from data.sources import standard_sources
 
 DATA_DIR = Path(__file__).resolve().parent

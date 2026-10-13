@@ -1,7 +1,7 @@
 from pathlib import Path
 import time
-from typing import TYPE_CHECKING, Callable, Iterator, Optional, Union
-from training.checkpoints import CheckpointMeta
+from typing import Callable, Iterator, Optional, Union
+from model import CheckpointMeta
 from training.stats import StepStats
 from training.epoch_trainer import ITrainer
 
@@ -10,7 +10,7 @@ class MetricsLayer(ITrainer):
 
     def __init__(
         self,
-        inner: Optional["ITrainer"] = None,
+        inner: Optional[ITrainer] = None,
         output_path: Optional[Union[str, Path]] = None,
         sink: Optional[Callable[[str], None]] = None,
         log_interval_sec: float = 10.0,
@@ -20,7 +20,7 @@ class MetricsLayer(ITrainer):
         self.sink = sink or (lambda msg: print(msg, flush=True))
         self.log_interval_sec = log_interval_sec
 
-    def __call__(self, inner: "ITrainer") -> "MetricsLayer":
+    def __call__(self, inner: ITrainer) -> "MetricsLayer":
         self.inner = inner
         return self
 
@@ -48,7 +48,7 @@ class MetricsLayer(ITrainer):
                 last_log = now
             yield s
 
-    def __or__(self, layer: Callable[["ITrainer"], "ITrainer"]) -> "ITrainer":
+    def __or__(self, layer: Callable[[ITrainer], ITrainer]) -> ITrainer:
         return layer(self)
 
 __all__ = ["MetricsLayer"]

@@ -1,7 +1,7 @@
 from typing import TYPE_CHECKING, Callable, Optional, Protocol, Sequence, runtime_checkable
 
 from inference.questions import DecisionResult, DecisionState, Question
-from inference.policies.decision_resolver import DecisionResolver, IResolver
+from inference.decision_resolver import DecisionResolver, IResolver
 
 if TYPE_CHECKING:
     from model import IModel

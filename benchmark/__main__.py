@@ -9,8 +9,7 @@ from benchmark import Scorecard
 from benchmark.competitors import AVAILABLE_COMPETITORS
 from data import Dataset
 from inference import DecisionEngine
-from model import TorchModel
-from training import DEFAULT_CHECKPOINT, get_latest_checkpoint
+from model import DEFAULT_CHECKPOINT, TorchModel, get_latest_checkpoint
 
 def main() -> None:
     latest_ckpt, _ = get_latest_checkpoint()
@@ -25,10 +24,6 @@ def main() -> None:
     parser.add_argument("--force", action="store_true", help="Force re-evaluation even if competitor is already recorded in ledger")
     args = parser.parse_args()
 
-    if args.device:
-        import os
-        os.environ["PIQO_DEVICE"] = args.device
-
     model = TorchModel(checkpoint_path=args.checkpoint, device=args.device)
     engine = DecisionEngine(model=model)
 
@@ -41,7 +36,7 @@ def main() -> None:
         for c_name in targets:
             if c_name in AVAILABLE_COMPETITORS:
                 try:
-                    c_eng = AVAILABLE_COMPETITORS[c_name]() | ProfilingLayer()
+                    c_eng = AVAILABLE_COMPETITORS[c_name](device=args.device) | ProfilingLayer()
                     c_eng.decide("warmup", warmup_q)  # warm up so first run isn't skewed by download/init
                     engines.append((c_name.capitalize(), c_eng))
                 except Exception as e:
@@ -96,7 +91,7 @@ def main() -> None:
             if c_name in AVAILABLE_COMPETITORS:
                 cls = AVAILABLE_COMPETITORS[c_name]
                 try:
-                    card.evaluate(cls(), items, model_name=c_name.capitalize(), force=args.force)
+                    card.evaluate(cls(device=args.device), items, model_name=c_name.capitalize(), force=args.force)
                 except Exception as e:
                     print(f"Skipping live run for competitor '{c_name}': {e}")
 

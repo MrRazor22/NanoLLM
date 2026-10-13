@@ -5,14 +5,8 @@ import transformers
 transformers.logging.set_verbosity_error()
 
 from data import CORPUS_DIR, Dataset
-from training import (
-    CheckpointingLayer,
-    EpochTrainer,
-    ITrainer,
-    MetricsLayer,
-    get_latest_checkpoint,
-    get_next_checkpoint_path,
-)
+from model import get_latest_checkpoint, get_next_checkpoint_path
+from training import CheckpointingLayer, EpochTrainer, ITrainer, MetricsLayer
 
 ROOT = Path(__file__).resolve().parent.parent
 DEFAULT_METRICS = ROOT / "weights" / "metrics.json"

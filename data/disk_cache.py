@@ -3,7 +3,7 @@ from pathlib import Path
 from typing import Optional, Protocol, Sequence, Union, runtime_checkable
 from data.case import DecisionCase
 
-DEFAULT_CORPUS_DIR = Path(__file__).resolve().parent.parent / "corpus"
+DEFAULT_CORPUS_DIR = Path(__file__).resolve().parent / "corpus"
 
 @runtime_checkable
 class ICachePolicy(Protocol):
