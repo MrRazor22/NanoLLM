@@ -1,25 +1,23 @@
 """Model Domain: Sovereign Neural Computation Primitive (PFD)."""
 
 from model.calibrated_loss import CalibratedLoss, ILoss
-from model.checkpoints import (
+from model.layouts import (
     CHECKPOINTS_DIR,
     DEFAULT_CHECKPOINT,
+    Batch,
     CheckpointInfo,
     CheckpointMeta,
-    get_latest_checkpoint,
-    get_next_checkpoint_path,
-    list_all_checkpoints,
-    resolve_default_checkpoint,
-    resolve_device,
-)
-from model.layouts import (
-    Batch,
     PredictionLayout,
     SampleTargets,
     TargetSlot,
     TokenLayout,
     collate_batch,
     encode_layout,
+    get_latest_checkpoint,
+    get_next_checkpoint_path,
+    list_all_checkpoints,
+    resolve_default_checkpoint,
+    resolve_device,
 )
 from model.torch_model import IModel, TorchModel
 

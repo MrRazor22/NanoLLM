@@ -12,8 +12,15 @@ if TYPE_CHECKING:
 
 from inference.questions import DecisionState, Question
 from model.calibrated_loss import CalibratedLoss, ILoss
-from model.checkpoints import DEFAULT_CHECKPOINT, CheckpointMeta, resolve_device
-from model.layouts import Batch, PredictionLayout, collate_batch, encode_layout
+from model.layouts import (
+    DEFAULT_CHECKPOINT,
+    Batch,
+    CheckpointMeta,
+    PredictionLayout,
+    collate_batch,
+    encode_layout,
+    resolve_device,
+)
 
 @runtime_checkable
 class IModel(Protocol):

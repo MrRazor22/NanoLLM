@@ -4,7 +4,7 @@ from pathlib import Path
 import time
 from typing import Dict, Mapping, Optional, Protocol, Sequence, Union, runtime_checkable
 from data import DecisionCase
-from inference import IDecisionEngine, ProfilingLayer
+from inference import IDecisionEngine
 
 BenchmarkItem = DecisionCase
 SCORES_FILE = Path(__file__).resolve().parent / "scores.json"
@@ -55,7 +55,6 @@ class Scorecard(IScorecard):
         self.ledger_policy.put(report, signature=dataset_signature)
 
     def evaluate(self, engine: IDecisionEngine, items: Sequence[BenchmarkItem], model_name: str = "Piqo", force: bool = False) -> BenchmarkReport:
-        engine = engine if isinstance(engine, ProfilingLayer) else (engine | ProfilingLayer())
         sig = self.signature_for(items)
         if not force:
             cached = self.ledger_policy.get(model_name, signature=sig)
@@ -79,8 +78,10 @@ class Scorecard(IScorecard):
         for idx, item in enumerate(items, 1):
             cat = item.category or "general"
             if cat not in stats: stats[cat] = CategoryHits()
+            t_call = time.perf_counter()
             res = engine.decide(item.state, item.questions)
-            if res.latency_ms: latencies.append(res.latency_ms)
+            dt_ms = res.latency_ms if res.latency_ms > 0 else (time.perf_counter() - t_call) * 1000.0
+            latencies.append(dt_ms)
 
             q_by_name = {q.name: q for q in item.questions}
             def _matches(qid: str, target: Union[str, int, float, bool]) -> bool:

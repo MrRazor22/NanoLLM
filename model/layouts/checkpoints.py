@@ -9,7 +9,7 @@ import torch
 if TYPE_CHECKING:
     from model.torch_model import IModel
 
-CHECKPOINTS_DIR = Path(__file__).resolve().parent.parent / "weights"
+CHECKPOINTS_DIR = Path(__file__).resolve().parent.parent.parent / "weights"
 
 def get_latest_checkpoint(prefix: str = "checkpoint_champion") -> Tuple[Optional[Path], int]:
     if not CHECKPOINTS_DIR.exists(): return None, 0

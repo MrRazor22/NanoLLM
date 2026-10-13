@@ -133,7 +133,6 @@ def collate_batch(
 
 __all__ = [
     "TokenLayout",
-    "ScoreLayout",
     "PredictionLayout",
     "TargetSlot",
     "SampleTargets",
