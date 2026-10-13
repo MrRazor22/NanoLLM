@@ -66,7 +66,9 @@ def main(
                 ctx = input("\nContext: ").strip()
             except (EOFError, KeyboardInterrupt):
                 break
-            if not ctx or ctx.lower() in ("q", "quit", "exit"):
+            if not ctx:
+                continue
+            if ctx.lower() in ("q", "quit", "exit"):
                 break
 
             try:

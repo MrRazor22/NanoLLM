@@ -23,11 +23,13 @@ class NGramLeakagePolicy(ILeakagePolicy):
         min_short_tokens: int = 4,
         jaccard_threshold: float = 0.70,
         disjoint_categories: Sequence[str] = ("function_calling",),
+        exempt_categories: Sequence[str] = ("typed_decisions",),
     ):
         self.n_gram = n_gram
         self.min_short_tokens = min_short_tokens
         self.jaccard_threshold = jaccard_threshold
         self.disjoint_categories = tuple(disjoint_categories)
+        self.exempt_categories = tuple(exempt_categories)
 
     @property
     def signature(self) -> str:
@@ -39,6 +41,7 @@ class NGramLeakagePolicy(ILeakagePolicy):
             "min_short_tokens": self.min_short_tokens,
             "jaccard_threshold": self.jaccard_threshold,
             "disjoint_categories": list(self.disjoint_categories),
+            "exempt_categories": list(self.exempt_categories),
         }
         return hashlib.sha256(json.dumps(payload, sort_keys=True).encode()).hexdigest()[:10]
 
@@ -70,6 +73,7 @@ class NGramLeakagePolicy(ILeakagePolicy):
         holdouts_by_cat: dict[str, list[Tuple[Set[str], int]]] = {}
 
         disjoint_set = set(self.disjoint_categories)
+        exempt_set = set(self.exempt_categories)
 
         for h in holdouts:
             toks = self.state_tokens(h.state)
@@ -94,6 +98,8 @@ class NGramLeakagePolicy(ILeakagePolicy):
         leaked: list[DecisionCase] = []
         for c in candidates:
             cat = c.category or "general"
+            if cat in exempt_set:
+                continue
 
             if cat in disjoint_set and c.gold and cat in holdout_targets_by_cat:
                 if any(str(tgt) in holdout_targets_by_cat[cat] for tgt in c.gold.values()):

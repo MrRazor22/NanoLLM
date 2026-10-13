@@ -3,7 +3,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
-from model.layouts import SampleTargets
+from model.layouts.token_layout import SampleTargets
 
 @runtime_checkable
 class ILoss(Protocol):
@@ -40,7 +40,15 @@ class CalibratedLoss(nn.Module, ILoss):
             pad = torch.full((len(c_logits), max_c), -1e4, device=dev)
             for i, l in enumerate(c_logits):
                 pad[i, :l.size(0)] = l
-            losses.append(F.cross_entropy(pad, torch.as_tensor(c_tgts, dtype=torch.long, device=dev), reduction="sum"))
+            tgt_tensor = torch.as_tensor(c_tgts, dtype=torch.long, device=dev)
+            ce_loss = F.cross_entropy(pad, tgt_tensor, reduction="sum")
+            if self.brier_weight > 0:
+                probs = F.softmax(pad, dim=-1)
+                one_hot = F.one_hot(tgt_tensor, num_classes=max_c).float()
+                brier_loss = torch.sum((probs - one_hot) ** 2)
+                losses.append((1.0 - self.brier_weight) * ce_loss + self.brier_weight * brier_loss)
+            else:
+                losses.append(ce_loss)
         if b_idx:
             pred = predictions[torch.as_tensor(b_idx, device=dev), torch.as_tensor(b_pos, device=dev)]
             tgt = torch.as_tensor(b_tgts, dtype=torch.float, device=dev)

@@ -12,14 +12,16 @@ if TYPE_CHECKING:
 
 from inference.questions import DecisionState, Question
 from model.calibrated_loss import CalibratedLoss, ILoss
-from model.layouts import (
+from model.layouts.checkpoints import (
     DEFAULT_CHECKPOINT,
-    Batch,
     CheckpointMeta,
+    resolve_device,
+)
+from model.layouts.token_layout import (
+    Batch,
     PredictionLayout,
     collate_batch,
     encode_layout,
-    resolve_device,
 )
 
 @runtime_checkable
@@ -58,7 +60,13 @@ class TorchModel(nn.Module, IModel):
         self.max_state_tokens = max_state_tokens
 
         hidden_dim = getattr(self.backbone.config, "hidden_size", 768) if hasattr(self.backbone, "config") else 768
-        self.head = nn.Linear(hidden_dim, 1).to(self.device)
+        self.head = nn.Sequential(
+            nn.LayerNorm(hidden_dim),
+            nn.Dropout(0.1),
+            nn.Linear(hidden_dim, hidden_dim),
+            nn.GELU(),
+            nn.Linear(hidden_dim, 1),
+        ).to(self.device)
 
         ckpt = DEFAULT_CHECKPOINT if checkpoint_path is None and DEFAULT_CHECKPOINT.exists() else checkpoint_path
         if ckpt:

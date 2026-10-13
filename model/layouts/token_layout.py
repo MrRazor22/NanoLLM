@@ -60,15 +60,12 @@ def encode_layout(
             tok_cache[text] = encoded
         return encoded
 
-    state_tokens = _encode(format_state(state))
-    if len(state_tokens) > max_state_tokens:
-        state_tokens = state_tokens[:max_state_tokens]
-
-    ids = [cls_id] + list(state_tokens)
+    ids = [cls_id]
     slots = []
     for q in questions:
         ids.append(sep_id)
-        q_text = f" {q.name}: {q.instruction}" if q.instruction else f" {q.name}:"
+        q_type = "choice" if isinstance(q, Choice) else ("score" if isinstance(q, Score) else "noul")
+        q_text = f" {q_type} question: {q.instruction}" if q.instruction else f" {q_type} question for {q.name}:"
         ids.extend(_encode(q_text))
         if isinstance(q, Choice):
             pos = []
@@ -82,6 +79,12 @@ def encode_layout(
         else:
             ids.append(mask_id)
             slots.append([len(ids) - 1])
+
+    ids.append(sep_id)
+    state_tokens = _encode(format_state(state))
+    if len(state_tokens) > max_state_tokens:
+        state_tokens = state_tokens[:max_state_tokens]
+    ids.extend(state_tokens)
     ids.append(sep_id)
     return TokenLayout(input_ids=ids, mask=[1.0] * len(ids), slots=slots)
 

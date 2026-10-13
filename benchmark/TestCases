@@ -1,0 +1,149 @@
+You need to store 10 PB of photos globally with high durability and low latency.
+Redis,Object Storage,PostgreSQL,RabbitMQ
+
+CPU is low, memory is stable, but requests are timing out.
+Disk failure,Network bottleneck,High CPU,Memory leak
+
+An API must process 1 million events asynchronously without losing messages.
+Message Queue,Local Cache,Load Balancer,CDN
+
+A database replica shows stale data while the primary has the latest updates.
+Replication lag,Memory leak,DNS issue,Packet loss
+
+A cache miss ratio suddenly spikes, increasing database load.
+Lower backend load,Increased DB traffic,Better performance,Faster response
+
+Two services are healthy but cannot communicate after an API contract change.
+Schema mismatch,Extra RAM,CPU scaling,SSD upgrade
+
+A distributed system must continue operating when individual nodes fail.
+Fault tolerance,Compression,Defragmentation,Virtualization
+
+A website loads slowly only for users located overseas.
+CDN issue,ARP issue,RAID issue,Thread leak
+
+Adding more application servers does not increase throughput.
+Horizontal scaling,Shared bottleneck,DNS cache,TLS expiry
+
+Millions of tiny database writes overwhelm storage I/O.
+Batching,Pagination,Compression,Hashing
+
+A developer pushes code directly to production, bypassing automated deployment checks.
+Observability,CI/CD bypass,Load balancing,Caching
+
+Query performance degrades as a database table grows to one billion rows.
+Index issue,DNS issue,HTTP issue,VLAN issue
+
+Users see different account balances when requests hit different nodes.
+Eventual consistency,RAID rebuild,MTU mismatch,Deadlock
+
+A service crashes only during sudden traffic spikes.
+Capacity limit,SSL expiry,DHCP issue,NTP drift
+
+Services run on dynamically created instances whose IP addresses frequently change.
+Hardcoded IPs,Service Registry,Localhost,FTP
+
+Two transactions wait indefinitely for locks held by each other.
+Fragmentation,Deadlock,Sharding,Mirroring
+
+Multiple users update the same database record simultaneously, risking lost updates.
+Concurrency control,CDN,Compression,RAID
+
+An application recommends products based on a trained machine learning model.
+OLTP,ML inference,DNS resolution,NAT
+
+Customer records are distributed across multiple databases using customer ID as the partition key.
+Replication,Sharding,Mirroring,Caching
+
+An operations dashboard combines metrics, logs, and distributed traces.
+Observability,Virtualization,Serialization,Encryption
+
+Service A calls Service B, which calls Service C. Occasional slowdowns in C cause extreme P99 latency in A.
+Tail latency amplification,RAID failure,DNS cache,Time sync
+
+A partitioned cluster must remain writable on both sides of a network partition, accepting possible stale reads.
+CP,CA,AP,OLTP
+
+Database CPU utilization is only 5%, but queries are slow because sessions are waiting for locks.
+Lock contention,High CPU,Power issue,Memory surplus
+
+Adding a cache causes thousands of simultaneous requests for an expired key to overload the database.
+Cache stampede,Sharding,NAT,TLS
+
+Events must be processed in order for each customer, even when multiple customers are processed concurrently.
+FIFO queue,UDP,CDN,Hash map
+
+Throughput increases, but average request latency also increases sharply as concurrency rises.
+Resource saturation,Better scaling,Less contention,Compression
+
+Traffic follows an 80/20 pattern, with a small fraction of keys receiving most requests.
+LRU cache helps,RAID helps,MTU helps,DNS helps
+
+A database leader crashes before its latest writes are replicated to followers.
+Consistency risk,Faster reads,Less storage,Better caching
+
+Engineers need to trace a single request across hundreds of microservices.
+Distributed tracing,RAID,NAT,DHCP
+
+A server spends more time switching between runnable threads than executing application code.
+Oversubscription,Scaling,Replication,Indexing
+
+An API receives the same payment request multiple times because clients retry after timeouts. Duplicate charges must be prevented.
+Idempotency,Compression,Sharding,Load balancing
+
+A message consumer crashes after processing a message but before acknowledging it. The message may be delivered again.
+Idempotent processing,Data compression,Round-robin routing,Read replication
+
+A service must limit each client to 100 requests per minute.
+Rate limiting,Load balancing,Database sharding,Response caching
+
+A deployment introduces errors, and the previous application version must be restored quickly.
+Rollback,Sharding,Replication,Compaction
+
+A single database server cannot handle the read traffic, but writes must still go to the primary.
+Read replicas,Vertical partitioning,Message batching,Request throttling
+
+A service must temporarily reject requests when a downstream dependency repeatedly fails, allowing it time to recover.
+Circuit breaker,Retry forever,Sticky sessions,Data normalization
+
+A background job must resume safely after a worker crashes halfway through processing.
+Checkpointing,Compression,Round-robin DNS,Static routing
+
+A distributed lock expires while its original owner is still performing a critical operation.
+Fencing tokens,CDN caching,Connection pooling,Data compression
+
+A client times out waiting for a payment response and cannot determine whether the payment succeeded.
+Idempotency key,Random retry,Local caching,Load balancing
+
+A service must handle bursts of incoming events without immediately overwhelming downstream consumers.
+Backpressure,Replication lag,Data normalization,Sticky sessions
+
+A database transaction must either update both account balances or update neither.
+Atomicity,Availability,Partitioning,Denormalization
+
+A service repeatedly retries failed requests immediately, making an overloaded dependency even less healthy.
+Exponential backoff,Busy waiting,Unlimited concurrency,Cache invalidation
+
+A system needs to preserve an audit trail of financial changes that cannot be silently overwritten.
+Append-only audit log,Mutable cache,Round-robin routing,Temporary tables
+
+A read-heavy application needs low-latency access to frequently requested data that changes infrequently.
+Caching,Sharding every request,Increasing retries,Disabling indexes
+
+A database query filters millions of rows by a frequently queried column, but the column has no suitable index.
+Add a suitable index,Increase DNS TTL,Enable compression,Add a message queue
+
+A worker pool receives tasks faster than workers can complete them, and the queue grows without bound.
+Bounded queue with backpressure,Unlimited retries,More caching,Disable acknowledgments
+
+A service must guarantee that a retried operation does not create a duplicate order.
+Idempotency key,Randomized order IDs without persistence,Client-side caching,Round-robin routing
+
+A system must detect when a service is alive but unable to serve requests correctly.
+Readiness and health checks,DNS caching,Database sharding,Payload compression
+
+A database needs to recover committed transactions after a sudden process or machine crash.
+Write-ahead logging,Client-side caching,Round-robin DNS,Response compression
+
+A system must distribute work across workers while ensuring one slow worker does not receive a disproportionate share.
+Load balancing,Database normalization,Static resource allocation,Data encryption

@@ -43,7 +43,7 @@
     "count": 600,
     "Piqo": 0.4633,
     "Laya": 0.285,
-    "Verdict": 0.3,
+    "Verdict": 0.16,
     "Kev": 0.6617,
     "Gliner_decide": 0.1983
   },
@@ -72,24 +72,24 @@
     "Gliner_decide": 0.6
   },
   "OVERALL": {
-    "count": 3158,
+    "count": 600,
     "Piqo": 0.8243,
-    "Laya": 0.645,
-    "Verdict": 0.4493,
+    "Laya": 0.285,
+    "Verdict": 0.16,
     "Kev": 0.7888,
     "Gliner_decide": 0.2263
   },
   "LATENCY_P50_MS": {
     "count": "-",
     "Piqo": 30.94,
-    "Laya": 49.16,
-    "Verdict": 29.0,
+    "Laya": 273.36,
+    "Verdict": 109.57,
     "Kev": 148.04,
     "Gliner_decide": 0.0
   },
   "DATASET": {
-    "signature": "01bcda670d4e",
-    "count": 3158
+    "signature": "ace040eb6aa1",
+    "count": 600
   },
   "toxic_chat": {
     "count": 400,

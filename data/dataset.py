@@ -2,14 +2,24 @@ from pathlib import Path
 from typing import List, Optional, Protocol, Sequence, Union, runtime_checkable
 
 from data.case import DataSplits, DecisionCase, IDataSource, SourceRecord, SplitTag
-from data.curation import (
-    BudgetSplitPolicy,
-    ILeakagePolicy,
-    ISplitPolicy,
-    NGramLeakagePolicy,
-)
+from data.curation.budget_split import BudgetSplitPolicy, ISplitPolicy
+from data.curation.ngram_leakage import ILeakagePolicy, NGramLeakagePolicy
 from data.disk_cache import DiskCachePolicy, ICachePolicy
-from data.sources import standard_sources
+from data.sources.decisions_source import DecisionsSource
+from data.sources.glaive_source import GlaiveSource
+from data.sources.huggingface_source import (
+    BenchmarkSpec,
+    HuggingFaceSource,
+    STANDARD_BENCHMARKS,
+)
+
+def standard_sources(seed: int = 42) -> list[IDataSource]:
+    """Default collection of diverse multi-task decision sources with unified train/test options."""
+    return [
+        GlaiveSource(seed=seed),
+        DecisionsSource(repeat=5),
+        *(HuggingFaceSource(spec) for spec in STANDARD_BENCHMARKS),
+    ]
 
 DATA_DIR = Path(__file__).resolve().parent
 CORPUS_DIR = DATA_DIR / "corpus"

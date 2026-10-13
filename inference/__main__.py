@@ -67,8 +67,22 @@ def main(
 
     if play:
         print(f"Piqo Playground [{ckpt.name}]. Enter context (or 'q' to quit):")
-        while (ctx := input("\nContext: ").strip()) and ctx.lower() not in ("q", "quit"):
-            opts = [o.strip() for o in input("Choices (comma-separated): ").strip().split(",")]
+        while True:
+            try:
+                ctx = input("\nContext: ").strip()
+            except (EOFError, KeyboardInterrupt):
+                break
+            if not ctx:
+                continue
+            if ctx.lower() in ("q", "quit", "exit"):
+                break
+            try:
+                raw_opts = input("Choices (comma-separated): ").strip()
+            except (EOFError, KeyboardInterrupt):
+                break
+            opts = [o.strip() for o in raw_opts.split(",") if o.strip()]
+            if not opts:
+                continue
             render_decision(engine.decide(ctx, [Choice("decision", opts)]), ctx)
         return
 
