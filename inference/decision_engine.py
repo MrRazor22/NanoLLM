@@ -20,8 +20,10 @@ class DecisionEngine(IDecisionEngine):
         resolver: Optional[IResolver] = None,
     ):
         if model is None:
+            from model.layouts.checkpoints import resolve_default_checkpoint
             from model.torch_model import TorchModel
-            model = TorchModel()
+            ckpt = resolve_default_checkpoint()
+            model = TorchModel(checkpoint_path=ckpt if ckpt.exists() else None)
         self.model = model
         self.resolver = resolver or DecisionResolver()
 

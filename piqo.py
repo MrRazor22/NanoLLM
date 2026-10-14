@@ -17,6 +17,7 @@ from inference.questions import (
     format_state,
 )
 from training.epoch_trainer import ITrainer, EpochTrainer
+from training.policies.schedule_policy import ISchedulePolicy, CosineSchedulePolicy, ConstantSchedulePolicy
 from training.telemetry.checkpointing_layer import CheckpointingLayer
 from training.telemetry.metrics_layer import MetricsLayer
 from training.stats import StepStats
@@ -43,6 +44,7 @@ __all__ = [
     "IScorecard", "Scorecard", "GlinerDecideEngine", "LayaEngine", "VerdictEngine",
     # Policies & Injected Sub-Primitives
     "ILoss", "CalibratedLoss",
+    "ISchedulePolicy", "CosineSchedulePolicy", "ConstantSchedulePolicy",
     "IResolver", "DecisionResolver",
     "ISplitPolicy", "BudgetSplitPolicy", "ILeakagePolicy", "NGramLeakagePolicy", "ICachePolicy", "DiskCachePolicy",
     "ILedgerPolicy", "DiskLedgerPolicy",

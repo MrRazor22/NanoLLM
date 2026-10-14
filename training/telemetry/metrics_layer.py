@@ -58,7 +58,8 @@ class MetricsLayer(ITrainer):
                 elif is_checkpoint:
                     self.sink(f"Epoch {s.epoch}/{s.total_epochs} Checkpoint ({pct}%) | Train Loss: {s.loss:.4f} | Val Loss: {s.val_loss:.4f}{vram_info} | Elapsed: {elapsed_str} | ETA: {eta_str}")
                 else:
-                    self.sink(f"Epoch {s.epoch}/{s.total_epochs} | Step {s.step}/{s.total_steps} ({pct}%) | Loss: {s.loss:.4f}{vram_info} | {s.elapsed_ms:.0f}ms/step | Elapsed: {elapsed_str} | ETA: {eta_str}")
+                    lr_info = f" | LR: {s.lr:.2e}" if s.lr > 0 else ""
+                    self.sink(f"Epoch {s.epoch}/{s.total_epochs} | Step {s.step}/{s.total_steps} ({pct}%) | Loss: {s.loss:.4f}{lr_info}{vram_info} | {s.elapsed_ms:.0f}ms/step | Elapsed: {elapsed_str} | ETA: {eta_str}")
 
                 last_log = now
 

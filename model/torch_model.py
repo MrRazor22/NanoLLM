@@ -76,9 +76,8 @@ class TorchModel(nn.Module, IModel):
         nn.init.xavier_uniform_(self.head[4].weight)
         nn.init.zeros_(self.head[4].bias)
 
-        ckpt = DEFAULT_CHECKPOINT if checkpoint_path is None and DEFAULT_CHECKPOINT.exists() else checkpoint_path
-        if ckpt:
-            self.load(ckpt)
+        if checkpoint_path is not None:
+            self.load(checkpoint_path)
 
         self.loss_policy = loss_policy or CalibratedLoss()
         self.accum_steps, self.opt_count = accum_steps, 0

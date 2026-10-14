@@ -5,6 +5,7 @@ from typing import Callable, Iterator, Optional, Protocol, Sequence, runtime_che
 from data.case import DecisionCase
 from model.layouts.checkpoints import CheckpointMeta
 from model.torch_model import IModel, TorchModel
+from training.policies.schedule_policy import CosineSchedulePolicy, ISchedulePolicy
 from training.stats import StepStats
 
 @runtime_checkable
@@ -25,9 +26,11 @@ class EpochTrainer(ITrainer):
         self,
         model: Optional[IModel] = None,
         batch_size: int = 16,
+        schedule_policy: Optional[ISchedulePolicy] = None,
     ):
         self.model = model or TorchModel(accum_steps=1)
         self.batch_size = batch_size
+        self.schedule_policy = schedule_policy or CosineSchedulePolicy()
 
     def save(self, meta: Optional[CheckpointMeta] = None) -> None:
         m = meta or CheckpointMeta()
@@ -72,6 +75,13 @@ class EpochTrainer(ITrainer):
             from model.layouts.token_layout import encode_case
             encoded_cache = [encode_case(tok, c, max_state_tokens=max_state_tokens) for c in items]
 
+        total_steps = epochs * total_batches
+        base_lr = 1e-5
+        if hasattr(self.model, "optimizer") and getattr(self.model, "optimizer") is not None:
+            param_groups = getattr(self.model.optimizer, "param_groups", None)
+            if param_groups and isinstance(param_groups, list) and len(param_groups) > 0:
+                base_lr = float(param_groups[0].get("lr", 1e-5))
+
         for ep in range(1, epochs + 1):
             if encoded_cache is not None:
                 from model.layouts.token_layout import pad_batch
@@ -88,6 +98,14 @@ class EpochTrainer(ITrainer):
             total_loss = 0.0
 
             for n, batch_data in enumerate(batches):
+                global_step = (ep - 1) * total_batches + (n + 1)
+                cur_lr = self.schedule_policy.get_lr(global_step, total_steps, base_lr)
+                if hasattr(self.model, "optimizer") and getattr(self.model, "optimizer") is not None:
+                    param_groups = getattr(self.model.optimizer, "param_groups", None)
+                    if param_groups and isinstance(param_groups, list):
+                        for g in param_groups:
+                            g["lr"] = cur_lr
+
                 step_start = time.perf_counter()
                 if use_pre_encoded:
                     from model.layouts.token_layout import pad_batch
@@ -112,12 +130,6 @@ class EpochTrainer(ITrainer):
                             v_total += self.model.eval_step(v_batch)
                             v_count += 1
                         v_loss = v_total / max(1, v_count)
-
-                cur_lr = 0.0
-                if hasattr(self.model, "optimizer") and getattr(self.model, "optimizer") is not None:
-                    param_groups = getattr(self.model.optimizer, "param_groups", None)
-                    if param_groups and isinstance(param_groups, list) and len(param_groups) > 0:
-                        cur_lr = float(param_groups[0].get("lr", 0.0))
 
                 yield StepStats(
                     epoch=ep,
