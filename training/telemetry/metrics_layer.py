@@ -47,15 +47,17 @@ class MetricsLayer(ITrainer):
 
             vram_info = f" | VRAM: {torch.cuda.memory_allocated() / (1024**3):.1f}GB" if torch.cuda.is_available() else ""
 
-            lr_info = f" | LR: {s.lr:.1e}" if s.lr > 0 else ""
-
             if s.step == s.total_steps:
                 val_info = f" | Val Loss: {s.val_loss:.4f}" if s.val_loss is not None else ""
                 self.sink(f"Epoch {s.epoch}/{s.total_epochs} Complete | Train Loss: {s.loss:.4f}{val_info}{vram_info} | {s.elapsed_ms:.0f}ms/step | Total: {elapsed_str}")
                 last_log = now
+            elif s.val_loss is not None:
+                pct = int((s.step / max(1, s.total_steps)) * 100)
+                self.sink(f"Epoch {s.epoch}/{s.total_epochs} Checkpoint ({pct}%) | Train Loss: {s.loss:.4f} | Val Loss: {s.val_loss:.4f}{vram_info} | Elapsed: {elapsed_str} | ETA: {eta_str}")
+                last_log = now
             elif now - last_log >= self.log_interval_sec:
                 pct = int((s.step / max(1, s.total_steps)) * 100)
-                self.sink(f"Epoch {s.epoch}/{s.total_epochs} | Step {s.step}/{s.total_steps} ({pct}%) | Loss: {s.loss:.4f}{lr_info}{vram_info} | {s.elapsed_ms:.0f}ms/step | Elapsed: {elapsed_str} | ETA: {eta_str}")
+                self.sink(f"Epoch {s.epoch}/{s.total_epochs} | Step {s.step}/{s.total_steps} ({pct}%) | Loss: {s.loss:.4f}{vram_info} | {s.elapsed_ms:.0f}ms/step | Elapsed: {elapsed_str} | ETA: {eta_str}")
                 last_log = now
             yield s
 

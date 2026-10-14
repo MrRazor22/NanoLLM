@@ -99,7 +99,8 @@ class EpochTrainer(ITrainer):
                 dt = (time.perf_counter() - step_start) * 1000.0
 
                 v_loss = None
-                if (n + 1 == total_batches) and val_cases:
+                is_val_step = val_cases and (n + 1 == total_batches or n + 1 == (total_batches // 2))
+                if is_val_step:
                     if v_batches:
                         v_total = sum(self.model.eval_step(vb) for vb in v_batches)
                         v_loss = v_total / max(1, len(v_batches))

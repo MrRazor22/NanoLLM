@@ -59,7 +59,7 @@ def main(
     cat_summary = ", ".join(f"{cat}: {cnt}" for cat, cnt in train_cats.most_common())
     print(f"Loaded dataset: {len(train_cases)} train, {len(val_cases)} val cases.")
     print(f"Domain Distribution: {cat_summary}")
-    print(f"Starting training on {backbone} for {epochs} epoch(s)...")
+    print(f"Starting training on {backbone} (LR: {lr}, Batch: {batch_size}) for {epochs} epoch(s)...")
 
     stats = list(trainer.fit(train_cases, epochs=epochs, val_cases=val_cases))
     if stats and stats[-1].val_loss is not None:

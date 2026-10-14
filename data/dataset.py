@@ -17,6 +17,8 @@ from data.sources.multichoice_source import (
     MULTICHOICE_REASONING_BENCHMARKS,
 )
 from data.sources.anli_source import ANLISource
+from data.sources.hellaswag_source import HellaSwagSource
+from data.sources.medqa_source import MedQASource
 
 def standard_sources(seed: int = 42) -> list[IDataSource]:
     """Default collection of diverse multi-task decision and reasoning sources with unified train/test options."""
@@ -26,6 +28,8 @@ def standard_sources(seed: int = 42) -> list[IDataSource]:
         *(HuggingFaceSource(spec) for spec in STANDARD_BENCHMARKS),
         *(MultiChoiceReasoningSource(spec) for spec in MULTICHOICE_REASONING_BENCHMARKS),
         ANLISource(),
+        HellaSwagSource(),
+        MedQASource(),
     ]
 
 DATA_DIR = Path(__file__).resolve().parent
