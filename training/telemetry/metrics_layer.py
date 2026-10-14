@@ -1,6 +1,8 @@
 from pathlib import Path
 import time
 from typing import Callable, Iterator, Optional, Union
+import torch
+
 from model.layouts.checkpoints import CheckpointMeta
 from training.stats import StepStats
 from training.epoch_trainer import ITrainer
@@ -39,12 +41,21 @@ class MetricsLayer(ITrainer):
             now = time.perf_counter()
             elapsed_sec = int(now - start_time)
             elapsed_str = f"{elapsed_sec // 60:02d}:{elapsed_sec % 60:02d}"
+            rem_steps = max(0, s.total_steps - s.step)
+            rem_sec = int((elapsed_sec / max(1, s.step)) * rem_steps)
+            eta_str = f"{rem_sec // 60:02d}:{rem_sec % 60:02d}"
+
+            vram_info = f" | VRAM: {torch.cuda.memory_allocated() / (1024**3):.1f}GB" if torch.cuda.is_available() else ""
+
+            lr_info = f" | LR: {s.lr:.1e}" if s.lr > 0 else ""
+
             if s.step == s.total_steps:
                 val_info = f" | Val Loss: {s.val_loss:.4f}" if s.val_loss is not None else ""
-                self.sink(f"Epoch {s.epoch}/{s.total_epochs} Complete | Train Loss: {s.loss:.4f}{val_info} | {s.elapsed_ms:.0f}ms/step | Total: {elapsed_str}")
+                self.sink(f"Epoch {s.epoch}/{s.total_epochs} Complete | Train Loss: {s.loss:.4f}{val_info}{vram_info} | {s.elapsed_ms:.0f}ms/step | Total: {elapsed_str}")
                 last_log = now
             elif now - last_log >= self.log_interval_sec:
-                self.sink(f"Epoch {s.epoch}/{s.total_epochs} | Step {s.step}/{s.total_steps} | Loss: {s.loss:.4f} | {s.elapsed_ms:.0f}ms/step | Elapsed: {elapsed_str}")
+                pct = int((s.step / max(1, s.total_steps)) * 100)
+                self.sink(f"Epoch {s.epoch}/{s.total_epochs} | Step {s.step}/{s.total_steps} ({pct}%) | Loss: {s.loss:.4f}{lr_info}{vram_info} | {s.elapsed_ms:.0f}ms/step | Elapsed: {elapsed_str} | ETA: {eta_str}")
                 last_log = now
             yield s
 

@@ -28,9 +28,38 @@ def main(
         cache_policy=DiskCachePolicy(root_dir=corpus_dir),
     )
 
-    print(f"Building dataset corpus into {corpus_dir}...")
+    print(f"\n[Piqo Data Pipeline] Preparing corpus into: {corpus_dir}")
+    print(f"Sources Registered: {len(dataset.sources)}")
+    print("-" * 75)
+    print(f"| {'Source Name':<35} | {'Category':<22} | {'Read Count':>10} |")
+    print("-" * 75)
+
+    source_counts = []
+    for src in dataset.sources:
+        recs = src.read()
+        cat = recs[0].sample.category if recs else "unknown"
+        source_counts.append((src.name, cat, len(recs)))
+        print(f"| {src.name:<35} | {cat:<22} | {len(recs):>10} |")
+
+    print("-" * 75)
+    total_raw = sum(c[2] for c in source_counts)
+    print(f"Total Ingested Records: {total_raw}")
+
+    print("\nPartitioning splits & auditing zero-leakage invariant...")
     splits = dataset.prepare()
-    print(f"Corpus ready: {len(splits.train)} train, {len(splits.val)} val, {len(splits.test)} test records (zero leakage verified).")
+
+    print("\n" + "=" * 75)
+    print(f"Corpus Ready (Signature: {dataset.signature})")
+    print("=" * 75)
+    print(f"  * Train Split:      {len(splits.train):>6} cases")
+    print(f"  * Validation Split: {len(splits.val):>6} cases")
+    print(f"  * Test Split:       {len(splits.test):>6} cases")
+    print("-" * 75)
+    print(f"Leakage Audit Scorecard:")
+    print(f"  * Pruned Overlaps:  {dataset.leak_audit.get('total_unique', 0):>6} cases")
+    print(f"  * Test Leaks:       {dataset.leak_audit.get('test_leaks', 0):>6} (Invariant: 0)")
+    print(f"  * Val Leaks:        {dataset.leak_audit.get('val_leaks', 0):>6} (Invariant: 0)")
+    print("=" * 75 + "\n")
 
 if __name__ == "__main__":
     app()

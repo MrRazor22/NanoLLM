@@ -112,6 +112,12 @@ class EpochTrainer(ITrainer):
                             v_count += 1
                         v_loss = v_total / max(1, v_count)
 
+                cur_lr = 0.0
+                if hasattr(self.model, "optimizer") and getattr(self.model, "optimizer") is not None:
+                    param_groups = getattr(self.model.optimizer, "param_groups", None)
+                    if param_groups and isinstance(param_groups, list) and len(param_groups) > 0:
+                        cur_lr = float(param_groups[0].get("lr", 0.0))
+
                 yield StepStats(
                     epoch=ep,
                     total_epochs=epochs,
@@ -119,7 +125,7 @@ class EpochTrainer(ITrainer):
                     total_steps=total_batches,
                     loss=total_loss / (n + 1),
                     elapsed_ms=dt,
-                    lr=0.0,
+                    lr=cur_lr,
                     val_loss=v_loss,
                     batch=n + 1,
                     total_batches=total_batches,

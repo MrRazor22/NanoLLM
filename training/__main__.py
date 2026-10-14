@@ -54,7 +54,11 @@ def main(
     train_cases = dataset.load("train")
     val_cases = dataset.load("val")
 
-    print(f"Loaded dataset: {len(train_cases)} train cases, {len(val_cases)} val cases.")
+    from collections import Counter
+    train_cats = Counter(c.category or "general" for c in train_cases)
+    cat_summary = ", ".join(f"{cat}: {cnt}" for cat, cnt in train_cats.most_common())
+    print(f"Loaded dataset: {len(train_cases)} train, {len(val_cases)} val cases.")
+    print(f"Domain Distribution: {cat_summary}")
     print(f"Starting training on {backbone} for {epochs} epoch(s)...")
 
     stats = list(trainer.fit(train_cases, epochs=epochs, val_cases=val_cases))
