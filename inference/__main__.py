@@ -1,89 +1,72 @@
 import os, warnings
-from pathlib import Path
 from typing import List, Optional
+from rich import box
+from rich.console import Console
+from rich.table import Table
 import typer
 
 os.environ["TOKENIZERS_PARALLELISM"] = "false"
 warnings.filterwarnings("ignore")
 
-from inference.questions import Choice, ChoiceResult, DecisionResult, Noul, NoulResult, Question, Score, ScoreResult
-from inference.decision_engine import DecisionEngine
+from inference.decision_engine import DecisionEngine, IDecisionEngine, load_engine
 from inference.profiling_layer import ProfilingLayer
+from inference.questions import Choice, ChoiceResult, DecisionResult, Noul, NoulResult, Question, Score, ScoreResult
 from model.model_extensions import list_weights
 
+console = Console()
 app = typer.Typer(add_completion=False, help="Piqo Micro-Decision Engine CLI")
 
-PRESETS = {
-    "triage": {
-        "default": "Postgres CPU reached 99% and connection pool is exhausted.",
-        "questions": [Choice("department", ["Billing", "Infrastructure", "Sales", "Security"]), Noul("urgent", "Is immediate incident response required?"), Score("severity", min_value=0.0, max_value=100.0)],
-    },
-    "routing": {
-        "default": "Find all customer orders placed in the last 24 hours.",
-        "questions": [Choice("tool", ["query_database", "search_docs", "send_notification", "none"]), Noul("requires_confirmation"), Score("priority", min_value=1.0, max_value=10.0)],
-    },
-}
+def _questions(choice: list[str], noul: list[str], score: list[str]) -> list[Question]:
+    return (
+        [Choice(c.partition(":")[0].strip(), [o.strip() for o in c.partition(":")[2].split(",") if o.strip()] or ["Yes", "No"]) for c in choice]
+        + [Noul(n.partition(":")[0].strip(), instruction=n.partition(":")[2].strip() or None) for n in noul]
+        + [Score(s.partition(":")[0].strip(), instruction=s.partition(":")[2].strip() or None) for s in score]
+    )
 
-def render_decision(res: DecisionResult, state: str) -> None:
-    print(f"\nState: {state}\nLatency: {res.latency_ms:.2f} ms\n" + "-" * 50)
+def render(res: DecisionResult, state: str) -> None:
+    console.print(f"\n[bold]Context:[/] {state}")
+    t = Table(title=f"Micro-Decision (Latency: {res.latency_ms:.2f} ms)", box=box.ROUNDED)
+    t.add_column("Question", style="bold cyan")
+    t.add_column("Decision", style="bold green")
+    t.add_column("Confidence", justify="right")
+    t.add_column("Details / Distribution", style="dim")
     for k, v in res.answers.items():
-        if isinstance(v, ChoiceResult): print(f"  {k:15s} -> {v.choice:<20s} ({v.confidence * 100:5.1f}%)")
-        elif isinstance(v, NoulResult): print(f"  {k:15s} -> {'YES' if v.value else 'NO':<20s} (p={v.probability:.3f})")
-        elif isinstance(v, ScoreResult): print(f"  {k:15s} -> {v.score:5.1f} / 100.0")
-    print()
-
-def _parse_q(arg: str, kind: str) -> Question:
-    name, _, spec = arg.partition(":")
-    name, spec = name.strip(), spec.strip() or None
-    if kind == "choice": return Choice(name, [o.strip() for o in spec.split(",")] if spec else ["Yes", "No"])
-    return Noul(name, instruction=spec) if kind == "noul" else Score(name, instruction=spec, min_value=0.0, max_value=100.0)
+        match v:
+            case ChoiceResult(choice=c, confidence=p, probabilities=dist):
+                t.add_row(k, c, f"{p*100:.1f}%", ", ".join(f"{o}: {x*100:.1f}%" for o, x in dist.items()))
+            case NoulResult(is_positive=pos, probability=p):
+                t.add_row(k, "[bold green]YES[/]" if pos else "[bold red]NO[/]", f"{p*100:.1f}%", f"p={p:.4f}")
+            case ScoreResult(score=s, normalized=norm):
+                t.add_row(k, f"{s:.1f}", f"{norm:.3f}", "range 0-100")
+    console.print(t)
 
 @app.command()
 def main(
-    state: Optional[str] = typer.Argument(None),
-    play: bool = typer.Option(False, "--play", "-p"),
-    weights: bool = typer.Option(False, "--weights", "-w", help="List saved weight checkpoints"),
-    model: Optional[str] = typer.Option(None, "--model", "-m", help="Weights identity or path (default: 'piqo')"),
-    preset: str = typer.Option("triage", "--preset"),
-    choice: Optional[List[str]] = typer.Option(None, "--choice"),
-    noul: Optional[List[str]] = typer.Option(None, "--noul"),
-    score: Optional[List[str]] = typer.Option(None, "--score"),
-    device: Optional[str] = typer.Option(None, "--device"),
+    state: Optional[str] = typer.Argument(None, help="Context/state to evaluate"),
+    play: bool = typer.Option(False, "--play", "-p", help="Playground REPL"),
+    weights: bool = typer.Option(False, "--weights", "-w", help="List saved weights"),
+    model: Optional[str] = typer.Option(None, "--model", "-m", help="Weights checkpoint path/id"),
+    choice: Optional[List[str]] = typer.Option(None, "--choice", "-c", help="Choice slot ('name:opt1,opt2')"),
+    noul: Optional[List[str]] = typer.Option(None, "--noul", "-n", help="Noul slot ('name:instruction')"),
+    score: Optional[List[str]] = typer.Option(None, "--score", "-s", help="Score slot ('name:instruction')"),
+    device: Optional[str] = typer.Option(None, "--device", help="Compute device override"),
 ) -> None:
     if weights:
-        print(f"\n{'Weights Identity':<32} | {'Size':>8} | {'Val Loss':>9}\n" + "-" * 55)
-        for c in list_weights():
-            vl = f"{c.val_loss:.4f}" if c.val_loss is not None else "-"
-            print(f"{c.name:<32} | {c.size_mb:>5.1f} MB | {vl:>9}")
+        t = Table(title="Saved Weights", box=box.ROUNDED)
+        for col in ("Identity", "Size", "Val Loss", "Saved At"): t.add_column(col)
+        for c in list_weights(): t.add_row(c.name, f"{c.size_mb:.1f} MB", f"{c.val_loss:.4f}" if c.val_loss else "-", c.saved_at or "-")
+        console.print(t); return
+
+    engine: IDecisionEngine = (load_engine(model, device=device) if model else DecisionEngine()) | ProfilingLayer()
+
+    if play or state is None:
+        console.print(f"[bold cyan]Piqo Playground[/] [{model or 'piqo'}]. Enter context (or 'q' to quit):")
+        while (ctx := console.input("\n[bold]Context[/]: ").strip()) and ctx.lower() not in ("q", "quit", "exit"):
+            opts = [o.strip() for o in console.input("[bold]Choices[/]: ").split(",") if o.strip()]
+            if opts: render(engine.decide(ctx, [Choice("decision", opts)]), ctx)
         return
 
-    engine = DecisionEngine(model=model, device=device) | ProfilingLayer()
-
-    if play:
-        label = model or "piqo"
-        print(f"Piqo Playground [{label}]. Enter context (or 'q' to quit):")
-        while True:
-            try:
-                ctx = input("\nContext: ").strip()
-            except (EOFError, KeyboardInterrupt):
-                break
-            if not ctx:
-                continue
-            if ctx.lower() in ("q", "quit", "exit"):
-                break
-            try:
-                raw_opts = input("Choices (comma-separated): ").strip()
-            except (EOFError, KeyboardInterrupt):
-                break
-            opts = [o.strip() for o in raw_opts.split(",") if o.strip()]
-            if not opts:
-                continue
-            render_decision(engine.decide(ctx, [Choice("decision", opts)]), ctx)
-        return
-
-    qs: List[Question] = [_parse_q(c, "choice") for c in (choice or [])] + [_parse_q(n, "noul") for n in (noul or [])] + [_parse_q(s, "score") for s in (score or [])]
-    cur_state = state or PRESETS[preset]["default"]
-    render_decision(engine.decide(cur_state, qs or PRESETS[preset]["questions"]), cur_state)
+    render(engine.decide(state, _questions(choice or [], noul or [], score or []) or [Choice("decision", ["Yes", "No"])]), state)
 
 if __name__ == "__main__":
     app()

@@ -11,37 +11,28 @@ if TYPE_CHECKING:
 class IDecisionEngine(Protocol):
     """Core Primitive: Sovereign operational boundary for domain decision resolution."""
     def decide(self, state: DecisionState, questions: Sequence[Question]) -> DecisionResult: ...
+    def __or__(self, layer: Callable[["IDecisionEngine"], "IDecisionEngine"]) -> "IDecisionEngine": ...
 
 class DecisionEngine(IDecisionEngine):
     """Core Primitive Implementation: Coordinates neural prediction and decision resolution."""
 
-    def __init__(
-        self,
-        model: Optional[Union["IModel", str, Path]] = None,
-        resolver: Optional[IResolver] = None,
-        device: Optional[str] = None,
-    ):
+    def __init__(self, model: Optional["IModel"] = None, resolver: Optional[IResolver] = None):
         if model is None:
             from model.torch_model import TorchModel
-            m = TorchModel(device=device)
-            try:
-                m.load()
-            except FileNotFoundError:
-                pass
-            self.model: IModel = m
-        elif isinstance(model, (str, Path)):
-            from model.torch_model import TorchModel
-            m = TorchModel(device=device)
-            m.load(model)
-            self.model: IModel = m
-        else:
-            self.model = model
-        self.resolver = resolver or DecisionResolver()
+            model = TorchModel()
+            model.load()
+        self.model, self.resolver = model, resolver or DecisionResolver()
 
     def decide(self, state: DecisionState, questions: Sequence[Question]) -> DecisionResult:
         pred = self.model.predict(state, questions)
-        answers = self.resolver.resolve(questions, pred.slots, pred.scores)
-        return DecisionResult(answers=answers)
+        return DecisionResult(answers=self.resolver.resolve(questions, pred.slots, pred.scores))
 
     def __or__(self, layer: Callable[["IDecisionEngine"], "IDecisionEngine"]) -> "IDecisionEngine":
         return layer(self)
+
+def load_engine(source: Union[str, Path] = "piqo", device: Optional[str] = None, resolver: Optional[IResolver] = None) -> IDecisionEngine:
+    """Domain Extension: Outside ergonomic factory for loading engine from weights."""
+    from model.torch_model import TorchModel
+    m = TorchModel(device=device)
+    m.load(source)
+    return DecisionEngine(model=m, resolver=resolver)
