@@ -1,0 +1,7 @@
+{
+  "name": "piqo",
+  "epoch": 2,
+  "train_loss": 0.458924,
+  "val_loss": 0.497556,
+  "saved_at": "2026-10-14 10:19:23"
+}

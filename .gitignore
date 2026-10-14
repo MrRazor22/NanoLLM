@@ -2,9 +2,10 @@
 *.pt
 *.bin
 *.safetensors
-model/weights/*.pt
+/weights/
+model/weights/*
+!model/weights/
 !model/weights/*.json
-weights/
 
 
 # Data stores and large files
