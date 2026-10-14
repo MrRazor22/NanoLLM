@@ -13,8 +13,32 @@ from benchmark.competitors.gliner_decide import GlinerDecideEngine
 from benchmark.competitors.kev import KevEngine
 from benchmark.competitors.laya import LayaEngine
 from benchmark.competitors.verdict import VerdictEngine
+from benchmark.suites.suite import IBenchmarkSuite
+from benchmark.suites.corpus_holdout import CorpusHoldoutSuite
+from benchmark.suites.laya_typed import LayaTypedDecisionsSuite
+from benchmark.suites.kev_transfer import KevTransferSuite
+from benchmark.suites.jevbench import JevBenchSuite
+from benchmark.suites.fast_decisions import FastDecisionsSuite
+from benchmark.suites.verdict_nli import VerdictNliSuite
 from data.dataset import Dataset
 from inference.decision_engine import DecisionEngine
+
+AVAILABLE_COMPETITORS = {
+    "laya": LayaEngine,
+    "verdict": VerdictEngine,
+    "kev": KevEngine,
+    "gliner": GlinerDecideEngine,
+}
+
+AVAILABLE_SUITES = {
+    "all": CorpusHoldoutSuite,
+    "corpus": CorpusHoldoutSuite,
+    "laya": LayaTypedDecisionsSuite,
+    "kev": KevTransferSuite,
+    "jev": JevBenchSuite,
+    "gliner": FastDecisionsSuite,
+    "verdict": VerdictNliSuite,
+}
 
 app = typer.Typer(add_completion=False, help="Piqo Benchmark Runner CLI")
 
@@ -23,7 +47,8 @@ def main(
     checkpoint: Optional[str] = typer.Option(None, help="Model checkpoint path"),
     name: str = typer.Option("Piqo", help="Model label"),
     play: bool = typer.Option(False, "--play", "-p", help="Playground mode"),
-    split: str = typer.Option("test", help="Dataset split"),
+    suite: str = typer.Option("all", help="Benchmark suite (all, corpus, laya, kev, jev, gliner, verdict)"),
+    split: str = typer.Option("test", help="Dataset split for internal suite"),
     limit: Optional[int] = typer.Option(None, help="Item limit"),
     device: Optional[str] = typer.Option(None, help="Target compute device"),
     competitor: str = typer.Option("all", help="Competitor to benchmark"),
@@ -34,20 +59,14 @@ def main(
     if play:
         from inference.questions import Choice, ChoiceResult
         from inference.profiling_layer import ProfilingLayer
-        available_competitors = {
-            "laya": LayaEngine,
-            "verdict": VerdictEngine,
-            "kev": KevEngine,
-            "gliner": GlinerDecideEngine,
-        }
         print("Loading models...")
         engines = [(name, engine | ProfilingLayer())]
-        targets = list(available_competitors.keys()) if competitor == "all" else [competitor]
+        targets = list(AVAILABLE_COMPETITORS.keys()) if competitor == "all" else [competitor]
         warmup_q = [Choice("warmup", ["yes", "no"])]
         for c_name in targets:
-            if c_name in available_competitors:
+            if c_name in AVAILABLE_COMPETITORS:
                 try:
-                    c_eng = available_competitors[c_name](device=device) | ProfilingLayer()
+                    c_eng = AVAILABLE_COMPETITORS[c_name](device=device) | ProfilingLayer()
                     c_eng.decide("warmup", warmup_q)
                     engines.append((c_name.capitalize(), c_eng))
                 except Exception as e:
@@ -88,12 +107,18 @@ def main(
         return
 
     card = Scorecard()
-    dataset = Dataset()
-    items = dataset.load(split)
+    suite_cls = AVAILABLE_SUITES.get(suite, CorpusHoldoutSuite)
+    active_suite = suite_cls(split=split) if suite_cls is CorpusHoldoutSuite else suite_cls()
+    items = list(active_suite.load_cases())
     if limit:
         items = items[:limit]
 
-    print(f"Benchmarking {name} on {len(items)} items ({split} split)...")
+    print(f"Benchmarking {name} on {len(items)} items [Suite: {active_suite.name}]...")
+    if active_suite.published_baselines:
+        print("Published Baselines:")
+        for baseline_name, score in active_suite.published_baselines.items():
+            print(f"  {baseline_name:<22}: {score * 100:.1f}%")
+
     card.evaluate(engine, items, model_name=name, force=force)
 
     if competitor and competitor != "none":

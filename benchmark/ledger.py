@@ -40,6 +40,10 @@ class DiskLedgerPolicy(ILedgerPolicy):
 
     def put(self, report: BenchmarkReport, signature: Optional[str] = None) -> None:
         ledger = self._read()
+        if signature is not None:
+            cached_sig = ledger.get("DATASET", {}).get("signature")
+            if cached_sig != signature:
+                ledger = {}  # Invalidate stale benchmark tracks on signature mismatch
         for cat, acc in report.slices.items():
             entry = ledger.setdefault(cat, {})
             entry["count"], entry[report.model] = report.counts.get(cat, 0), round(acc, 4)
