@@ -48,9 +48,9 @@ def main(
     )
     if init_ckpt:
         model.load(init_ckpt)
-    from training.schedule_policy import ConstantSchedulePolicy, CosineSchedulePolicy
-    sched_policy = ConstantSchedulePolicy() if schedule.lower() == "constant" else CosineSchedulePolicy(warmup_ratio=warmup_ratio)
-    trainer: ITrainer = EpochTrainer(model=model, batch_size=batch_size, schedule_policy=sched_policy)
+    from training.policies.schedule import ConstantSchedule, CosineSchedule
+    sched = ConstantSchedule() if schedule.lower() == "constant" else CosineSchedule(warmup_ratio=warmup_ratio)
+    trainer: ITrainer = EpochTrainer(model=model, batch_size=batch_size, base_lr=target_lr, schedule=sched)
     trainer = trainer | MetricsLayer(sink=lambda msg: print(msg, flush=True), log_interval_sec=5.0)
     trainer = trainer | CheckpointingLayer(output_path=out_target)
 
