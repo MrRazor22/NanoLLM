@@ -15,6 +15,7 @@
 - **Interactive Terminal Playground:**
   ```bash
   python -m inference --play
+  python -m benchmark --play
   ```
 - **Run One-Shot Inference:**
   ```bash
@@ -25,16 +26,23 @@
   ```bash
   python -m data
   ```
-- **Run Training (1-Epoch Adaptation):**
+- **Run Training:**
   ```bash
-  python -m training --epochs 1 --lr 1.5e-5
+  python -m training --lr 1e-5 --epochs 1
   ```
 - **Run Evaluation Benchmarks:**
   ```bash
   python -m benchmark
+  python -m benchmark --play
   ```
 
-## 3. Strict Operational Gating: Zero Autonomous Execution
+## 3. Training & Data Doctrine: Pure Reasoning Channeling (Zero Domain-Specific Fine-Tuning)
+- **Zero Domain Memorization:** Never fine-tune the model to memorize domain-specific trivia, target facts, or narrow technical jargon. The pretrained foundation backbone inherently possesses broad world knowledge.
+- **Knowledge Channeling Over Knowledge Injection:** Adaptation exists strictly to channel the backbone's latent representations into structured decision slots, calibrating confidence and aligning question constraints with candidate choices.
+- **Pure Reasoning Curricula:** The training corpus is strictly composed of domain-agnostic reasoning, reading comprehension, differential elimination, and counterfactual constraint resolution. Domain capabilities emerge naturally from structured deduction, not memorized answers.
+
+## 4. Strict Operational Gating: Zero Autonomous Execution
 - **Zero Unprompted Data Builds, Training, or Tests:** NEVER run dataset preparation (`python -m data`, `dataset.prepare()`), model training (`python -m training`), benchmark evaluation (`python -m benchmark`), or tests automatically or in the background without an unmistakable, explicit user command.
 - **Explicit Command Barrier:** Focus strictly on sound architecture, contract design, and code edits. Always delegate execution to the user by providing the exact command line to run.
+
 
