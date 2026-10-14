@@ -1,10 +1,10 @@
-from typing import Callable, Optional, Sequence
+from typing import Any, Callable, Optional, Protocol, Sequence, runtime_checkable
 from inference.decision_engine import IDecisionEngine
 from inference.questions import (
     Choice, ChoiceResult, DecisionResult, DecisionState,
     Noul, NoulResult, Question, Score, ScoreResult,
 )
-from model.layouts.checkpoints import resolve_device
+from model.model_extensions import resolve_device
 
 class GlinerDecideEngine(IDecisionEngine):
     """Sovereign competitor adapter: wraps Fastino's GLiNER2.5-Decide."""
@@ -21,18 +21,16 @@ class GlinerDecideEngine(IDecisionEngine):
     def _get_model(self):
         if self._model is None:
             try:
-                from gliner2 import AutoExtractor
-                self._model = AutoExtractor.from_pretrained(self.model_id)
-                if hasattr(self._model, "to"):
-                    self._model.to(self.device)
-            except ImportError:
                 try:
+                    from gliner2 import AutoExtractor
+                    m = AutoExtractor.from_pretrained(self.model_id)
+                except ImportError:
                     from gliner import GLiNER
-                    self._model = GLiNER.from_pretrained(self.model_id)
-                    if hasattr(self._model, "to"):
-                        self._model.to(self.device)
-                except ImportError as e:
-                    raise ImportError(f"Cannot load GLiNER2.5-Decide ({self.model_id}): {e}. To run live: pip install gliner2")
+                    m = GLiNER.from_pretrained(self.model_id)
+                if hasattr(m, "to"): m.to(self.device)
+                self._model = m
+            except Exception as e:
+                raise ImportError(f"Cannot load GLiNER2.5-Decide ({self.model_id}): {e}. To run live: pip install gliner2")
         return self._model
 
     def decide(self, state: DecisionState, questions: Sequence[Question]) -> DecisionResult:

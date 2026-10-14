@@ -1,14 +1,17 @@
 from pathlib import Path
-import time
-from typing import Callable, Iterator, Optional
-from model.layouts.checkpoints import CheckpointMeta
-from training.stats import StepStats
+from typing import Callable, Iterator, Optional, Union
+
 from training.epoch_trainer import ITrainer
+from training.stats import StepStats
 
 class CheckpointingLayer(ITrainer):
-    """Layer Decorator (lambda: P -> P): Saves model checkpoint at epoch-end."""
+    """Layer Decorator (lambda: P -> P): Sovereign saving telemetry at epoch-end."""
 
-    def __init__(self, inner: Optional[ITrainer] = None, output_path: Optional[str] = None):
+    def __init__(
+        self,
+        inner: Optional[ITrainer] = None,
+        output_path: Optional[Union[str, Path]] = None,
+    ):
         self.inner = inner
         self.output_path = Path(output_path) if output_path else None
 
@@ -18,28 +21,17 @@ class CheckpointingLayer(ITrainer):
 
     attach = __call__
 
-    def save(self, meta: Optional[CheckpointMeta] = None) -> None:
-        if self.inner is not None:
-            self.inner.save(meta=meta)
-
-    def _save(self, path: Path, stats: Optional[StepStats] = None) -> None:
-        if self.inner is None:
-            return
-        meta = CheckpointMeta(
-            path=path,
-            epoch=stats.epoch if stats else 1,
-            train_loss=round(stats.loss, 6) if stats else None,
-            val_loss=round(stats.val_loss, 6) if stats and stats.val_loss is not None else None,
-            saved_at=time.strftime("%Y-%m-%d %H:%M:%S"),
-        )
-        self.inner.save(meta=meta)
-
     def fit(self, train_data, epochs: int = 1, **kwargs) -> Iterator[StepStats]:
-        if self.inner is None:
+        if not self.inner:
             raise RuntimeError("CheckpointingLayer has no inner trainer.")
         for s in self.inner.fit(train_data, epochs=epochs, **kwargs):
-            if self.output_path and s.step == s.total_steps:
-                self._save(self.output_path, stats=s)
+            if self.output_path and s.step == s.total_steps and hasattr(self.inner, "model"):
+                target = self.output_path
+                if str(target).endswith(".pt") or "/" in str(target) or "\\" in str(target):
+                    self.inner.model.save(target, stats=s)
+                else:
+                    self.inner.model.save(f"{target}_v{s.epoch}.pt", stats=s)
+                    self.inner.model.save(f"{target}.pt", stats=s)
             yield s
 
     def __or__(self, layer: Callable[[ITrainer], ITrainer]) -> ITrainer:

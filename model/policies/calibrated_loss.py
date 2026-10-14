@@ -3,7 +3,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
-from model.layouts.token_layout import SampleTargets
+from model.token_layout import SampleTargets
 
 @runtime_checkable
 class ILoss(Protocol):

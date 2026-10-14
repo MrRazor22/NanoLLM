@@ -1,9 +1,6 @@
 from pathlib import Path
 import time
 from typing import Callable, Iterator, Optional, Union
-import torch
-
-from model.layouts.checkpoints import CheckpointMeta
 from training.stats import StepStats
 from training.epoch_trainer import ITrainer
 
@@ -27,10 +24,6 @@ class MetricsLayer(ITrainer):
         return self
 
     attach = __call__
-
-    def save(self, meta: Optional[CheckpointMeta] = None) -> None:
-        if self.inner is not None:
-            self.inner.save(meta=meta)
 
     def fit(self, train_data, epochs: int = 1, **kwargs) -> Iterator[StepStats]:
         if self.inner is None:

@@ -9,8 +9,7 @@ warnings.filterwarnings("ignore")
 from inference.questions import Choice, ChoiceResult, DecisionResult, Noul, NoulResult, Question, Score, ScoreResult
 from inference.decision_engine import DecisionEngine
 from inference.profiling_layer import ProfilingLayer
-from model.layouts.checkpoints import CHECKPOINTS_DIR, DEFAULT_CHECKPOINT, get_latest_checkpoint, list_all_checkpoints
-from model.torch_model import TorchModel
+from model.model_extensions import list_weights
 
 app = typer.Typer(add_completion=False, help="Piqo Micro-Decision Engine CLI")
 
@@ -43,30 +42,26 @@ def _parse_q(arg: str, kind: str) -> Question:
 def main(
     state: Optional[str] = typer.Argument(None),
     play: bool = typer.Option(False, "--play", "-p"),
-    models: bool = typer.Option(False, "--models", "-m"),
-    checkpoint: Optional[str] = typer.Option(None, "--checkpoint", "-k"),
+    weights: bool = typer.Option(False, "--weights", "-w", help="List saved weight checkpoints"),
+    model: Optional[str] = typer.Option(None, "--model", "-m", help="Weights identity or path (default: 'piqo')"),
     preset: str = typer.Option("triage", "--preset"),
     choice: Optional[List[str]] = typer.Option(None, "--choice"),
     noul: Optional[List[str]] = typer.Option(None, "--noul"),
     score: Optional[List[str]] = typer.Option(None, "--score"),
     device: Optional[str] = typer.Option(None, "--device"),
 ) -> None:
-    if models:
-        print(f"\n{'Checkpoint':<32} | {'Size':>8} | {'Val Loss':>9}\n" + "-" * 55)
-        for c in list_all_checkpoints():
-            print(f"{c.name:<32} | {c.size_mb:>5.1f} MB | {f'{c.val_loss:.4f}' if c.val_loss is not None else '-':>9}")
+    if weights:
+        print(f"\n{'Weights Identity':<32} | {'Size':>8} | {'Val Loss':>9}\n" + "-" * 55)
+        for c in list_weights():
+            vl = f"{c.val_loss:.4f}" if c.val_loss is not None else "-"
+            print(f"{c.name:<32} | {c.size_mb:>5.1f} MB | {vl:>9}")
         return
 
-    latest, _ = get_latest_checkpoint()
-    ckpt_path = checkpoint or str(latest or DEFAULT_CHECKPOINT)
-    ckpt = Path(ckpt_path)
-    if not ckpt.exists() and (CHECKPOINTS_DIR / ckpt.name).exists(): ckpt = CHECKPOINTS_DIR / ckpt.name
-
-    model = TorchModel(checkpoint_path=ckpt, device=device)
-    engine = DecisionEngine(model=model) | ProfilingLayer()
+    engine = DecisionEngine(model=model, device=device) | ProfilingLayer()
 
     if play:
-        print(f"Piqo Playground [{ckpt.name}]. Enter context (or 'q' to quit):")
+        label = model or "piqo"
+        print(f"Piqo Playground [{label}]. Enter context (or 'q' to quit):")
         while True:
             try:
                 ctx = input("\nContext: ").strip()

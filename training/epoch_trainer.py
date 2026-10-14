@@ -3,21 +3,19 @@ import time
 from typing import Callable, Iterator, Optional, Protocol, Sequence, runtime_checkable
 
 from data.case import DecisionCase
-from model.layouts.checkpoints import CheckpointMeta
 from model.torch_model import IModel, TorchModel
-from training.policies.schedule_policy import CosineSchedulePolicy, ISchedulePolicy
+from training.schedule_policy import CosineSchedulePolicy, ISchedulePolicy
 from training.stats import StepStats
 
 @runtime_checkable
 class ITrainer(Protocol):
-    """Core Primitive: Operational boundary for model optimization and checkpoint persistence."""
+    """Core Primitive: Operational boundary for model optimization."""
     def fit(
         self,
         cases: Sequence[DecisionCase],
         epochs: int = 1,
         val_cases: Optional[Sequence[DecisionCase]] = None,
     ) -> Iterator[StepStats]: ...
-    def save(self, meta: Optional[CheckpointMeta] = None) -> None: ...
 
 class EpochTrainer(ITrainer):
     """Core Primitive Implementation: Supervised training loop over domain decision cases."""
@@ -31,10 +29,6 @@ class EpochTrainer(ITrainer):
         self.model = model or TorchModel(accum_steps=1)
         self.batch_size = batch_size
         self.schedule_policy = schedule_policy or CosineSchedulePolicy()
-
-    def save(self, meta: Optional[CheckpointMeta] = None) -> None:
-        m = meta or CheckpointMeta()
-        self.model.save(m.path, meta=m)
 
     @staticmethod
     def _estimate_length(case: DecisionCase) -> int:
@@ -59,21 +53,23 @@ class EpochTrainer(ITrainer):
 
         # Pre-encode validation cases once
         v_batches = []
-        if val_cases and hasattr(self.model, "tokenizer"):
-            from model.layouts.token_layout import collate_batch
-            tok = getattr(self.model, "tokenizer")
-            v_items = list(val_cases)
-            for vi in range(0, len(v_items), self.batch_size):
-                v_batches.append(collate_batch(tok, v_items[vi : vi + self.batch_size], shuffle_options=False))
-
-        # Pre-cache tokenized layouts for training cases to avoid tokenization bottleneck in loop
         has_tok = hasattr(self.model, "tokenizer")
         tok = getattr(self.model, "tokenizer", None)
+        layout_policy = getattr(self.model, "layout_policy", None)
+        if layout_policy is None and has_tok:
+            from model.policies.layout_policy import MaskedLayoutPolicy
+            layout_policy = MaskedLayoutPolicy()
+
+        if val_cases and has_tok and layout_policy:
+            v_items = list(val_cases)
+            for vi in range(0, len(v_items), self.batch_size):
+                v_batches.append(layout_policy.collate(tok, v_items[vi : vi + self.batch_size], shuffle_options=False))
+
+        # Pre-cache tokenized layouts for training cases to avoid tokenization bottleneck in loop
         max_state_tokens = getattr(self.model, "max_state_tokens", 384)
         encoded_cache = None
-        if has_tok:
-            from model.layouts.token_layout import encode_case
-            encoded_cache = [encode_case(tok, c, max_state_tokens=max_state_tokens) for c in items]
+        if has_tok and layout_policy:
+            encoded_cache = [layout_policy.encode_case(tok, c, max_state_tokens=max_state_tokens) for c in items]
 
         total_steps = epochs * total_batches
         base_lr = 1e-5
@@ -84,7 +80,6 @@ class EpochTrainer(ITrainer):
 
         for ep in range(1, epochs + 1):
             if encoded_cache is not None:
-                from model.layouts.token_layout import pad_batch
                 # Sort indices by length for minimal padding
                 sorted_indices = sorted(range(len(items)), key=lambda idx: len(encoded_cache[idx][0].input_ids))
                 batch_indices = [sorted_indices[i : i + self.batch_size] for i in range(0, len(sorted_indices), self.batch_size)]
@@ -107,9 +102,8 @@ class EpochTrainer(ITrainer):
                             g["lr"] = cur_lr
 
                 step_start = time.perf_counter()
-                if use_pre_encoded:
-                    from model.layouts.token_layout import pad_batch
-                    batch_obj = pad_batch(batch_data)
+                if use_pre_encoded and layout_policy:
+                    batch_obj = layout_policy.pad(batch_data)
                     step_loss = self.model.train_step(batch_obj)
                 else:
                     step_loss = self.model.train_step(batch_data)

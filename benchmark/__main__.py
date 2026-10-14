@@ -15,8 +15,6 @@ from benchmark.competitors.laya import LayaEngine
 from benchmark.competitors.verdict import VerdictEngine
 from data.dataset import Dataset
 from inference.decision_engine import DecisionEngine
-from model.layouts.checkpoints import DEFAULT_CHECKPOINT, get_latest_checkpoint
-from model.torch_model import TorchModel
 
 app = typer.Typer(add_completion=False, help="Piqo Benchmark Runner CLI")
 
@@ -31,11 +29,7 @@ def main(
     competitor: str = typer.Option("all", help="Competitor to benchmark"),
     force: bool = typer.Option(False, "--force", help="Force re-evaluation"),
 ) -> None:
-    latest_ckpt, _ = get_latest_checkpoint()
-    ckpt_path = checkpoint or str(latest_ckpt or DEFAULT_CHECKPOINT)
-
-    model = TorchModel(checkpoint_path=ckpt_path, device=device)
-    engine = DecisionEngine(model=model)
+    engine = DecisionEngine(model=checkpoint, device=device)
 
     if play:
         from inference.questions import Choice, ChoiceResult

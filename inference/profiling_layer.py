@@ -1,8 +1,15 @@
 import time
 from typing import Optional, Sequence
-import torch
 from inference.questions import DecisionResult, DecisionState, Question
 from inference.decision_engine import IDecisionEngine
+
+def _sync_cuda() -> None:
+    try:
+        import torch
+        if torch.cuda.is_available():
+            torch.cuda.synchronize()
+    except ImportError:
+        pass
 
 class ProfilingLayer(IDecisionEngine):
     """Layer Decorator (lambda: P -> P): Measures wall-clock decision latency."""
@@ -17,10 +24,10 @@ class ProfilingLayer(IDecisionEngine):
 
     def decide(self, state: DecisionState, questions: Sequence[Question]) -> DecisionResult:
         if self.inner is None: raise RuntimeError("ProfilingLayer is not attached to an inner engine.")
-        if torch.cuda.is_available(): torch.cuda.synchronize()
+        _sync_cuda()
         t0 = time.perf_counter()
         result = self.inner.decide(state, questions)
-        if torch.cuda.is_available(): torch.cuda.synchronize()
+        _sync_cuda()
         result.latency_ms = (time.perf_counter() - t0) * 1000.0
         return result
 

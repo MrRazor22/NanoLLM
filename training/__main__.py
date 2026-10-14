@@ -6,14 +6,12 @@ import typer
 transformers.logging.set_verbosity_error()
 
 from data.dataset import CORPUS_DIR, Dataset
-from model.layouts.checkpoints import get_latest_checkpoint, get_next_checkpoint_path
+from model.policies.weight_cache import DEFAULT_WEIGHTS_DIR, DiskWeightCache
 from model.torch_model import TorchModel
 from training.epoch_trainer import EpochTrainer, ITrainer
 from training.telemetry.checkpointing_layer import CheckpointingLayer
 from training.telemetry.metrics_layer import MetricsLayer
 
-ROOT = Path(__file__).resolve().parent.parent
-DEFAULT_METRICS = ROOT / "weights" / "metrics.json"
 DEFAULT_BACKBONE = "answerdotai/ModernBERT-base"
 
 app = typer.Typer(add_completion=False, help="Piqo Model Trainer CLI")
@@ -22,9 +20,8 @@ app = typer.Typer(add_completion=False, help="Piqo Model Trainer CLI")
 def main(
     backbone: str = typer.Option(DEFAULT_BACKBONE, help="HuggingFace backbone model"),
     corpus_dir: str = typer.Option(str(CORPUS_DIR), help="Path to corpus directory"),
-    output: Optional[str] = typer.Option(None, help="Output weight checkpoint path"),
-    metrics_output: str = typer.Option(str(DEFAULT_METRICS), help="Metrics JSON output path"),
-    init_checkpoint: Optional[str] = typer.Option(None, help="Initial weights path"),
+    name: str = typer.Option("piqo", "--name", "-n", help="Target weights name/prefix (default: 'piqo')"),
+    init_weights: Optional[str] = typer.Option(None, "--init", help="Initial weights to resume from"),
     from_scratch: bool = typer.Option(False, "--from-scratch", help="Train from raw base backbone"),
     epochs: Optional[int] = typer.Option(None, help="Number of training epochs (default: 2 for --from-scratch, 1 for adaptation)"),
     batch_size: int = typer.Option(16, help="Batch size"),
@@ -35,27 +32,27 @@ def main(
     schedule: str = typer.Option("cosine", help="Learning rate schedule policy ('cosine', 'constant')"),
     warmup_ratio: float = typer.Option(0.05, help="Warmup ratio for cosine schedule"),
 ) -> None:
-    latest_ckpt, _ = get_latest_checkpoint()
-    init_ckpt = None if from_scratch or (init_checkpoint and init_checkpoint.lower() in ("none", "")) else (init_checkpoint or (str(latest_ckpt) if latest_ckpt else None))
-    out_path = output or str(get_next_checkpoint_path())
+    cache = DiskWeightCache()
+    has_piqo = cache.get("piqo") is not None
+    init_ckpt = None if from_scratch or (init_weights and init_weights.lower() in ("none", "")) else (init_weights or ("piqo" if has_piqo else None))
+    out_target = name
 
     target_epochs = epochs if epochs is not None else (2 if from_scratch else 1)
     target_lr = lr if lr is not None else (3e-5 if from_scratch else 1e-5)
 
     model = TorchModel(
         backbone_name=backbone,
-        checkpoint_path=init_ckpt,
         lr=target_lr,
         accum_steps=accum_steps,
         compile=compile,
     )
-    from training.policies.schedule_policy import ConstantSchedulePolicy, CosineSchedulePolicy
+    if init_ckpt:
+        model.load(init_ckpt)
+    from training.schedule_policy import ConstantSchedulePolicy, CosineSchedulePolicy
     sched_policy = ConstantSchedulePolicy() if schedule.lower() == "constant" else CosineSchedulePolicy(warmup_ratio=warmup_ratio)
     trainer: ITrainer = EpochTrainer(model=model, batch_size=batch_size, schedule_policy=sched_policy)
-    if metrics_output:
-        trainer = trainer | MetricsLayer(output_path=metrics_output, sink=lambda msg: print(msg, flush=True), log_interval_sec=5.0)
-    if out_path:
-        trainer = trainer | CheckpointingLayer(output_path=out_path)
+    trainer = trainer | MetricsLayer(sink=lambda msg: print(msg, flush=True), log_interval_sec=5.0)
+    trainer = trainer | CheckpointingLayer(output_path=out_target)
 
     dataset = Dataset(corpus_dir=corpus_dir)
     train_cases = dataset.load("train")
@@ -76,7 +73,7 @@ def main(
     if stats and stats[-1].val_loss is not None:
         print(f"Final Validation Loss: {stats[-1].val_loss:.4f}")
 
-    print(f"Training completed. Weights saved to: {out_path}")
+    print(f"Training completed. Weights saved to model/weights/{out_target}")
 
 if __name__ == "__main__":
     app()

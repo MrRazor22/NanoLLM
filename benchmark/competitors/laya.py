@@ -4,7 +4,7 @@ from inference.questions import (
     Choice, ChoiceResult, DecisionResult, DecisionState,
     Noul, NoulResult, Question, Score, ScoreResult,
 )
-from model.layouts.checkpoints import resolve_device
+from model.model_extensions import resolve_device
 
 class LayaEngine(IDecisionEngine):
     """Sovereign competitor adapter: wraps Convai Innovations' Laya decision router."""

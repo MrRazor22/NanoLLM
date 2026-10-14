@@ -2,6 +2,8 @@
 *.pt
 *.bin
 *.safetensors
+model/weights/*.pt
+!model/weights/*.json
 weights/
 
 

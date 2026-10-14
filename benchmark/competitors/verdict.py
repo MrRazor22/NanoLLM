@@ -1,10 +1,10 @@
-from typing import Callable, Optional, Sequence
+from typing import Any, Callable, Optional, Protocol, Sequence, runtime_checkable
 from inference.decision_engine import IDecisionEngine
 from inference.questions import (
     Choice, ChoiceResult, DecisionResult, DecisionState,
     Noul, NoulResult, Question, Score, ScoreResult,
 )
-from model.layouts.checkpoints import resolve_device
+from model.model_extensions import resolve_device
 
 class VerdictEngine(IDecisionEngine):
     """Sovereign competitor adapter: wraps Verdict 2.0 (heman10x/rlcd-modernbert-151m)."""
