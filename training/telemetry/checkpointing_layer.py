@@ -34,5 +34,10 @@ class CheckpointingLayer(ITrainer):
                     self.inner.model.save(f"{target}.pt", stats=s)
             yield s
 
+    def evaluate(self, cases, on_progress=None) -> float:
+        if self.inner is None:
+            raise RuntimeError("CheckpointingLayer has no inner trainer.")
+        return self.inner.evaluate(cases, on_progress=on_progress)
+
     def __or__(self, layer: Callable[[ITrainer], ITrainer]) -> ITrainer:
         return layer(self)

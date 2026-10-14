@@ -1,3 +1,4 @@
+import time
 from pathlib import Path
 from typing import Optional
 import transformers
@@ -31,6 +32,7 @@ def main(
     compile: bool = typer.Option(False, "--compile", help="Compile model with torch.compile"),
     schedule: str = typer.Option("cosine", help="Learning rate schedule policy ('cosine', 'constant')"),
     warmup_ratio: float = typer.Option(0.05, help="Warmup ratio for cosine schedule"),
+    eval_test: bool = typer.Option(False, "--eval-test", help="Evaluate internal holdout test split after training"),
 ) -> None:
     cache = DiskWeightCache()
     has_piqo = cache.get("piqo") is not None
@@ -70,10 +72,29 @@ def main(
     print(f"Starting training on {backbone} (LR: {target_lr}, Batch: {batch_size}) for {target_epochs} epoch(s)...")
 
     stats = list(trainer.fit(train_cases, epochs=target_epochs, val_cases=val_cases))
-    if stats and stats[-1].val_loss is not None:
-        print(f"Final Validation Loss: {stats[-1].val_loss:.4f}")
+    final_val = f" | Val Loss: {stats[-1].val_loss:.4f}" if stats and stats[-1].val_loss is not None else ""
 
-    print(f"Training completed. Weights saved to model/weights/{out_target}")
+    if eval_test:
+        from training.stats import EvalStats
+        test_cases = dataset.load("test")
+        print(f"\nEvaluating internal holdout test split ({len(test_cases)} cases)...", flush=True)
+
+        def _print_eval_progress(s: EvalStats) -> None:
+            pct = int((s.step / max(1, s.total_steps)) * 100)
+            elapsed_str = f"{int(s.elapsed_sec) // 60:02d}:{int(s.elapsed_sec) % 60:02d}"
+            rem_sec = int((s.elapsed_sec / max(1, s.step)) * max(0, s.total_steps - s.step))
+            eta_str = f"{rem_sec // 60:02d}:{rem_sec % 60:02d}"
+            vram = f" | VRAM: {s.vram_gb:.1f}GB" if s.vram_gb > 0 else ""
+            speed = f"{s.elapsed_sec * 1000.0 / max(1, s.step):.0f}ms/step"
+            print(f"Eval Test | Step {s.step}/{s.total_steps} ({pct}%) | Loss: {s.loss:.4f}{vram} | {speed} | Elapsed: {elapsed_str} | ETA: {eta_str}", flush=True)
+
+        t_eval_start = time.perf_counter()
+        test_loss = trainer.evaluate(test_cases, on_progress=_print_eval_progress)
+        eval_elapsed_ms = (time.perf_counter() - t_eval_start) * 1000.0
+        print(f"Test Holdout Complete | Final Loss: {test_loss:.4f} | Total Time: {eval_elapsed_ms / 1000.0:.1f}s ({eval_elapsed_ms / max(1, len(test_cases)):.2f}ms/case)")
+
+    print(f"Training completed.{final_val}")
+    print(f"Weights saved to model/weights/{out_target}")
 
 if __name__ == "__main__":
     app()

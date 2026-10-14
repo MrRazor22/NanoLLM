@@ -14,13 +14,11 @@ from benchmark.competitors.kev import KevEngine
 from benchmark.competitors.laya import LayaEngine
 from benchmark.competitors.verdict import VerdictEngine
 from benchmark.suites.suite import IBenchmarkSuite
-from benchmark.suites.corpus_holdout import CorpusHoldoutSuite
 from benchmark.suites.laya_typed import LayaTypedDecisionsSuite
 from benchmark.suites.kev_transfer import KevTransferSuite
 from benchmark.suites.jevbench import JevBenchSuite
 from benchmark.suites.fast_decisions import FastDecisionsSuite
 from benchmark.suites.verdict_nli import VerdictNliSuite
-from data.dataset import Dataset
 from inference.decision_engine import DecisionEngine
 
 AVAILABLE_COMPETITORS = {
@@ -30,9 +28,7 @@ AVAILABLE_COMPETITORS = {
     "gliner": GlinerDecideEngine,
 }
 
-AVAILABLE_SUITES = {
-    "all": CorpusHoldoutSuite,
-    "corpus": CorpusHoldoutSuite,
+PUBLISHED_SUITES = {
     "laya": LayaTypedDecisionsSuite,
     "kev": KevTransferSuite,
     "jev": JevBenchSuite,
@@ -47,11 +43,10 @@ def main(
     checkpoint: Optional[str] = typer.Option(None, help="Model checkpoint path"),
     name: str = typer.Option("Piqo", help="Model label"),
     play: bool = typer.Option(False, "--play", "-p", help="Playground mode"),
-    suite: str = typer.Option("all", help="Benchmark suite (all, corpus, laya, kev, jev, gliner, verdict)"),
-    split: str = typer.Option("test", help="Dataset split for internal suite"),
-    limit: Optional[int] = typer.Option(None, help="Item limit"),
+    suite: str = typer.Option("all", help="Benchmark suite (all, laya, kev, jev, gliner, verdict)"),
+    limit: Optional[int] = typer.Option(None, help="Item limit per suite"),
     device: Optional[str] = typer.Option(None, help="Target compute device"),
-    competitor: str = typer.Option("all", help="Competitor to benchmark"),
+    competitor: str = typer.Option("all", help="Competitor to benchmark (all, none, laya, verdict, kev, gliner)"),
     force: bool = typer.Option(False, "--force", help="Force re-evaluation"),
 ) -> None:
     engine = DecisionEngine(model=checkpoint, device=device)
@@ -107,31 +102,35 @@ def main(
         return
 
     card = Scorecard()
-    suite_cls = AVAILABLE_SUITES.get(suite, CorpusHoldoutSuite)
-    active_suite = suite_cls(split=split) if suite_cls is CorpusHoldoutSuite else suite_cls()
-    items = list(active_suite.load_cases())
-    if limit:
-        items = items[:limit]
+    selected_suites = list(PUBLISHED_SUITES.values()) if suite == "all" else ([PUBLISHED_SUITES[suite]] if suite in PUBLISHED_SUITES else [LayaTypedDecisionsSuite])
 
-    print(f"Benchmarking {name} on {len(items)} items [Suite: {active_suite.name}]...")
-    if active_suite.published_baselines:
-        print("Published Baselines:")
-        for baseline_name, score in active_suite.published_baselines.items():
-            print(f"  {baseline_name:<22}: {score * 100:.1f}%")
+    for suite_cls in selected_suites:
+        active_suite = suite_cls()
+        items = list(active_suite.load_cases())
+        if limit:
+            items = items[:limit]
 
-    card.evaluate(engine, items, model_name=name, force=force)
+        print(f"\n{'=' * 65}")
+        print(f"Evaluating Suite: {active_suite.name.upper()} ({len(items)} items)")
+        if active_suite.published_baselines:
+            print("Published Baselines:")
+            for baseline_name, score in active_suite.published_baselines.items():
+                print(f"  {baseline_name:<24}: {score * 100:.1f}%")
+        print(f"{'=' * 65}")
 
-    if competitor and competitor != "none":
-        targets = list(AVAILABLE_COMPETITORS.keys()) if competitor == "all" else [competitor]
-        for c_name in targets:
-            if c_name in AVAILABLE_COMPETITORS:
-                cls = AVAILABLE_COMPETITORS[c_name]
-                try:
-                    card.evaluate(cls(device=device), items, model_name=c_name.capitalize(), force=force)
-                except Exception as e:
-                    print(f"Skipping live run for competitor '{c_name}': {e}")
+        card.evaluate(engine, items, model_name=name, force=force)
 
-    card.render()
+        if competitor and competitor != "none":
+            targets = list(AVAILABLE_COMPETITORS.keys()) if competitor == "all" else [competitor]
+            for c_name in targets:
+                if c_name in AVAILABLE_COMPETITORS:
+                    cls = AVAILABLE_COMPETITORS[c_name]
+                    try:
+                        card.evaluate(cls(device=device), items, model_name=c_name.capitalize(), force=force)
+                    except Exception as e:
+                        print(f"Skipping live run for competitor '{c_name}': {e}")
+
+        card.render()
 
 if __name__ == "__main__":
     app()

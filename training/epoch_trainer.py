@@ -5,17 +5,23 @@ from data.case import DecisionCase
 from model.torch_model import IModel, TorchModel
 from training.policies.batch import BucketedBatch, IBatch
 from training.policies.schedule import CosineSchedule, ISchedule
-from training.stats import StepStats
+from training.stats import EvalStats, StepStats
 
 @runtime_checkable
 class ITrainer(Protocol):
-    """Core Primitive: Operational boundary for model optimization."""
+    """Core Primitive: Operational boundary for model optimization and evaluation."""
     def fit(
         self,
         cases: Sequence[DecisionCase],
         epochs: int = 1,
         val_cases: Optional[Sequence[DecisionCase]] = None,
     ) -> Iterator[StepStats]: ...
+
+    def evaluate(
+        self,
+        cases: Sequence[DecisionCase],
+        on_progress: Optional[Callable[[EvalStats], None]] = None,
+    ) -> float: ...
 
 class EpochTrainer(ITrainer):
     """Core Primitive Implementation: Supervised training loop over domain decision cases."""
@@ -34,10 +40,27 @@ class EpochTrainer(ITrainer):
         self.schedule = schedule or CosineSchedule()
         self.batching = batching or BucketedBatch()
 
-    def evaluate(self, cases: Sequence[DecisionCase]) -> float:
-        """Evaluates model performance over candidate cases using batch policy."""
+    def evaluate(
+        self,
+        cases: Sequence[DecisionCase],
+        on_progress: Optional[Callable[[EvalStats], None]] = None,
+    ) -> float:
+        """Evaluates model performance over candidate cases with streaming progress telemetry."""
+        import torch
         batches = list(self.batching.batch(cases, batch_size=self.batch_size))
-        return sum(self.model.eval_step(b) for b in batches) / max(1, len(batches))
+        total = len(batches)
+        total_loss = 0.0
+        start = time.perf_counter()
+        last_log = start
+        for i, b in enumerate(batches, 1):
+            loss = self.model.eval_step(b)
+            total_loss += loss
+            now = time.perf_counter()
+            if on_progress and (now - last_log >= 3.0 or i == total):
+                vram = torch.cuda.memory_reserved() / (1024**3) if torch.cuda.is_available() else 0.0
+                on_progress(EvalStats(step=i, total_steps=total, loss=total_loss / i, elapsed_sec=now - start, vram_gb=vram))
+                last_log = now
+        return total_loss / max(1, total)
 
     def fit(
         self,

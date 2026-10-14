@@ -58,5 +58,10 @@ class MetricsLayer(ITrainer):
 
             yield s
 
+    def evaluate(self, cases, on_progress=None) -> float:
+        if self.inner is None:
+            raise RuntimeError("MetricsLayer has no inner trainer.")
+        return self.inner.evaluate(cases, on_progress=on_progress)
+
     def __or__(self, layer: Callable[[ITrainer], ITrainer]) -> ITrainer:
         return layer(self)
