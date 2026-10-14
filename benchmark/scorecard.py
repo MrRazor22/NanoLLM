@@ -1,13 +1,10 @@
-from dataclasses import dataclass
-import json
-from pathlib import Path
+from dataclasses import dataclass, field
+import hashlib
+import statistics
 import time
-from typing import Dict, Mapping, Optional, Protocol, Sequence, Union, runtime_checkable
+from typing import Any, Dict, Mapping, Optional, Protocol, Sequence, runtime_checkable
 from data.case import DecisionCase
 from inference.decision_engine import IDecisionEngine
-
-BenchmarkItem = DecisionCase
-SCORES_FILE = Path(__file__).resolve().parent / "scores.json"
 
 @dataclass(slots=True)
 class CategoryHits:
@@ -23,52 +20,49 @@ class BenchmarkReport:
     overall: float
     count: int
     p50_ms: float = 0.0
-    slices: Mapping[str, float] = ()
-    counts: Mapping[str, int] = ()
+    slices: Mapping[str, float] = field(default_factory=dict)
+    counts: Mapping[str, int] = field(default_factory=dict)
+    suite: str = "default"
+
+def signature_for(items: Sequence[DecisionCase]) -> str:
+    """Computes a lightweight deterministic hash signature over benchmark cases."""
+    raw = f"{len(items)}|{items[0].state[:30] if items else ''}|{items[-1].state[:30] if items else ''}"
+    return hashlib.sha256(raw.encode()).hexdigest()[:12]
+
+def _matches(answers: Mapping[str, Any], qid: str, target: Any, q_map: Mapping[str, Any]) -> bool:
+    if qid not in answers:
+        return False
+    val = str(answers[qid].value)
+    if val == str(target):
+        return True
+    opts = list(getattr(q_map.get(qid), "options", []))
+    return val == str(opts[int(target)]) if str(target).isdigit() and 0 <= int(target) < len(opts) else False
 
 @runtime_checkable
 class IScorecard(Protocol):
-    def evaluate(self, engine: IDecisionEngine, items: Sequence[BenchmarkItem], model_name: str = "Piqo") -> BenchmarkReport: ...
-    def record(self, report: BenchmarkReport) -> None: ...
-    def render(self) -> None: ...
+    """Core Primitive: Evaluates decision engines on benchmark items to produce verified score reports."""
+    def evaluate(
+        self,
+        engine: IDecisionEngine,
+        items: Sequence[DecisionCase],
+        model_name: str = "Piqo",
+        suite: str = "default",
+    ) -> BenchmarkReport: ...
 
 class Scorecard(IScorecard):
-    """Sovereign benchmark runner: dynamically evaluates engines across all tracks and maintains ledger."""
+    """Core Primitive Implementation: Evaluates decision engines on benchmark items."""
 
-    def __init__(
-        self,
-        ledger_policy: Optional["ILedgerPolicy"] = None,
-        show_progress: bool = True,
-        log_interval_sec: float = 3.0,
-    ):
-        from benchmark.ledger import DiskLedgerPolicy
-        self.ledger_policy = ledger_policy or DiskLedgerPolicy()
+    def __init__(self, show_progress: bool = True, log_interval_sec: float = 3.0):
         self.show_progress = show_progress
         self.log_interval_sec = log_interval_sec
 
-    def signature_for(self, items: Sequence[BenchmarkItem]) -> str:
-        import hashlib
-        raw = f"{len(items)}|{items[0].state[:30] if items else ''}|{items[-1].state[:30] if items else ''}"
-        return hashlib.sha256(raw.encode()).hexdigest()[:12]
-
-    def record(self, report: BenchmarkReport, dataset_signature: Optional[str] = None) -> None:
-        self.ledger_policy.put(report, signature=dataset_signature)
-
-    def evaluate(self, engine: IDecisionEngine, items: Sequence[BenchmarkItem], model_name: str = "Piqo", force: bool = False) -> BenchmarkReport:
-        sig = self.signature_for(items)
-        if not force:
-            cached = self.ledger_policy.get(model_name, signature=sig)
-            if cached is not None:
-                print(f"Competitor '{model_name}' already evaluated on this dataset (reusing cached scores; pass --force to re-run).", flush=True)
-                return BenchmarkReport(
-                    model=model_name,
-                    overall=cached.get("OVERALL", 0.0),
-                    count=len(items),
-                    p50_ms=cached.get("LATENCY_P50_MS", 0.0),
-                    slices={k: v for k, v in cached.items() if k not in ("OVERALL", "LATENCY_P50_MS")},
-                    counts={},
-                )
-
+    def evaluate(
+        self,
+        engine: IDecisionEngine,
+        items: Sequence[DecisionCase],
+        model_name: str = "Piqo",
+        suite: str = "default",
+    ) -> BenchmarkReport:
         stats: Dict[str, CategoryHits] = {}
         latencies, hits = [], []
         total_items = len(items)
@@ -77,76 +71,38 @@ class Scorecard(IScorecard):
 
         for idx, item in enumerate(items, 1):
             cat = item.category or "general"
-            if cat not in stats: stats[cat] = CategoryHits()
+            if cat not in stats:
+                stats[cat] = CategoryHits()
             t_call = time.perf_counter()
             res = engine.decide(item.state, item.questions)
             dt_ms = res.latency_ms if res.latency_ms > 0 else (time.perf_counter() - t_call) * 1000.0
             latencies.append(dt_ms)
 
-            q_by_name = {q.name: q for q in item.questions}
-            def _matches(qid: str, target: Union[str, int, float, bool]) -> bool:
-                if qid not in res.answers: return False
-                ans_val = str(res.answers[qid].value)
-                if ans_val == str(target): return True
-                q = q_by_name.get(qid)
-                if hasattr(q, "options"):
-                    keys = list(q.options.keys()) if isinstance(q.options, dict) else list(q.options)
-                    if isinstance(target, int) and 0 <= target < len(keys): return ans_val == str(keys[target])
-                    if str(target).isdigit() and 0 <= int(target) < len(keys): return ans_val == str(keys[int(target)])
-                return False
-
             if item.gold:
+                q_map = {q.name: q for q in item.questions}
                 for qid, tgt in item.gold.items():
-                    m = _matches(qid, tgt)
+                    m = _matches(res.answers, qid, tgt, q_map)
                     hits.append(1.0 if m else 0.0)
                     stats[cat].total += 1
-                    if m: stats[cat].correct += 1
+                    if m:
+                        stats[cat].correct += 1
 
             now = time.perf_counter()
             if self.show_progress and (now - last_log >= self.log_interval_sec or idx == total_items):
-                p50 = float(sorted(latencies)[len(latencies) // 2]) if latencies else 0.0
+                p50 = float(statistics.median(latencies)) if latencies else 0.0
                 acc = (sum(hits) / max(1, len(hits))) * 100.0
                 speed = idx / max(0.001, now - start_time)
                 print(f"[{model_name}] {idx}/{total_items} ({idx*100.0/total_items:.1f}%) | Acc: {acc:.1f}% | P50: {p50:.1f}ms | {speed:.1f} it/s", flush=True)
                 last_log = now
 
         overall = sum(hits) / max(1, len(hits))
-        p50 = float(sorted(latencies)[len(latencies) // 2]) if latencies else 0.0
-        report = BenchmarkReport(
+        p50 = float(statistics.median(latencies)) if latencies else 0.0
+        return BenchmarkReport(
             model=model_name,
             overall=overall,
             count=len(hits),
             p50_ms=p50,
             slices={c: h.accuracy for c, h in stats.items()},
             counts={c: h.total for c, h in stats.items()},
+            suite=suite,
         )
-        self.record(report, dataset_signature=sig)
-        return report
-
-    def render(self) -> None:
-        ledger = self.ledger_policy.all()
-        if not ledger:
-            print("\nLeaderboard is empty. Run: python -m benchmark\n")
-            return
-
-        models = sorted({m for entry in ledger.values() for m in entry if m not in ("count", "signature")})
-        if "Piqo" in models: models = ["Piqo"] + [m for m in models if m != "Piqo"]
-
-        tracks = [t for t in sorted(ledger.keys()) if t not in ("OVERALL", "LATENCY_P50_MS", "DATASET")]
-        for m in ("OVERALL", "LATENCY_P50_MS"):
-            if m in ledger: tracks.append(m)
-
-        hdr = f"{'Benchmark Track / Metric':<32} | {'Count':>6} | " + " | ".join(f"{m:>14}" for m in models)
-        sep = "-" * len(hdr)
-        print("\n" + "=" * len(hdr) + "\n" + hdr + "\n" + sep)
-        for track in tracks:
-            entry = ledger.get(track, {})
-            cnt = entry.get("count", "-")
-            if track == "LATENCY_P50_MS":
-                cols = [f"{entry[m]:12.2f} ms" if m in entry else f"{'-':>14}" for m in models]
-            else:
-                cols = [f"{entry[m]*100:13.1f}%" if m in entry else f"{'-':>14}" for m in models]
-            if track in ("OVERALL", "LATENCY_P50_MS"):
-                print(sep)
-            print(f"{track:<32} | {str(cnt):>6} | " + " | ".join(cols))
-        print("=" * len(hdr) + "\n")

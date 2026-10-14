@@ -30,7 +30,7 @@ from data.curation.ngram_leakage import ILeakagePolicy, NGramLeakagePolicy
 from data.sources.glaive_source import GlaiveSource
 from data.sources.decisions_source import DecisionsSource
 from data.sources.huggingface_source import HuggingFaceSource, BenchmarkSpec, RAW_DIR
-from benchmark.scorecard import IScorecard, Scorecard, BenchmarkItem, BenchmarkReport, SCORES_FILE, CategoryHits
+from benchmark.scorecard import IScorecard, Scorecard, BenchmarkReport, CategoryHits
 from benchmark.ledger import ILedgerPolicy, DiskLedgerPolicy
 from benchmark.competitors.gliner_decide import GlinerDecideEngine
 from benchmark.competitors.laya import LayaEngine
@@ -60,7 +60,7 @@ __all__ = [
     "IAnswer", "ChoiceResult", "NoulResult", "ScoreResult", "Answer", "DecisionResult",
     "TokenLayout", "PredictionLayout", "DecisionCase",
     "Batch", "StepStats", "TargetSlot", "SampleTargets",
-    "BenchmarkItem", "BenchmarkReport", "SCORES_FILE", "CategoryHits",
+    "BenchmarkReport", "CategoryHits",
     # Transforms & Paths
     "format_state",
     "list_weights",

@@ -24,7 +24,7 @@ class GlinerDecideEngine(IDecisionEngine):
                 try:
                     from gliner2 import AutoExtractor
                     m = AutoExtractor.from_pretrained(self.model_id)
-                except ImportError:
+                except (ImportError, TypeError):
                     from gliner import GLiNER
                     m = GLiNER.from_pretrained(self.model_id)
                 if hasattr(m, "to"): m.to(self.device)

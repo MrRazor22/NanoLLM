@@ -10,13 +10,22 @@ from inference.questions import (
 class KevEngine(IDecisionEngine):
     """Sovereign competitor adapter: wraps Jared Palmer's Kev decision server (/v1/systemone)."""
 
-    def __init__(self, endpoint: str = "", timeout: float = 30.0, device: Optional[str] = None):
+    def __init__(
+        self,
+        endpoint: str = "",
+        timeout: float = 30.0,
+        device: Optional[str] = None,
+        model: str = "kev-4b",
+        api_key: str = "lm-studio",
+    ):
         import os
+        self.model = model
+        self.api_key = api_key or os.environ.get("LM_STUDIO_API_KEY", "lm-studio")
         self.endpoint = endpoint or os.environ.get("KEV_ENDPOINT", "")
         self.timeout = timeout
         self.candidate_endpoints = [self.endpoint] if self.endpoint else [
-            "http://127.0.0.1:8008/v1/systemone",
             "http://127.0.0.1:1234/v1/systemone",
+            "http://127.0.0.1:8008/v1/systemone",
         ]
 
     def decide(self, state: DecisionState, questions: Sequence[Question]) -> DecisionResult:
@@ -37,14 +46,16 @@ class KevEngine(IDecisionEngine):
                     "criteria": [str(q.min_value), str(q.max_value)],
                 }
 
-        payload = json.dumps({"state": str(state), "questions": q_dict}).encode("utf-8")
+        payload = json.dumps({"model": self.model, "state": str(state), "questions": q_dict}).encode("utf-8")
         raw = None
-        last_err = None
         for ep in self.candidate_endpoints:
+            headers = {"Content-Type": "application/json"}
+            if self.api_key:
+                headers["Authorization"] = f"Bearer {self.api_key}"
             req = urllib.request.Request(
                 ep,
                 data=payload,
-                headers={"Content-Type": "application/json"},
+                headers=headers,
                 method="POST",
             )
             try:
