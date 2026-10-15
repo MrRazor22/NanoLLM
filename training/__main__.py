@@ -1,6 +1,9 @@
 import random
 import time
 from typing import Optional
+from rich import box
+from rich.console import Console
+from rich.table import Table
 import torch
 import transformers
 import typer
@@ -12,12 +15,21 @@ from data.dataset_extensions import CORPUS_DIR
 from model.policies.weight_cache import DiskWeightCache
 from model.torch_model import TorchModel
 from training.epoch_trainer import EpochTrainer, ITrainer
+from training.policies.schedule import ConstantSchedule, CosineSchedule
 from training.telemetry.checkpointing_layer import CheckpointingLayer
 from training.telemetry.metrics_layer import MetricsLayer
 
 DEFAULT_BACKBONE = "answerdotai/ModernBERT-base"
 
 app = typer.Typer(add_completion=False, help="Piqo Model Trainer CLI")
+
+def make_card(title: str, rows: list[tuple[str, str]], style: str = "bold magenta") -> Table:
+    table = Table(title=title, box=box.HORIZONTALS, title_style=style)
+    table.add_column("Property", style="cyan")
+    table.add_column("Value", style="bold green" if style == "bold white" else "green")
+    for k, v in rows:
+        table.add_row(k, v)
+    return table
 
 @app.command()
 def main(
@@ -36,6 +48,7 @@ def main(
     warmup_ratio: float = typer.Option(0.05, help="Warmup ratio for cosine schedule"),
     eval_test: bool = typer.Option(False, "--eval-test", help="Evaluate internal holdout test split after training"),
 ) -> None:
+    console = Console()
     random.seed(seed)
     torch.manual_seed(seed)
     if torch.cuda.is_available():
@@ -49,47 +62,52 @@ def main(
     target_epochs = epochs if epochs is not None else (2 if from_scratch else 1)
     target_lr = lr if lr is not None else (3e-5 if from_scratch else 1e-5)
 
-    model = TorchModel(
-        backbone_name=backbone,
-        accum_steps=accum_steps,
-        compile=compile,
-    )
+    model = TorchModel(backbone_name=backbone, accum_steps=accum_steps, compile=compile)
     if init_ckpt:
         model.load(init_ckpt)
-    from training.policies.schedule import ConstantSchedule, CosineSchedule
+
     sched = ConstantSchedule() if schedule.lower() == "constant" else CosineSchedule(warmup_ratio=warmup_ratio)
-    trainer: ITrainer = EpochTrainer(model=model, batch_size=batch_size, base_lr=target_lr, schedule=sched)
-    trainer = trainer | MetricsLayer(log_interval_sec=5.0)
-    trainer = trainer | CheckpointingLayer(output_path=out_target)
+    trainer: ITrainer = (
+        EpochTrainer(model=model, batch_size=batch_size, base_lr=target_lr, schedule=sched)
+        | MetricsLayer(log_interval_sec=5.0)
+        | CheckpointingLayer(output_path=out_target)
+    )
 
     dataset = DiskStorageLayer(corpus_dir=corpus_dir)
     train_cases = dataset.load("train")
     val_cases = dataset.load("val")
 
-    from collections import Counter
-    train_cats = Counter(c.category or "general" for c in train_cases)
-    cat_summary = ", ".join(f"{cat}: {cnt}" for cat, cnt in train_cats.most_common())
-    print(f"Loaded dataset: {len(train_cases)} train, {len(val_cases)} val cases.")
-    print(f"Domain Distribution: {cat_summary}")
-    if init_ckpt:
-        print(f"Initialized from checkpoint: {init_ckpt}")
-    else:
-        print("Initialized from scratch: raw ModernBERT backbone with fresh Xavier head (zero checkpoint weights).")
-    print(f"Starting training on {backbone} (LR: {target_lr}, Batch: {batch_size}) for {target_epochs} epoch(s)...")
+    init_desc = f"Checkpoint ({init_ckpt})" if init_ckpt else "Scratch (Raw Backbone + Xavier Head)"
+    console.print(f"\n[bold cyan]Piqo Model Trainer[/bold cyan] | Target: [bold green]model/weights/{out_target}[/bold green]\n")
+    console.print(make_card("Training Configuration", [
+        ("Backbone", backbone),
+        ("Initialization", init_desc),
+        ("Epochs", str(target_epochs)),
+        ("Batch Size (Effective)", f"{batch_size} (Effective: {batch_size * accum_steps})"),
+        ("Learning Rate", f"{target_lr:.2e} ({schedule})"),
+        ("Dataset Splits", f"{len(train_cases):,} train, {len(val_cases):,} val cases"),
+    ]))
+    console.print("")
 
     stats = list(trainer.fit(train_cases, epochs=target_epochs, val_cases=val_cases))
-    final_val = f" | Val Loss: {stats[-1].val_loss:.4f}" if stats and stats[-1].val_loss is not None else ""
+
+    res = [("Status", "Completed Successfully")]
+    if stats:
+        res.append(("Final Train Loss", f"{stats[-1].loss:.4f}"))
+        if stats[-1].val_loss is not None:
+            res.append(("Final Val Loss", f"{stats[-1].val_loss:.4f}"))
 
     if eval_test:
         test_cases = dataset.load("test")
-        print(f"\nEvaluating internal holdout test split ({len(test_cases)} cases)...", flush=True)
-        t_eval_start = time.perf_counter()
+        console.print(f"\n[dim]Evaluating internal holdout test split ({len(test_cases):,} cases)...[/dim]")
+        t_eval = time.perf_counter()
         test_loss = trainer.evaluate(test_cases)
-        eval_elapsed_ms = (time.perf_counter() - t_eval_start) * 1000.0
-        print(f"Test Holdout Complete | Final Loss: {test_loss:.4f} | Total Time: {eval_elapsed_ms / 1000.0:.1f}s ({eval_elapsed_ms / max(1, len(test_cases)):.2f}ms/case)")
+        ms = (time.perf_counter() - t_eval) * 1000.0 / max(1, len(test_cases))
+        res.append(("Test Holdout Loss", f"{test_loss:.4f} ({ms:.2f}ms/case)"))
 
-    print(f"Training completed.{final_val}")
-    print(f"Weights saved to model/weights/{out_target}")
+    res.append(("Output Weights", f"model/weights/{out_target}"))
+    console.print(make_card("Training Results", res, style="bold white"))
+    console.print("")
 
 if __name__ == "__main__":
     app()

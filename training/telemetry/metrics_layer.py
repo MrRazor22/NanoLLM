@@ -1,6 +1,7 @@
 from pathlib import Path
 import time
 from typing import Iterator, Optional, Protocol, Union, runtime_checkable
+from rich.console import Console
 import torch
 from training.stats import StepStats
 from training.epoch_trainer import ITrainer, ITrainerLayer
@@ -11,9 +12,12 @@ class ILogSink(Protocol):
     def write(self, message: str) -> None: ...
 
 class ConsoleSink(ILogSink):
-    """Default stdout logging sink."""
+    """Rich stdout logging sink with markup support."""
+    def __init__(self, console: Optional[Console] = None):
+        self.console = console or Console()
+
     def write(self, message: str) -> None:
-        print(message, flush=True)
+        self.console.print(message)
 
 class MetricsLayer(ITrainer):
     """Layer Decorator (lambda: P -> P): Real-time logging over the StepStats stream."""
@@ -50,24 +54,24 @@ class MetricsLayer(ITrainer):
             is_interval = (now - last_log >= self.log_interval_sec)
 
             if is_epoch_end or is_checkpoint or is_interval:
-                elapsed_sec = int(now - start_time)
-                elapsed_str = f"{elapsed_sec // 60:02d}:{elapsed_sec % 60:02d}"
-                rem_steps = max(0, s.total_steps - s.step)
-                rem_sec = int((elapsed_sec / max(1, s.step)) * rem_steps)
-                eta_str = f"{rem_sec // 60:02d}:{rem_sec % 60:02d}"
-                vram_info = f" | VRAM: {torch.cuda.memory_reserved() / (1024**3):.1f}GB" if torch.cuda.is_available() else ""
-                pct = int((s.step / max(1, s.total_steps)) * 100)
-                batch_pct = int((s.batch / max(1, s.total_batches)) * 100)
+                el_s = int(now - start_time)
+                el_str = f"{el_s // 60:02d}:{el_s % 60:02d}"
+                rem_s = int((el_s / max(1, s.step)) * max(0, s.total_steps - s.step))
+                eta_str = f"{rem_s // 60:02d}:{rem_s % 60:02d}"
+                vram = f" | VRAM: {torch.cuda.memory_reserved() / (1024**3):.1f}GB" if torch.cuda.is_available() else ""
+                val = f" | [bold green]Val Loss: {s.val_loss:.4f}[/bold green]" if s.val_loss is not None else ""
 
                 if is_epoch_end:
-                    val_info = f" | Val Loss: {s.val_loss:.4f}" if s.val_loss is not None else ""
-                    self.sink.write(f"Epoch {s.epoch}/{s.total_epochs} Complete | Train Loss: {s.loss:.4f}{val_info}{vram_info} | {s.elapsed_ms:.0f}ms/step | Total: {elapsed_str}")
+                    msg = f"[bold cyan]Epoch {s.epoch}/{s.total_epochs} Complete[/bold cyan] | [green]Train Loss: {s.loss:.4f}[/green]{val}{vram} | [dim]{s.elapsed_ms:.0f}ms/step[/dim] | Total: {el_str}"
                 elif is_checkpoint:
-                    self.sink.write(f"Epoch {s.epoch}/{s.total_epochs} Checkpoint ({batch_pct}%) | Train Loss: {s.loss:.4f} | Val Loss: {s.val_loss:.4f}{vram_info} | Elapsed: {elapsed_str} | ETA: {eta_str}")
+                    pct = int((s.batch / max(1, s.total_batches)) * 100)
+                    msg = f"[cyan]Epoch {s.epoch}/{s.total_epochs}[/cyan] Checkpoint ({pct}%) | [green]Train: {s.loss:.4f}[/green]{val}{vram} | [dim]Elapsed: {el_str} | ETA: {eta_str}[/dim]"
                 else:
-                    lr_info = f" | LR: {s.lr:.2e}" if s.lr > 0 else ""
-                    self.sink.write(f"Epoch {s.epoch}/{s.total_epochs} | Step {s.step}/{s.total_steps} ({pct}%) | Loss: {s.loss:.4f}{lr_info}{vram_info} | {s.elapsed_ms:.0f}ms/step | Elapsed: {elapsed_str} | ETA: {eta_str}")
+                    pct = int((s.step / max(1, s.total_steps)) * 100)
+                    lr = f" | [cyan]LR: {s.lr:.2e}[/cyan]" if s.lr > 0 else ""
+                    msg = f"[cyan]Epoch {s.epoch}/{s.total_epochs}[/cyan] | Step [bold]{s.step}[/bold]/{s.total_steps} ({pct}%) | [green]Loss: {s.loss:.4f}[/green]{lr}{vram} | [dim]{s.elapsed_ms:.0f}ms/step[/dim] | [dim]Elapsed: {el_str} | ETA: {eta_str}[/dim]"
 
+                self.sink.write(msg)
                 last_log = now
 
             yield s
