@@ -1,4 +1,4 @@
-import json
+import orjson
 from pathlib import Path
 from typing import Optional, Protocol, Union, runtime_checkable
 from model.weights import Weights
@@ -19,12 +19,12 @@ class DiskWeightCache(IWeightCache):
 
     def get(self, target: Union[str, Path]) -> Optional[Weights]:
         p = Path(target)
-        w_file = p if p.is_absolute() or p.parent != Path(".") else self.root_dir / (p.name if p.name.endswith(".pt") else f"{p.name}.pt")
-        w_file = w_file if w_file.suffix == ".pt" else w_file.with_suffix(".pt")
-        if not w_file.exists():
+        base = p if p.is_absolute() or p.parent != Path(".") else self.root_dir / p.stem
+        w_file = base if base.is_file() else next((f for ext in (".safetensors", ".pt") if (f := base.with_suffix(ext)).is_file()), None)
+        if not w_file:
             return None
-        meta_file = w_file.parent / f"{w_file.stem}.json"
-        meta = json.loads(meta_file.read_text(encoding="utf-8")) if meta_file.exists() else {}
+        meta_file = w_file.with_suffix(".json")
+        meta = orjson.loads(meta_file.read_bytes()) if meta_file.exists() else {}
         return Weights.from_bytes(
             payload=w_file.read_bytes(),
             name=meta.get("name", w_file.name),
@@ -36,13 +36,12 @@ class DiskWeightCache(IWeightCache):
 
     def put(self, target: Union[str, Path], weights: Weights) -> Path:
         p = Path(target)
-        w_file = p if p.is_absolute() or p.parent != Path(".") else self.root_dir / (p.name if p.name.endswith(".pt") else f"{p.name}.pt")
-        w_file = w_file if w_file.suffix == ".pt" else w_file.with_suffix(".pt")
+        ext = p.suffix if p.suffix in (".safetensors", ".pt") else ".safetensors"
+        w_file = (p if p.is_absolute() or p.parent != Path(".") else self.root_dir / p.stem).with_suffix(ext)
         w_file.parent.mkdir(parents=True, exist_ok=True)
         if weights.payload:
             w_file.write_bytes(weights.payload)
 
-        meta_file = w_file.parent / f"{w_file.stem}.json"
         meta = {
             "name": weights.name or w_file.name,
             "epoch": weights.epoch,
@@ -50,5 +49,5 @@ class DiskWeightCache(IWeightCache):
             "val_loss": weights.val_loss,
             "saved_at": weights.saved_at,
         }
-        meta_file.write_text(json.dumps(meta, indent=2), encoding="utf-8")
+        w_file.with_suffix(".json").write_bytes(orjson.dumps(meta, option=orjson.OPT_INDENT_2))
         return w_file

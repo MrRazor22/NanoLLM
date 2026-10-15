@@ -6,9 +6,9 @@
 - **The 5 Irreducible Sovereign Domains:**
   1. **Model:** [`model/`](file:///d:/CodeBase/Piqo/model) — [`IModel`](file:///d:/CodeBase/Piqo/model/torch_model.py), [`TorchModel`](file:///d:/CodeBase/Piqo/model/torch_model.py), [`ILoss`](file:///d:/CodeBase/Piqo/model/policies/calibrated_loss.py), [`CalibratedLoss`](file:///d:/CodeBase/Piqo/model/policies/calibrated_loss.py)
   2. **Inference:** [`inference/`](file:///d:/CodeBase/Piqo/inference) — [`IDecisionEngine`](file:///d:/CodeBase/Piqo/inference/decision_engine.py), [`DecisionEngine`](file:///d:/CodeBase/Piqo/inference/decision_engine.py)
-  3. **Training:** [`training/`](file:///d:/CodeBase/Piqo/training) — [`ITrainer`](file:///d:/CodeBase/Piqo/training/epoch_trainer.py), [`EpochTrainer`](file:///d:/CodeBase/Piqo/training/epoch_trainer.py), [`ISchedulePolicy`](file:///d:/CodeBase/Piqo/training/policies/schedule_policy.py), [`CosineSchedulePolicy`](file:///d:/CodeBase/Piqo/training/policies/schedule_policy.py)
+  3. **Training:** [`training/`](file:///d:/CodeBase/Piqo/training) — [`ITrainer`](file:///d:/CodeBase/Piqo/training/epoch_trainer.py), [`EpochTrainer`](file:///d:/CodeBase/Piqo/training/epoch_trainer.py), [`ISchedule`](file:///d:/CodeBase/Piqo/training/policies/schedule.py), [`CosineSchedule`](file:///d:/CodeBase/Piqo/training/policies/schedule.py)
   4. **Data:** [`data/`](file:///d:/CodeBase/Piqo/data) — [`IDataset`](file:///d:/CodeBase/Piqo/data/dataset.py), [`Dataset`](file:///d:/CodeBase/Piqo/data/dataset.py)
-  5. **Benchmark:** [`benchmark/`](file:///d:/CodeBase/Piqo/benchmark) — [`IScorecard`](file:///d:/CodeBase/Piqo/benchmark/scorecard.py), [`Scorecard`](file:///d:/CodeBase/Piqo/benchmark/scorecard.py)
+  5. **Benchmark:** [`benchmark/`](file:///d:/CodeBase/Piqo/benchmark) — [`IBenchmark`](file:///d:/CodeBase/Piqo/benchmark/benchmark.py), [`Benchmark`](file:///d:/CodeBase/Piqo/benchmark/benchmark.py), [`IScorerPolicy`](file:///d:/CodeBase/Piqo/benchmark/policies/scorer.py), [`ILedgerPolicy`](file:///d:/CodeBase/Piqo/benchmark/policies/ledger.py), [`IReporterPolicy`](file:///d:/CodeBase/Piqo/benchmark/policies/reporter.py)
 - **Zero Meta-Buckets & Zero Nesting:** Root commands the sovereign domains directly as siblings with 1:1 disk topology.
 
 ## 2. Operational Workflows & Commands (Zero-Flag Self-Wiring Defaults)

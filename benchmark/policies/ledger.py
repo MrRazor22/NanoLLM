@@ -1,4 +1,4 @@
-import json
+import orjson
 from pathlib import Path
 from typing import Dict, Optional, Protocol, Union, runtime_checkable
 from benchmark.policies.scorer import BenchmarkReport
@@ -19,13 +19,12 @@ class DiskLedgerPolicy(ILedgerPolicy):
         self.scores_path = Path(scores_path or DEFAULT_SCORES_FILE)
 
     def get(self, model: str, suite: str = "default") -> Optional[Dict[str, float]]:
-        data = json.loads(self.scores_path.read_text(encoding="utf-8")) if self.scores_path.exists() else {}
-        suite_data = data.get(suite, {})
+        suite_data = self.all(suite)
         scores = {t: entry[model] for t, entry in suite_data.items() if isinstance(entry, dict) and model in entry}
         return scores if scores else None
 
     def put(self, report: BenchmarkReport) -> None:
-        data = json.loads(self.scores_path.read_text(encoding="utf-8")) if self.scores_path.exists() else {}
+        data = self.all()
         suite_data = data.setdefault(report.suite or "default", {})
         suite_data["count"] = report.count
 
@@ -40,8 +39,8 @@ class DiskLedgerPolicy(ILedgerPolicy):
             brier_entry = suite_data.setdefault("BRIER_SCORE", {})
             brier_entry["count"], brier_entry[report.model] = "-", round(report.brier_score, 4)
 
-        self.scores_path.write_text(json.dumps(data, indent=2), encoding="utf-8")
+        self.scores_path.write_bytes(orjson.dumps(data, option=orjson.OPT_INDENT_2))
 
     def all(self, suite: Optional[str] = None) -> Dict[str, dict]:
-        data = json.loads(self.scores_path.read_text(encoding="utf-8")) if self.scores_path.exists() else {}
+        data = orjson.loads(self.scores_path.read_bytes()) if self.scores_path.exists() else {}
         return data.get(suite, {}) if suite is not None else data

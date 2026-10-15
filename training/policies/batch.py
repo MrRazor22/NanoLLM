@@ -1,3 +1,4 @@
+import itertools
 import random
 from typing import Callable, Iterator, Optional, Protocol, Sequence, runtime_checkable
 from data.case import DecisionCase
@@ -22,7 +23,7 @@ class BucketedBatch(IBatch):
         if not cases:
             return
         sorted_cases = sorted(cases, key=self.key)
-        chunks = [sorted_cases[i : i + batch_size] for i in range(0, len(sorted_cases), batch_size)]
+        chunks = list(itertools.batched(sorted_cases, batch_size))
         if self.shuffle:
             random.shuffle(chunks)
         yield from chunks
@@ -31,5 +32,4 @@ class SequentialBatch(IBatch):
     """Deterministic linear chunking without reordering, ideal for evaluation."""
 
     def batch(self, cases: Sequence[DecisionCase], batch_size: int = 16) -> Iterator[Sequence[DecisionCase]]:
-        for i in range(0, len(cases), batch_size):
-            yield cases[i : i + batch_size]
+        yield from itertools.batched(cases, batch_size)

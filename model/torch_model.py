@@ -102,13 +102,15 @@ class TorchModel(IModel):
         return loss.item()
 
     def save(self, target: Union[str, Path] = "piqo", meta: Optional[WeightMeta] = None) -> Path:
-        buf = io.BytesIO()
-        head_sd = self.head.state_dict() if hasattr(self.head, "state_dict") else {}
-        torch.save({"backbone": self.backbone.state_dict(), "head": head_sd}, buf)
+        from safetensors.torch import save
+        tensors = {f"backbone.{k}": v.contiguous() for k, v in self.backbone.state_dict().items()}
+        if hasattr(self.head, "state_dict"):
+            tensors.update({f"head.{k}": v.contiguous() for k, v in self.head.state_dict().items()})
+        raw_bytes = save(tensors)
         metadata = meta or WeightMeta(saved_at=time.strftime("%Y-%m-%d %H:%M:%S"))
         if not metadata.saved_at:
             metadata = WeightMeta(epoch=metadata.epoch, train_loss=metadata.train_loss, val_loss=metadata.val_loss, saved_at=time.strftime("%Y-%m-%d %H:%M:%S"))
-        return self.weight_cache.put(target, Weights(payload=buf.getvalue(), name=Path(target).stem, meta=metadata))
+        return self.weight_cache.put(target, Weights(payload=raw_bytes, name=Path(target).stem, meta=metadata))
 
     def load(self, source: Optional[Union[Weights, str, Path]] = None) -> None:
         target = "piqo" if source is None else source
@@ -117,15 +119,21 @@ class TorchModel(IModel):
             raise FileNotFoundError(f"Weights not found: {target}")
         if not weights.payload:
             return
-        raw = torch.load(io.BytesIO(weights.payload), map_location=self.device)
-        sd = raw.get("model_state_dict", raw) if isinstance(raw, dict) else raw
+        sd = None
+        try:
+            from safetensors.torch import load
+            sd = load(weights.payload)
+        except Exception:
+            raw = torch.load(io.BytesIO(weights.payload), map_location=self.device)
+            sd = raw.get("model_state_dict", raw) if isinstance(raw, dict) else raw
+
         if isinstance(sd, dict) and "backbone" in sd and "head" in sd:
             self.backbone.load_state_dict(sd["backbone"], strict=False)
             if hasattr(self.head, "load_state_dict"):
                 self.head.load_state_dict(sd["head"], strict=False)
         elif isinstance(sd, dict):
-            bb_sd = {k.replace("backbone.", ""): v for k, v in sd.items() if k.startswith("backbone.")}
-            h_sd = {k.replace("head.", ""): v for k, v in sd.items() if k.startswith("head.")}
+            bb_sd = {k.removeprefix("backbone."): v for k, v in sd.items() if k.startswith("backbone.")}
+            h_sd = {k.removeprefix("head."): v for k, v in sd.items() if k.startswith("head.")}
             if bb_sd:
                 self.backbone.load_state_dict(bb_sd, strict=False)
             else:

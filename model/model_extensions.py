@@ -15,18 +15,21 @@ def list_weights(root: Optional[Path] = None) -> Sequence[Weights]:
     if not weights_dir.exists():
         return []
 
+    files = {f.stem: f for ext in (".pt", ".safetensors") for f in weights_dir.glob(f"*{ext}")}
     results = []
-    for w_file in weights_dir.glob("*.pt"):
-        meta_file = weights_dir / f"{w_file.stem}.json"
+    for stem, w_file in files.items():
+        meta_file = w_file.with_suffix(".json")
         meta = json.loads(meta_file.read_text(encoding="utf-8")) if meta_file.exists() else {}
         results.append(
             Weights(
-                name=meta.get("name", w_file.name),
+                name=meta.get("name", stem),
                 size_mb=round(w_file.stat().st_size / (1024 * 1024), 1),
-                epoch=meta.get("epoch", 1),
-                train_loss=meta.get("train_loss"),
-                val_loss=meta.get("val_loss"),
-                saved_at=meta.get("saved_at"),
+                meta=WeightMeta(
+                    epoch=meta.get("epoch", 1),
+                    train_loss=meta.get("train_loss"),
+                    val_loss=meta.get("val_loss"),
+                    saved_at=meta.get("saved_at"),
+                ),
             )
         )
     return sorted(results, key=lambda x: x.saved_at or "", reverse=True)

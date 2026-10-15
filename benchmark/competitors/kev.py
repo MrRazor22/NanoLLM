@@ -1,6 +1,6 @@
 import json
 from typing import Callable, Optional, Sequence
-import urllib.request
+import httpx
 from inference.decision_engine import IDecisionEngine
 from inference.questions import (
     Choice, ChoiceResult, DecisionResult, DecisionState,
@@ -46,23 +46,16 @@ class KevEngine(IDecisionEngine):
                     "criteria": [str(q.min_value), str(q.max_value)],
                 }
 
-        payload = json.dumps({"model": self.model, "state": str(state), "questions": q_dict}).encode("utf-8")
-        raw = None
+        payload = {"model": self.model, "state": str(state), "questions": q_dict}
+        raw, last_err = None, None
+        headers = {"Authorization": f"Bearer {self.api_key}"} if self.api_key else {}
         for ep in self.candidate_endpoints:
-            headers = {"Content-Type": "application/json"}
-            if self.api_key:
-                headers["Authorization"] = f"Bearer {self.api_key}"
-            req = urllib.request.Request(
-                ep,
-                data=payload,
-                headers=headers,
-                method="POST",
-            )
             try:
-                with urllib.request.urlopen(req, timeout=self.timeout) as resp:
-                    raw = json.loads(resp.read().decode("utf-8"))
-                    self.candidate_endpoints = [ep]
-                    break
+                resp = httpx.post(ep, json=payload, headers=headers, timeout=self.timeout)
+                resp.raise_for_status()
+                raw = resp.json()
+                self.candidate_endpoints = [ep]
+                break
             except Exception as e:
                 last_err = e
                 continue

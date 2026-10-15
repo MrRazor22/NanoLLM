@@ -1,7 +1,7 @@
 import json
 import os
 from typing import Callable, Optional, Sequence
-import urllib.request
+import httpx
 from inference.decision_engine import IDecisionEngine
 from inference.questions import (
     Choice, ChoiceResult, DecisionResult, DecisionState,
@@ -56,18 +56,14 @@ class JevEngine(IDecisionEngine):
             "questions": q_dict,
         }
 
-        req = urllib.request.Request(
+        resp = httpx.post(
             self.endpoint,
-            data=json.dumps(payload).encode("utf-8"),
-            headers={
-                "Content-Type": "application/json",
-                "Authorization": f"Bearer {self.api_key}",
-            },
-            method="POST",
+            json=payload,
+            headers={"Authorization": f"Bearer {self.api_key}"},
+            timeout=self.timeout,
         )
-
-        with urllib.request.urlopen(req, timeout=self.timeout) as resp:
-            data = json.loads(resp.read().decode("utf-8"))
+        resp.raise_for_status()
+        data = resp.json()
 
         answers = {}
         results = data.get("results", {})

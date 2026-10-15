@@ -1,7 +1,7 @@
 import json
 from pathlib import Path
 from typing import Mapping, Protocol, Sequence, runtime_checkable
-import urllib.request
+import httpx
 
 from data.case import DecisionCase
 from data.sources.huggingface_source import RAW_DIR
@@ -24,10 +24,9 @@ def fetch_cached_jsonl(url: str, filename: str) -> list[dict]:
         with open(target, "r", encoding="utf-8") as f:
             return [json.loads(line) for line in f if line.strip()]
 
-    req = urllib.request.Request(url, headers={"User-Agent": "Piqo-Benchmark/1.0"})
-    with urllib.request.urlopen(req, timeout=30) as resp:
-        content = resp.read().decode("utf-8")
-        rows = [json.loads(line) for line in content.splitlines() if line.strip()]
+    resp = httpx.get(url, headers={"User-Agent": "Piqo-Benchmark/1.0"}, timeout=30.0, follow_redirects=True)
+    resp.raise_for_status()
+    rows = [json.loads(line) for line in resp.text.splitlines() if line.strip()]
 
     if rows:
         target.parent.mkdir(parents=True, exist_ok=True)

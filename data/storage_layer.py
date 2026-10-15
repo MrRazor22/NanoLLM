@@ -1,4 +1,4 @@
-import json
+import orjson
 from pathlib import Path
 from typing import Optional, Sequence, Union
 from data.case import DataSplits, DecisionCase, SplitTag
@@ -23,7 +23,7 @@ class DiskStorageLayer(IDataset):
         self.corpus_dir.mkdir(parents=True, exist_ok=True)
         for tag, items in (("train", splits.train), ("val", splits.val), ("test", splits.test)):
             target = self.corpus_dir / f"{tag}.jsonl"
-            lines = [json.dumps(s.to_dict(), default=str) for s in items]
+            lines = [orjson.dumps(s.to_dict()).decode("utf-8") for s in items]
             target.write_text("\n".join(lines) + ("\n" if lines else ""), encoding="utf-8")
         return splits
 
@@ -35,8 +35,8 @@ class DiskStorageLayer(IDataset):
                 f"Explicitly prepare the corpus first (e.g. run 'python -m data' or invoke dataset.prepare())."
             )
         return [
-            DecisionCase.from_dict(json.loads(line))
-            for line in target.read_text(encoding="utf-8").splitlines()
+            DecisionCase.from_dict(orjson.loads(line))
+            for line in target.read_bytes().splitlines()
             if line.strip()
         ]
 
