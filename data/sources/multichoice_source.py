@@ -1,6 +1,7 @@
 from dataclasses import dataclass
 from typing import List, Optional, Sequence
 from datasets import load_dataset
+
 from data.case import DecisionCase, SourceRecord
 from data.sources.source import IDataSource
 from inference.questions import Choice
@@ -38,45 +39,74 @@ MULTICHOICE_REASONING_BENCHMARKS: Sequence[MultiChoiceSpec] = (
     ),
 )
 
+def _load_multichoice_split(spec: MultiChoiceSpec, source_name: str, split: str) -> List[dict]:
+    target = RAW_DIR / f"{source_name}_{split}.jsonl"
+    def _fetch() -> List[dict]:
+        args = [spec.dataset]
+        if spec.subset:
+            args.append(spec.subset)
+        rows = list(load_dataset(*args, split=split))
+        limit = spec.test_limit if split == "test" else spec.train_limit
+        if limit is not None:
+            rows = rows[:limit]
+        return rows
+
+    rows = read_raw_jsonl(target, _fetch)
+    limit = spec.test_limit if split == "test" else spec.train_limit
+    if limit is not None and len(rows) > limit:
+        rows = rows[:limit]
+    return rows
+
 class MultiChoiceReasoningSource(IDataSource):
     """Universal source adapter for multi-choice reasoning benchmarks (ARC, OpenBookQA)."""
 
     def __init__(self, spec: Optional[MultiChoiceSpec] = None):
         self.spec = spec or MULTICHOICE_REASONING_BENCHMARKS[0]
-        self.name = f"{self.spec.dataset.replace('/', '_')}_{self.spec.subset}" if self.spec.subset else self.spec.dataset.replace("/", "_")
+        self.name = self.spec.dataset.replace("/", "_")
+        if self.spec.subset:
+            self.name = f"{self.name}_{self.spec.subset}"
 
     def read(self) -> Sequence[SourceRecord]:
         records: List[SourceRecord] = []
         for split_name in self.spec.splits:
-            target = RAW_DIR / f"{self.name}_{split_name}.jsonl"
-            args = [self.spec.dataset] + ([self.spec.subset] if self.spec.subset else [])
-            limit = self.spec.test_limit if split_name == "test" else self.spec.train_limit
-            rows = read_raw_jsonl(target, lambda s=split_name: list(load_dataset(*args, split=s)))
-            if limit is not None and len(rows) > limit:
-                rows = rows[:limit]
+            rows = _load_multichoice_split(self.spec, self.name, split_name)
             tag = "test" if split_name == "test" else "train"
-
             for r in rows:
-                state = str(r.get(self.spec.question_field, "")).strip()
+                state = r.get(self.spec.question_field, "").strip()
                 choices_raw = r.get(self.spec.choices_field, {})
                 ans_key = str(r.get(self.spec.answer_field, "")).strip()
+
                 if not state or not choices_raw or not ans_key:
                     continue
+
                 texts = choices_raw.get("text", [])
                 labels = choices_raw.get("label", [])
                 if not texts or len(texts) < 2:
                     continue
-                target_idx = labels.index(ans_key) if ans_key in labels else (int(ans_key) - 1 if ans_key.isdigit() and 0 < int(ans_key) <= len(texts) else None)
+
+                target_idx: Optional[int] = None
+                if ans_key in labels:
+                    target_idx = labels.index(ans_key)
+                elif ans_key.isdigit():
+                    num_idx = int(ans_key) - 1
+                    if 0 <= num_idx < len(texts):
+                        target_idx = num_idx
+
                 if target_idx is None or target_idx >= len(texts):
                     continue
-                records.append(SourceRecord(
-                    sample=DecisionCase(
-                        state=state,
-                        questions=[Choice(name="choice", options=list(texts), instruction=self.spec.instruction, target=texts[target_idx])],
-                        category=self.spec.category,
-                    ),
-                    tag=tag,
-                ))
-        return records
 
-__all__ = ["MultiChoiceSpec", "MULTICHOICE_REASONING_BENCHMARKS", "MultiChoiceReasoningSource"]
+                case = DecisionCase(
+                    state=state,
+                    questions=[
+                        Choice(
+                            name="choice",
+                            options=texts,
+                            instruction=self.spec.instruction,
+                            target=texts[target_idx],
+                        )
+                    ],
+                    category=self.spec.category,
+                )
+                records.append(SourceRecord(sample=case, tag=tag))
+
+        return records
