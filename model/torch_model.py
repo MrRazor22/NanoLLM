@@ -117,17 +117,18 @@ class TorchModel(IModel):
             raise FileNotFoundError(f"Weights not found: {target}")
         if not weights.payload:
             return
-        sd = torch.load(io.BytesIO(weights.payload), map_location=self.device)
+        raw = torch.load(io.BytesIO(weights.payload), map_location=self.device)
+        sd = raw.get("model_state_dict", raw) if isinstance(raw, dict) else raw
         if isinstance(sd, dict) and "backbone" in sd and "head" in sd:
             self.backbone.load_state_dict(sd["backbone"], strict=False)
             if hasattr(self.head, "load_state_dict"):
                 self.head.load_state_dict(sd["head"], strict=False)
-        else:
+        elif isinstance(sd, dict):
             bb_sd = {k.replace("backbone.", ""): v for k, v in sd.items() if k.startswith("backbone.")}
             h_sd = {k.replace("head.", ""): v for k, v in sd.items() if k.startswith("head.")}
             if bb_sd:
                 self.backbone.load_state_dict(bb_sd, strict=False)
             else:
-                self.backbone.load_state_dict(sd.get("model_state_dict", sd) if isinstance(sd, dict) else sd, strict=False)
+                self.backbone.load_state_dict(sd, strict=False)
             if h_sd and hasattr(self.head, "load_state_dict"):
                 self.head.load_state_dict(h_sd, strict=False)
