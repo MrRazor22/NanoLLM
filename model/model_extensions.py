@@ -15,7 +15,7 @@ def list_weights(root: Optional[Path] = None) -> Sequence[Weights]:
     if not weights_dir.exists():
         return []
 
-    files = {f.stem: f for ext in (".pt", ".safetensors") for f in weights_dir.glob(f"*{ext}")}
+    files = {f.stem: f for f in weights_dir.glob("*.safetensors")}
     results = []
     for stem, w_file in files.items():
         meta_file = w_file.with_suffix(".json")

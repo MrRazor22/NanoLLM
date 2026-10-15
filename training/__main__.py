@@ -1,5 +1,7 @@
+import random
 import time
 from typing import Optional
+import torch
 import transformers
 import typer
 
@@ -34,6 +36,11 @@ def main(
     warmup_ratio: float = typer.Option(0.05, help="Warmup ratio for cosine schedule"),
     eval_test: bool = typer.Option(False, "--eval-test", help="Evaluate internal holdout test split after training"),
 ) -> None:
+    random.seed(seed)
+    torch.manual_seed(seed)
+    if torch.cuda.is_available():
+        torch.cuda.manual_seed_all(seed)
+
     cache = DiskWeightCache()
     has_piqo = cache.get("piqo") is not None
     init_ckpt = None if from_scratch or (init_weights and init_weights.lower() in ("none", "")) else (init_weights or ("piqo" if has_piqo else None))
@@ -48,8 +55,7 @@ def main(
         compile=compile,
     )
     if init_ckpt:
-        from model.model_extensions import load_weights
-        load_weights(model, init_ckpt)
+        model.load(init_ckpt)
     from training.policies.schedule import ConstantSchedule, CosineSchedule
     sched = ConstantSchedule() if schedule.lower() == "constant" else CosineSchedule(warmup_ratio=warmup_ratio)
     trainer: ITrainer = EpochTrainer(model=model, batch_size=batch_size, base_lr=target_lr, schedule=sched)

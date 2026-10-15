@@ -6,10 +6,11 @@ from benchmark.competitors.jev import JevEngine
 from benchmark.competitors.kev import KevEngine
 from benchmark.competitors.laya import LayaEngine
 from benchmark.competitors.verdict import VerdictEngine
-from benchmark.suites.gliner_fast_decisions import GlinerFastDecisionsSuite
-from benchmark.suites.jev_bench import JevBenchSuite
+from benchmark.suites.fast_decisions import FastDecisionsSuite
+from benchmark.suites.jevbench import JevBenchSuite
 from benchmark.suites.kev_transfer import KevTransferSuite
 from benchmark.suites.laya_typed import LayaTypedDecisionsSuite
+from benchmark.suites.verdict_nli import VerdictNliSuite
 from benchmark.suites.suite import IBenchmarkSuite
 from inference.decision_engine import DecisionEngine, IDecisionEngine
 
@@ -23,15 +24,19 @@ AVAILABLE_ENGINES: dict[str, Type[IDecisionEngine]] = {
 }
 
 PUBLISHED_SUITES: dict[str, Type[IBenchmarkSuite]] = {
-    "gliner": GlinerFastDecisionsSuite,
-    "fastino": GlinerFastDecisionsSuite,
-    "gliner_fast_decisions": GlinerFastDecisionsSuite,
+    "laya": LayaTypedDecisionsSuite,
+    "laya_typed": LayaTypedDecisionsSuite,
+    "laya_typed_decisions": LayaTypedDecisionsSuite,
+    "gliner": FastDecisionsSuite,
+    "fastino": FastDecisionsSuite,
+    "fast_decisions": FastDecisionsSuite,
+    "gliner_fast_decisions": FastDecisionsSuite,
     "jev": JevBenchSuite,
     "jevbench": JevBenchSuite,
     "jev_bench": JevBenchSuite,
+    "jevbench_hard": JevBenchSuite,
     "kev": KevTransferSuite,
     "kev_transfer": KevTransferSuite,
-    "laya": LayaTypedDecisionsSuite,
-    "laya_typed": LayaTypedDecisionsSuite,
-    "verdict": LayaTypedDecisionsSuite,
+    "verdict": VerdictNliSuite,
+    "verdict_nli": VerdictNliSuite,
 }

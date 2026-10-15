@@ -39,6 +39,8 @@ from benchmark.policies.ledger import ILedgerPolicy, DiskLedgerPolicy
 from benchmark.policies.reporter import IReporterPolicy, ConsoleReporterPolicy
 from benchmark.benchmark import IBenchmark, Benchmark
 from benchmark.competitors.gliner_decide import GlinerDecideEngine
+from benchmark.competitors.jev import JevEngine
+from benchmark.competitors.kev import KevEngine
 from benchmark.competitors.laya import LayaEngine
 from benchmark.competitors.verdict import VerdictEngine
 
@@ -48,7 +50,7 @@ __all__ = [
     "IDecisionEngine", "DecisionEngine",
     "ITrainer", "EpochTrainer",
     "IDataset", "Dataset",
-    "IBenchmark", "Benchmark", "GlinerDecideEngine", "LayaEngine", "VerdictEngine",
+    "IBenchmark", "Benchmark", "GlinerDecideEngine", "JevEngine", "KevEngine", "LayaEngine", "VerdictEngine",
     # Policies & Injected Sub-Primitives
     "IHead", "MLPHead",
     "IOptimizerPolicy", "AdamWOptimizer",

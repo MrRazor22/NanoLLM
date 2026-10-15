@@ -20,6 +20,10 @@ class MetricsLayer(ITrainer):
         self.sink = sink or (lambda msg: print(msg, flush=True))
         self.log_interval_sec = log_interval_sec
 
+    @property
+    def model(self):
+        return getattr(self.inner, "model", None)
+
     def __call__(self, inner: ITrainer) -> "MetricsLayer":
         self.inner = inner
         return self
@@ -31,11 +35,11 @@ class MetricsLayer(ITrainer):
         last_log = start_time
         for s in self.inner.fit(train_data, epochs=epochs, **kwargs):
             now = time.perf_counter()
-            is_end = s.step == s.total_steps
-            is_checkpoint = s.val_loss is not None
+            is_epoch_end = (s.batch == s.total_batches)
+            is_checkpoint = (s.val_loss is not None)
             is_interval = (now - last_log >= self.log_interval_sec)
 
-            if is_end or is_checkpoint or is_interval:
+            if is_epoch_end or is_checkpoint or is_interval:
                 elapsed_sec = int(now - start_time)
                 elapsed_str = f"{elapsed_sec // 60:02d}:{elapsed_sec % 60:02d}"
                 rem_steps = max(0, s.total_steps - s.step)
@@ -43,12 +47,13 @@ class MetricsLayer(ITrainer):
                 eta_str = f"{rem_sec // 60:02d}:{rem_sec % 60:02d}"
                 vram_info = f" | VRAM: {torch.cuda.memory_reserved() / (1024**3):.1f}GB" if torch.cuda.is_available() else ""
                 pct = int((s.step / max(1, s.total_steps)) * 100)
+                batch_pct = int((s.batch / max(1, s.total_batches)) * 100)
 
-                if is_end:
+                if is_epoch_end:
                     val_info = f" | Val Loss: {s.val_loss:.4f}" if s.val_loss is not None else ""
                     self.sink(f"Epoch {s.epoch}/{s.total_epochs} Complete | Train Loss: {s.loss:.4f}{val_info}{vram_info} | {s.elapsed_ms:.0f}ms/step | Total: {elapsed_str}")
                 elif is_checkpoint:
-                    self.sink(f"Epoch {s.epoch}/{s.total_epochs} Checkpoint ({pct}%) | Train Loss: {s.loss:.4f} | Val Loss: {s.val_loss:.4f}{vram_info} | Elapsed: {elapsed_str} | ETA: {eta_str}")
+                    self.sink(f"Epoch {s.epoch}/{s.total_epochs} Checkpoint ({batch_pct}%) | Train Loss: {s.loss:.4f} | Val Loss: {s.val_loss:.4f}{vram_info} | Elapsed: {elapsed_str} | ETA: {eta_str}")
                 else:
                     lr_info = f" | LR: {s.lr:.2e}" if s.lr > 0 else ""
                     self.sink(f"Epoch {s.epoch}/{s.total_epochs} | Step {s.step}/{s.total_steps} ({pct}%) | Loss: {s.loss:.4f}{lr_info}{vram_info} | {s.elapsed_ms:.0f}ms/step | Elapsed: {elapsed_str} | ETA: {eta_str}")

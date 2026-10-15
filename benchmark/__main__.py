@@ -40,7 +40,10 @@ def resolve_engines(
         kwargs = {"device": device}
         if k == "piqo" and checkpoint is not None:
             kwargs["checkpoint"] = checkpoint
-        engines[k.title()] = cls(**kwargs)
+        try:
+            engines[k.title()] = cls(**kwargs)
+        except Exception as e:
+            print(f"[{k.title()}] Skipping: could not initialize ({e})")
     return engines
 
 @app.command()

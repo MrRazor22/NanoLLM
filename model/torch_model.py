@@ -1,4 +1,3 @@
-import io
 from pathlib import Path
 import time
 from typing import TYPE_CHECKING, Optional, Protocol, Sequence, Union, runtime_checkable
@@ -60,7 +59,9 @@ class TorchModel(IModel):
         self.tokenizer = tokenizer or AutoTokenizer.from_pretrained(backbone_name)
         hidden_dim = getattr(self.backbone.config, "hidden_size", 768) if hasattr(self.backbone, "config") else 768
 
-        self.head = (head or MLPHead(hidden_dim=hidden_dim)).to(self.device)
+        self.head = head or MLPHead(hidden_dim=hidden_dim)
+        if hasattr(self.head, "to"):
+            self.head = self.head.to(self.device)
         self.layout = layout or MaskedLayout(tokenizer=self.tokenizer, max_state_tokens=max_state_tokens)
         self.loss_policy = loss_policy or CalibratedLoss()
         self.weight_cache = weight_cache or DiskWeightCache()
@@ -119,24 +120,11 @@ class TorchModel(IModel):
             raise FileNotFoundError(f"Weights not found: {target}")
         if not weights.payload:
             return
-        sd = None
-        try:
-            from safetensors.torch import load
-            sd = load(weights.payload)
-        except Exception:
-            raw = torch.load(io.BytesIO(weights.payload), map_location=self.device)
-            sd = raw.get("model_state_dict", raw) if isinstance(raw, dict) else raw
-
-        if isinstance(sd, dict) and "backbone" in sd and "head" in sd:
-            self.backbone.load_state_dict(sd["backbone"], strict=False)
-            if hasattr(self.head, "load_state_dict"):
-                self.head.load_state_dict(sd["head"], strict=False)
-        elif isinstance(sd, dict):
-            bb_sd = {k.removeprefix("backbone."): v for k, v in sd.items() if k.startswith("backbone.")}
-            h_sd = {k.removeprefix("head."): v for k, v in sd.items() if k.startswith("head.")}
-            if bb_sd:
-                self.backbone.load_state_dict(bb_sd, strict=False)
-            else:
-                self.backbone.load_state_dict(sd, strict=False)
-            if h_sd and hasattr(self.head, "load_state_dict"):
-                self.head.load_state_dict(h_sd, strict=False)
+        from safetensors.torch import load
+        sd = load(weights.payload)
+        bb_sd = {k.removeprefix("backbone."): v for k, v in sd.items() if k.startswith("backbone.")}
+        h_sd = {k.removeprefix("head."): v for k, v in sd.items() if k.startswith("head.")}
+        if bb_sd:
+            self.backbone.load_state_dict(bb_sd, strict=False)
+        if h_sd and hasattr(self.head, "load_state_dict"):
+            self.head.load_state_dict(h_sd, strict=False)

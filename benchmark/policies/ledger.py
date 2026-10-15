@@ -42,5 +42,5 @@ class DiskLedgerPolicy(ILedgerPolicy):
         self.scores_path.write_bytes(orjson.dumps(data, option=orjson.OPT_INDENT_2))
 
     def all(self, suite: Optional[str] = None) -> Dict[str, dict]:
-        data = orjson.loads(self.scores_path.read_bytes()) if self.scores_path.exists() else {}
+        data = orjson.loads(self.scores_path.read_bytes()) if self.scores_path.exists() and self.scores_path.stat().st_size > 0 else {}
         return data.get(suite, {}) if suite is not None else data

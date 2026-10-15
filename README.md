@@ -77,7 +77,7 @@ flowchart TD
     ET --> MODEL
     ET --> METRICS
     ET --> CKPT
-    CKPT -. "Loads champion weights (.pt)" .-> MODEL
+    CKPT -. "Loads champion weights (.safetensors)" .-> MODEL
 
     class CLI,SDK client;
     class CTX,QS input;
@@ -143,7 +143,7 @@ val_cases = dataset.load("val")
 trainer = (
     EpochTrainer(model=TorchModel())
     | MetricsLayer()
-    | CheckpointingLayer(output_path="checkpoints/checkpoint_champion.pt")
+    | CheckpointingLayer(output_path="checkpoints/checkpoint_champion.safetensors")
 )
 
 # Stream training telemetry

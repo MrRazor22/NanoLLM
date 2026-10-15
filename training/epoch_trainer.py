@@ -3,7 +3,7 @@ from typing import Callable, Iterator, Optional, Protocol, Sequence, runtime_che
 
 from data.case import DecisionCase
 from model.torch_model import IModel, TorchModel
-from training.policies.batch import BucketedBatch, IBatch
+from training.policies.batch import BucketedBatch, IBatch, SequentialBatch
 from training.policies.schedule import CosineSchedule, ISchedule
 from training.stats import EvalStats, StepStats
 
@@ -35,12 +35,14 @@ class EpochTrainer(ITrainer):
         base_lr: float = 2e-5,
         schedule: Optional[ISchedule] = None,
         batching: Optional[IBatch] = None,
+        eval_batching: Optional[IBatch] = None,
     ):
         self.model = model or TorchModel()
         self.batch_size = batch_size
         self.base_lr = base_lr
         self.schedule = schedule or CosineSchedule()
         self.batching = batching or BucketedBatch()
+        self.eval_batching = eval_batching or SequentialBatch()
 
     def evaluate(
         self,
@@ -49,7 +51,7 @@ class EpochTrainer(ITrainer):
     ) -> float:
         """Evaluates model performance over candidate cases with streaming progress telemetry."""
         import torch
-        batches = list(self.batching.batch(cases, batch_size=self.batch_size))
+        batches = list(self.eval_batching.batch(cases, batch_size=self.batch_size))
         total = len(batches)
         total_loss = 0.0
         start = time.perf_counter()
@@ -93,8 +95,8 @@ class EpochTrainer(ITrainer):
                 yield StepStats(
                     epoch=ep,
                     total_epochs=epochs,
-                    step=n + 1,
-                    total_steps=total_batches,
+                    step=step,
+                    total_steps=total_steps,
                     loss=total_loss / (n + 1),
                     elapsed_ms=dt,
                     lr=cur_lr,

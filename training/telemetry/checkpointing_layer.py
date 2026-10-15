@@ -15,6 +15,10 @@ class CheckpointingLayer(ITrainer):
         self.inner = inner
         self.output_path = Path(output_path) if output_path else None
 
+    @property
+    def model(self):
+        return getattr(self.inner, "model", None)
+
     def __call__(self, inner: ITrainer) -> "CheckpointingLayer":
         self.inner = inner
         return self
@@ -22,16 +26,20 @@ class CheckpointingLayer(ITrainer):
     def fit(self, train_data, epochs: int = 1, **kwargs) -> Iterator[StepStats]:
         if not self.inner:
             raise RuntimeError("CheckpointingLayer has no inner trainer.")
+        model = self.model
+        if self.output_path and model is None:
+            raise RuntimeError("CheckpointingLayer cannot locate model in trainer pipeline.")
         for s in self.inner.fit(train_data, epochs=epochs, **kwargs):
-            if self.output_path and s.step == s.total_steps and hasattr(self.inner, "model"):
+            if self.output_path and s.batch == s.total_batches and model:
                 from model.weights import WeightMeta
                 target = self.output_path
                 meta = WeightMeta(epoch=s.epoch, train_loss=s.loss, val_loss=s.val_loss)
-                if str(target).endswith(".pt") or "/" in str(target) or "\\" in str(target):
-                    self.inner.model.save(target, meta=meta)
+                p_target = Path(target)
+                if p_target.suffix or p_target.parent != Path("."):
+                    model.save(p_target, meta=meta)
                 else:
-                    self.inner.model.save(f"{target}_v{s.epoch}.pt", meta=meta)
-                    self.inner.model.save(f"{target}.pt", meta=meta)
+                    model.save(f"{target}_v{s.epoch}", meta=meta)
+                    model.save(target, meta=meta)
             yield s
 
     def evaluate(self, cases, on_progress=None) -> float:

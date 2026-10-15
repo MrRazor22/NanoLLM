@@ -59,22 +59,26 @@ class ScorerPolicy(IScorerPolicy):
             latencies.append(dt_ms)
 
             for q in item.questions:
-                if q.target is not None and q.name in res.answers:
-                    ans = res.answers[q.name]
-                    is_hit = q.matches(ans)
-                    hits.append(1.0 if is_hit else 0.0)
+                if q.target is not None:
                     cat_total[cat] = cat_total.get(cat, 0) + 1
-                    if is_hit:
-                        cat_correct[cat] = cat_correct.get(cat, 0) + 1
+                    if q.name in res.answers:
+                        ans = res.answers[q.name]
+                        is_hit = q.matches(ans)
+                        hits.append(1.0 if is_hit else 0.0)
+                        if is_hit:
+                            cat_correct[cat] = cat_correct.get(cat, 0) + 1
 
-                    probs = getattr(ans, "probabilities", None)
-                    if probs and isinstance(probs, dict):
-                        target_str = str(q.target)
-                        b_sum = sum((float(p_val) - (1.0 if str(opt_k) == target_str else 0.0)) ** 2 for opt_k, p_val in probs.items())
-                        brier_diffs.append(b_sum)
-                    elif hasattr(ans, "confidence") and ans.confidence is not None:
-                        c = float(ans.confidence)
-                        brier_diffs.append((c - (1.0 if is_hit else 0.0)) ** 2)
+                        probs = getattr(ans, "probabilities", None)
+                        if probs and isinstance(probs, dict):
+                            target_str = str(q.target)
+                            b_sum = sum((float(p_val) - (1.0 if str(opt_k) == target_str else 0.0)) ** 2 for opt_k, p_val in probs.items())
+                            brier_diffs.append(b_sum)
+                        elif hasattr(ans, "confidence") and ans.confidence is not None:
+                            c = float(ans.confidence)
+                            brier_diffs.append((c - (1.0 if is_hit else 0.0)) ** 2)
+                    else:
+                        hits.append(0.0)
+                        brier_diffs.append(1.0)
 
             now = time.perf_counter()
             if self.show_progress and (now - last_log >= self.log_interval_sec or idx == total_items):
