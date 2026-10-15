@@ -1,5 +1,5 @@
 from dataclasses import dataclass
-from typing import Literal, Mapping, Protocol, Sequence, runtime_checkable
+from typing import Literal, Mapping, Sequence
 from inference.questions import Choice, DecisionState, Noul, Question, Score
 
 SplitTag = Literal["train", "val", "test"]

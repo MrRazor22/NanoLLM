@@ -68,5 +68,3 @@ class CalibratedLoss(nn.Module, ILoss):
             return torch.tensor(0.0, device=dev)
         weights = torch.as_tensor(counts, dtype=torch.float, device=dev)
         return torch.sum(torch.stack(losses) * weights) / torch.sum(weights)
-
-    forward = compute

@@ -1,7 +1,6 @@
 from typing import Mapping, Sequence
 from data.case import DecisionCase
 from benchmark.suites.suite import IBenchmarkSuite
-from inference.questions import Choice
 
 class JevBenchSuite(IBenchmarkSuite):
     """TypeSafe AI / JevBench official benchmark tasks across hard reasoning and policy decisions."""

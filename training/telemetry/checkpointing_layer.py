@@ -19,8 +19,6 @@ class CheckpointingLayer(ITrainer):
         self.inner = inner
         return self
 
-    attach = __call__
-
     def fit(self, train_data, epochs: int = 1, **kwargs) -> Iterator[StepStats]:
         if not self.inner:
             raise RuntimeError("CheckpointingLayer has no inner trainer.")

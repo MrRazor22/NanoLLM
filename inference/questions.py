@@ -11,6 +11,24 @@ class Choice:
     instruction: str | None = None
     target: str | int | None = None
 
+    @property
+    def target_index(self) -> int:
+        if self.target is None: return 0
+        if isinstance(self.target, int): return self.target
+        keys = list(self.options.keys()) if isinstance(self.options, dict) else list(self.options)
+        if self.target in keys: return keys.index(self.target)
+        return int(self.target) if str(self.target).isdigit() else 0
+
+    def shuffle(self) -> "Choice":
+        import random
+        keys = list(self.options.keys()) if isinstance(self.options, dict) else list(self.options)
+        indices = list(range(len(keys)))
+        random.shuffle(indices)
+        target = self.target_index
+        new_target = indices.index(target) if 0 <= target < len(indices) else 0
+        opts = {keys[i]: self.options[keys[i]] for i in indices} if isinstance(self.options, dict) else [keys[i] for i in indices]
+        return Choice(name=self.name, options=opts, instruction=self.instruction, target=new_target)
+
     def matches(self, answer: object) -> bool:
         if answer is None or self.target is None: return False
         val = str(getattr(answer, "value", answer))

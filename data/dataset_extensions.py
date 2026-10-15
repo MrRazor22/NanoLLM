@@ -8,7 +8,6 @@ from data.sources.decisions_source import DecisionsSource
 from data.sources.glaive_source import GlaiveSource
 from data.sources.hellaswag_source import HellaSwagSource
 from data.sources.huggingface_source import (
-    BenchmarkSpec,
     HuggingFaceSource,
     STANDARD_BENCHMARKS,
 )

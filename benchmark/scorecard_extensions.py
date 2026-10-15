@@ -1,4 +1,4 @@
-from typing import Any, Dict, Iterable, List, Optional, Sequence
+from typing import Any, Dict, Iterable, List, Sequence
 from rich import box
 from rich.console import Console
 from rich.table import Table
@@ -14,8 +14,8 @@ def render_suite(data: Dict[str, dict], suite_name: str) -> None:
     """Renders a single benchmark suite leaderboard table using Rich."""
     if not data:
         return
-    tracks_data = {k: v for k, v in data.items() if isinstance(v, dict) and k not in ("signature", "count")}
-    models = _order_models({m for entry in tracks_data.values() for m in entry if m not in ("count", "signature")})
+    tracks_data = {k: v for k, v in data.items() if isinstance(v, dict) and k != "count"}
+    models = _order_models({m for entry in tracks_data.values() for m in entry if m != "count"})
     if not models:
         return
 
@@ -60,7 +60,7 @@ def render_summary(ledger: Dict[str, dict]) -> None:
     all_models = {
         m for s_data in ledger.values() if isinstance(s_data, dict)
         for entry in s_data.values() if isinstance(entry, dict)
-        for m in entry if m not in ("count", "signature")
+        for m in entry if m != "count"
     }
     if not all_models:
         return

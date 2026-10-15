@@ -3,7 +3,8 @@
 from model.torch_model import IModel, TorchModel
 from model.policies.calibrated_loss import ILoss, CalibratedLoss
 from model.policies.head import IHead, MLPHead
-from model.policies.layout_policy import ILayoutPolicy, MaskedLayoutPolicy
+from model.policies.optimizer import IOptimizerPolicy, AdamWOptimizer
+from model.policies.layout import ILayout, MaskedLayout
 from model.policies.weight_cache import (
     DEFAULT_WEIGHTS_DIR, DiskWeightCache, IWeightCache,
 )
@@ -49,8 +50,9 @@ __all__ = [
     "IScorecard", "Scorecard", "GlinerDecideEngine", "LayaEngine", "VerdictEngine",
     # Policies & Injected Sub-Primitives
     "IHead", "MLPHead",
+    "IOptimizerPolicy", "AdamWOptimizer",
     "ILoss", "CalibratedLoss",
-    "ILayoutPolicy", "MaskedLayoutPolicy",
+    "ILayout", "MaskedLayout",
     "IWeightCache", "DiskWeightCache", "DEFAULT_WEIGHTS_DIR",
     "ISchedule", "CosineSchedule", "ConstantSchedule",
     "IResolver", "DecisionResolver",
@@ -63,7 +65,7 @@ __all__ = [
     "Weights",
     "DecisionState", "Choice", "Noul", "Score", "Question",
     "IAnswer", "ChoiceResult", "NoulResult", "ScoreResult", "Answer", "DecisionResult",
-    "TokenLayout", "PredictionLayout", "DecisionCase",
+    "TokenLayout", "PredictionLayout", "DecisionCase", "DataSplits", "SourceRecord",
     "Batch", "StepStats", "TargetSlot", "SampleTargets",
     "BenchmarkReport",
     # Transforms & Paths

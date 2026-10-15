@@ -1,6 +1,5 @@
 import time
 from typing import Callable, Iterator, Optional, Protocol, Sequence, runtime_checkable
-import torch
 
 from data.case import DecisionCase
 from model.torch_model import IModel, TorchModel
@@ -32,22 +31,14 @@ class EpochTrainer(ITrainer):
         model: Optional[IModel] = None,
         batch_size: int = 16,
         base_lr: float = 2e-5,
-        accum_steps: int = 1,
         schedule: Optional[ISchedule] = None,
         batching: Optional[IBatch] = None,
     ):
         self.model = model or TorchModel()
         self.batch_size = batch_size
         self.base_lr = base_lr
-        self.accum_steps = max(1, accum_steps)
         self.schedule = schedule or CosineSchedule()
         self.batching = batching or BucketedBatch()
-
-        params = list(self.model.parameters()) if hasattr(self.model, "parameters") else []
-        is_cuda = torch.cuda.is_available()
-        self.optimizer = torch.optim.AdamW(params, lr=base_lr, fused=is_cuda) if params else None
-        self.scaler = torch.amp.GradScaler("cuda", enabled=is_cuda)
-        self.opt_count = 0
 
     def evaluate(
         self,
@@ -55,6 +46,7 @@ class EpochTrainer(ITrainer):
         on_progress: Optional[Callable[[EvalStats], None]] = None,
     ) -> float:
         """Evaluates model performance over candidate cases with streaming progress telemetry."""
+        import torch
         batches = list(self.batching.batch(cases, batch_size=self.batch_size))
         total = len(batches)
         total_loss = 0.0
@@ -87,22 +79,9 @@ class EpochTrainer(ITrainer):
             for n, batch in enumerate(batches):
                 step = (ep - 1) * total_batches + (n + 1)
                 cur_lr = self.schedule.get_lr(step, total_steps, self.base_lr)
-                if self.optimizer:
-                    for g in self.optimizer.param_groups:
-                        g["lr"] = cur_lr
 
                 t0 = time.perf_counter()
-                loss = self.model.step(batch, backward=True)
-                if self.optimizer:
-                    self.opt_count += 1
-                    if self.opt_count % self.accum_steps == 0:
-                        if self.scaler.is_enabled():
-                            self.scaler.step(self.optimizer)
-                            self.scaler.update()
-                        else:
-                            self.optimizer.step()
-                        self.optimizer.zero_grad(set_to_none=True)
-
+                loss = self.model.step(batch, backward=True, lr=cur_lr)
                 dt = (time.perf_counter() - t0) * 1000.0
                 total_loss += loss
 

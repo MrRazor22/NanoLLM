@@ -1,5 +1,4 @@
 import json
-from pathlib import Path
 from typing import List, Sequence
 from datasets import load_dataset
 from data.case import DecisionCase, SourceRecord

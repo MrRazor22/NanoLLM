@@ -15,7 +15,8 @@ from inference.questions import DecisionState, Question
 from model.model_extensions import resolve_device
 from model.policies.calibrated_loss import CalibratedLoss, ILoss
 from model.policies.head import IHead, MLPHead
-from model.policies.layout_policy import ILayoutPolicy, MaskedLayoutPolicy
+from model.policies.layout import ILayout, MaskedLayout
+from model.policies.optimizer import AdamWOptimizer, IOptimizerPolicy
 from model.policies.weight_cache import DiskWeightCache, IWeightCache
 from model.token_layout import PredictionLayout
 from model.weights import WeightMeta, Weights
@@ -24,23 +25,26 @@ from model.weights import WeightMeta, Weights
 class IModel(Protocol):
     """Core Primitive: Neural computation boundary for inference scoring and loss computation."""
     def predict(self, state: DecisionState, questions: Sequence[Question]) -> PredictionLayout: ...
-    def step(self, cases: Sequence["DecisionCase"], backward: bool = True) -> float: ...
+    def step(self, cases: Sequence["DecisionCase"], backward: bool = True, lr: Optional[float] = None) -> float: ...
     def save(self, target: Union[str, Path] = "piqo", meta: Optional[WeightMeta] = None) -> Path: ...
     def load(self, source: Optional[Union[Weights, str, Path]] = None) -> None: ...
 
 class TorchModel(nn.Module, IModel):
-    """Core Primitive Implementation: ModernBERT backbone with modular decision head."""
+    """Core Primitive Implementation: ModernBERT backbone with modular decision head, layout, and optimizer."""
 
     def __init__(
         self,
         backbone_name: str = "answerdotai/ModernBERT-base",
         backbone: Optional[nn.Module] = None,
         head: Optional[IHead] = None,
+        layout: Optional[ILayout] = None,
+        loss_policy: Optional[ILoss] = None,
+        optimizer_policy: Optional[IOptimizerPolicy] = None,
+        weight_cache: Optional[IWeightCache] = None,
         tokenizer: Optional[AutoTokenizer] = None,
         weights: Optional[Weights] = None,
-        loss_policy: Optional[ILoss] = None,
-        weight_cache: Optional[IWeightCache] = None,
-        layout_policy: Optional[ILayoutPolicy] = None,
+        lr: float = 2e-5,
+        accum_steps: int = 1,
         max_state_tokens: int = 384,
         device: Optional[Union[str, torch.device]] = None,
         compile: bool = False,
@@ -58,11 +62,12 @@ class TorchModel(nn.Module, IModel):
         hidden_dim = getattr(self.backbone.config, "hidden_size", 768) if hasattr(self.backbone, "config") else 768
 
         self.head = (head or MLPHead(hidden_dim=hidden_dim)).to(self.device)
-        self.weight_cache = weight_cache or DiskWeightCache()
-        self.layout_policy = layout_policy or MaskedLayoutPolicy()
+        self.layout = layout or MaskedLayout(tokenizer=self.tokenizer, max_state_tokens=max_state_tokens)
         self.loss_policy = loss_policy or CalibratedLoss()
-        self.max_state_tokens = max_state_tokens
-        self._tok_cache: dict[str, list[int]] = {}
+        self.weight_cache = weight_cache or DiskWeightCache()
+
+        params = list(self.backbone.parameters()) + list(self.head.parameters())
+        self.optimizer_policy = optimizer_policy or AdamWOptimizer(params, lr=lr, accum_steps=accum_steps, device=self.device)
 
         if weights is not None:
             self.load(weights)
@@ -74,7 +79,7 @@ class TorchModel(nn.Module, IModel):
         return self.head.score(hidden)
 
     def predict(self, state: DecisionState, questions: Sequence[Question]) -> PredictionLayout:
-        layout = self.layout_policy.encode(self.tokenizer, state, questions, max_state_tokens=self.max_state_tokens, tok_cache=self._tok_cache)
+        layout = self.layout.encode(state, questions)
         self.eval()
         ids = torch.as_tensor(layout.input_ids, dtype=torch.long, device=self.device).unsqueeze(0)
         mask = torch.as_tensor(layout.mask, dtype=torch.float, device=self.device).unsqueeze(0)
@@ -82,18 +87,16 @@ class TorchModel(nn.Module, IModel):
             scores = self(ids, mask).squeeze(0).cpu().tolist()
         return PredictionLayout(scores=scores, slots=layout.slots)
 
-    def step(self, cases: Sequence["DecisionCase"], backward: bool = True) -> float:
-        batch = self.layout_policy.collate(
-            self.tokenizer, cases, max_state_tokens=self.max_state_tokens, shuffle_options=backward, tok_cache=self._tok_cache
-        )
+    def step(self, cases: Sequence["DecisionCase"], backward: bool = True, lr: Optional[float] = None) -> float:
+        batch = self.layout.collate(cases, shuffle=backward)
         self.train(backward)
         ids = batch.input_ids.to(self.device, non_blocking=True)
         mask = batch.mask.to(self.device, non_blocking=True)
         with torch.set_grad_enabled(backward), torch.amp.autocast(self.device.type, enabled=self.device.type == "cuda"):
             preds = self(ids, mask)
             loss = self.loss_policy.compute(preds, batch.targets)
-            if backward:
-                loss.backward()
+            if backward and self.optimizer_policy:
+                self.optimizer_policy.step(loss, lr=lr)
         return loss.item()
 
     def save(self, target: Union[str, Path] = "piqo", meta: Optional[WeightMeta] = None) -> Path:

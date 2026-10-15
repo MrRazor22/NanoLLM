@@ -20,8 +20,6 @@ class ProfilingLayer(IDecisionEngine):
         self.inner = inner
         return self
 
-    attach = __call__
-
     def decide(self, state: DecisionState, questions: Sequence[Question]) -> DecisionResult:
         if self.inner is None: raise RuntimeError("ProfilingLayer is not attached to an inner engine.")
         _sync_cuda()

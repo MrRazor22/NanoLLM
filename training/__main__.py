@@ -1,5 +1,4 @@
 import time
-from pathlib import Path
 from typing import Optional
 import transformers
 import typer
@@ -8,7 +7,7 @@ transformers.logging.set_verbosity_error()
 
 from data.storage_layer import DiskStorageLayer
 from data.dataset_extensions import CORPUS_DIR
-from model.policies.weight_cache import DEFAULT_WEIGHTS_DIR, DiskWeightCache
+from model.policies.weight_cache import DiskWeightCache
 from model.torch_model import TorchModel
 from training.epoch_trainer import EpochTrainer, ITrainer
 from training.telemetry.checkpointing_layer import CheckpointingLayer
@@ -45,6 +44,7 @@ def main(
 
     model = TorchModel(
         backbone_name=backbone,
+        accum_steps=accum_steps,
         compile=compile,
     )
     if init_ckpt:
@@ -52,7 +52,7 @@ def main(
         load_weights(model, init_ckpt)
     from training.policies.schedule import ConstantSchedule, CosineSchedule
     sched = ConstantSchedule() if schedule.lower() == "constant" else CosineSchedule(warmup_ratio=warmup_ratio)
-    trainer: ITrainer = EpochTrainer(model=model, batch_size=batch_size, base_lr=target_lr, accum_steps=accum_steps, schedule=sched)
+    trainer: ITrainer = EpochTrainer(model=model, batch_size=batch_size, base_lr=target_lr, schedule=sched)
     trainer = trainer | MetricsLayer(sink=lambda msg: print(msg, flush=True), log_interval_sec=5.0)
     trainer = trainer | CheckpointingLayer(output_path=out_target)
 

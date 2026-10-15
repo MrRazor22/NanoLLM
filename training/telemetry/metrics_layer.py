@@ -1,6 +1,7 @@
 from pathlib import Path
 import time
 from typing import Callable, Iterator, Optional, Union
+import torch
 from training.stats import StepStats
 from training.epoch_trainer import ITrainer
 
@@ -22,8 +23,6 @@ class MetricsLayer(ITrainer):
     def __call__(self, inner: ITrainer) -> "MetricsLayer":
         self.inner = inner
         return self
-
-    attach = __call__
 
     def fit(self, train_data, epochs: int = 1, **kwargs) -> Iterator[StepStats]:
         if self.inner is None:

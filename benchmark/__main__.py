@@ -1,10 +1,10 @@
-import os, sys, warnings
+import os, warnings
 os.environ["HF_HUB_OFFLINE"] = os.environ.get("HF_HUB_OFFLINE", "1")
 os.environ["HF_HUB_DISABLE_PROGRESS_BARS"] = "1"
 os.environ["TOKENIZERS_PARALLELISM"] = "false"
 warnings.filterwarnings("ignore")
 
-from typing import Optional, Sequence
+from typing import Optional
 import typer
 from benchmark.competitors import AVAILABLE_COMPETITORS
 from benchmark.scorecard import Scorecard

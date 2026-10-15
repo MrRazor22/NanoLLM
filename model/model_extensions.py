@@ -7,7 +7,7 @@ if TYPE_CHECKING:
     from model.torch_model import IModel
 
 from model.policies.weight_cache import DEFAULT_WEIGHTS_DIR
-from model.weights import Weights
+from model.weights import WeightMeta, Weights
 
 def list_weights(root: Optional[Path] = None) -> Sequence[Weights]:
     """Domain Extension: Discovers saved weights and their metadata from weights directory."""
@@ -56,26 +56,19 @@ def resolve_device(preferred: Optional[str] = None) -> str:
 def save_weights(model: "IModel", target: Union[str, Path] = "piqo", stats: Optional[Any] = None, cache: Optional["IWeightCache"] = None) -> Path:
     """Domain Extension: Persists model weights and optional metadata through weight cache policy."""
     import time
-    from model.policies.weight_cache import DiskWeightCache
-    from model.weights import Weights
-    c = cache or DiskWeightCache()
-    exported = model.export()
     t_loss = getattr(stats, "train_loss", getattr(stats, "loss", None)) if stats else None
     v_loss = getattr(stats, "val_loss", None) if stats else None
-    w = Weights(
-        payload=exported.payload,
-        name=Path(target).stem,
+    meta = WeightMeta(
         epoch=getattr(stats, "epoch", 1) if stats else 1,
         train_loss=round(t_loss, 6) if t_loss is not None else None,
         val_loss=round(v_loss, 6) if v_loss is not None else None,
         saved_at=getattr(stats, "saved_at", time.strftime("%Y-%m-%d %H:%M:%S")),
     )
-    return c.put(target, w)
+    return model.save(target, meta=meta)
 
 def load_weights(model: "IModel", source: Union[Weights, str, Path] = "piqo", cache: Optional["IWeightCache"] = None) -> None:
     """Domain Extension: Rehydrates model weights from Weights DTO or weight cache identifier/path."""
     from model.policies.weight_cache import DiskWeightCache
-    from model.weights import Weights
     if isinstance(source, Weights):
         model.load(source)
         return

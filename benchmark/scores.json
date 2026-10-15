@@ -1,6 +1,5 @@
 {
   "laya_typed_decisions": {
-    "signature": "ace040eb6aa1",
     "count": 600,
     "typed_decisions": {
       "count": 600,
@@ -28,7 +27,6 @@
     }
   },
   "kev_transfer": {
-    "signature": "65af37047eff",
     "count": 1300,
     "adversarial_reasoning": {
       "count": 400,
@@ -80,7 +78,6 @@
     }
   },
   "jevbench_hard": {
-    "signature": "30efce4fbe4f",
     "count": 1300,
     "abductive_reasoning": {
       "count": 300,
@@ -126,7 +123,6 @@
     }
   },
   "fast_decisions": {
-    "signature": "5f86c8e79a63",
     "count": 1358,
     "banking77": {
       "count": 400,
@@ -178,7 +174,6 @@
     }
   },
   "verdict_nli": {
-    "signature": "651b4afc96bf",
     "count": 1100,
     "adversarial_reasoning": {
       "count": 400,
