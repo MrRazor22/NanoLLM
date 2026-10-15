@@ -23,8 +23,8 @@ class DiskStorageLayer(IDataset):
         self.corpus_dir.mkdir(parents=True, exist_ok=True)
         for tag, items in (("train", splits.train), ("val", splits.val), ("test", splits.test)):
             target = self.corpus_dir / f"{tag}.jsonl"
-            lines = [orjson.dumps(s.to_dict()).decode("utf-8") for s in items]
-            target.write_text("\n".join(lines) + ("\n" if lines else ""), encoding="utf-8")
+            payload = b"\n".join(orjson.dumps(s.to_dict(), default=str) for s in items)
+            target.write_bytes(payload + (b"\n" if payload else b""))
         return splits
 
     def load(self, split: SplitTag = "train") -> Sequence[DecisionCase]:
