@@ -1,6 +1,6 @@
 from typing import Mapping, Sequence
 from data.case import DecisionCase
-from data.dataset import Dataset
+from data.storage_layer import DiskStorageLayer
 from benchmark.suites.suite import IBenchmarkSuite
 
 class KevTransferSuite(IBenchmarkSuite):
@@ -18,7 +18,7 @@ class KevTransferSuite(IBenchmarkSuite):
         }
 
     def load_cases(self) -> Sequence[DecisionCase]:
-        cases = Dataset().load("test")
+        cases = DiskStorageLayer().load("test")
         transfer_cats = {"deductive_reasoning", "scientific_reasoning", "emotion", "adversarial_reasoning"}
         selected = [c for c in cases if c.category in transfer_cats]
         return selected if selected else cases[:400]

@@ -1,6 +1,5 @@
 import random
 from typing import Callable, Iterator, Optional, Protocol, Sequence, runtime_checkable
-
 from data.case import DecisionCase
 
 @runtime_checkable
@@ -16,14 +15,8 @@ class BucketedBatch(IBatch):
         key: Optional[Callable[[DecisionCase], int]] = None,
         shuffle: bool = True,
     ):
-        self.key = key or self._estimate_length
+        self.key = key or (lambda c: (len(c.state) // 4 if isinstance(c.state, str) else 30) + sum(len(q.options) * 5 if hasattr(q, "options") and q.options else 10 for q in c.questions))
         self.shuffle = shuffle
-
-    @staticmethod
-    def _estimate_length(case: DecisionCase) -> int:
-        s_len = len(case.state) // 4 if isinstance(case.state, str) else 30
-        q_len = sum(len(q.options) * 5 if hasattr(q, "options") and q.options else 10 for q in case.questions)
-        return s_len + q_len
 
     def batch(self, cases: Sequence[DecisionCase], batch_size: int = 16) -> Iterator[Sequence[DecisionCase]]:
         if not cases:

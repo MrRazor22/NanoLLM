@@ -1,85 +1,34 @@
-from pathlib import Path
-from typing import List, Optional, Protocol, Sequence, Union, runtime_checkable
+from typing import List, Optional, Protocol, Sequence, runtime_checkable
 
-from data.case import DataSplits, DecisionCase, IDataSource, SourceRecord, SplitTag
+from data.case import DataSplits, DecisionCase, SourceRecord, SplitTag
 from data.curation.budget_split import BudgetSplitPolicy, ISplitPolicy
 from data.curation.ngram_leakage import ILeakagePolicy, NGramLeakagePolicy
-from data.disk_cache import DiskCachePolicy, ICachePolicy
-from data.sources.decisions_source import DecisionsSource
-from data.sources.glaive_source import GlaiveSource
-from data.sources.huggingface_source import (
-    BenchmarkSpec,
-    HuggingFaceSource,
-    STANDARD_BENCHMARKS,
-)
-from data.sources.multichoice_source import (
-    MultiChoiceReasoningSource,
-    MULTICHOICE_REASONING_BENCHMARKS,
-)
-from data.sources.anli_source import ANLISource
-from data.sources.hellaswag_source import HellaSwagSource
-from data.sources.medqa_source import MedQASource
-from data.sources.art_source import ARTSource
-from data.sources.copa_source import COPASource
-from data.sources.sciq_source import SciQSource
-
-def standard_sources(seed: int = 42) -> list[IDataSource]:
-    """Default collection of diverse multi-task decision and reasoning sources with unified train/test options."""
-    return [
-        GlaiveSource(seed=seed),
-        DecisionsSource(repeat=5),
-        *(HuggingFaceSource(spec) for spec in STANDARD_BENCHMARKS),
-        *(MultiChoiceReasoningSource(spec) for spec in MULTICHOICE_REASONING_BENCHMARKS),
-        ANLISource(),
-        HellaSwagSource(),
-        MedQASource(),
-        ARTSource(),
-        COPASource(),
-        SciQSource(),
-    ]
-
-DATA_DIR = Path(__file__).resolve().parent
-CORPUS_DIR = DATA_DIR / "corpus"
+from data.dataset_extensions import standard_sources
+from data.sources.source import IDataSource
 
 @runtime_checkable
 class IDataset(Protocol):
-    """Sovereign primitive contract: manages dataset source preparation, leakage audit, and cached loading."""
+    """Sovereign primitive contract: manages dataset source preparation, leakage audit, and split access."""
     def prepare(self) -> DataSplits: ...
     def load(self, split: SplitTag = "train") -> Sequence[DecisionCase]: ...
 
 class Dataset(IDataset):
-    """Sovereign Core Primitive: manages source registration, split preparation, zero leakage, and cached loading."""
+    """Sovereign Core Primitive: manages source registration, split preparation, zero leakage, and in-memory access."""
 
     def __init__(
         self,
         split_policy: Optional[ISplitPolicy] = None,
         leakage_policy: Optional[ILeakagePolicy] = None,
-        cache_policy: Optional[ICachePolicy] = None,
         sources: Optional[Sequence[IDataSource]] = None,
-        corpus_dir: Optional[Union[str, Path]] = None,
     ):
-        self.corpus_dir = Path(corpus_dir) if corpus_dir is not None else CORPUS_DIR
         self.split_policy = split_policy or BudgetSplitPolicy()
         self.leakage_policy = leakage_policy or NGramLeakagePolicy()
-        self.cache_policy = cache_policy or DiskCachePolicy(root_dir=self.corpus_dir)
         self.sources: List[IDataSource] = list(sources) if sources is not None else standard_sources()
         self.leak_audit: dict[str, int] = {}
-
-    @property
-    def signature(self) -> str:
-        import hashlib
-        import json
-        payload = {
-            "version": 1,
-            "split_policy": self.split_policy.signature,
-            "leakage_policy": self.leakage_policy.signature,
-            "cache_policy": self.cache_policy.signature,
-            "sources": [s.signature for s in self.sources],
-        }
-        return hashlib.sha256(json.dumps(payload, sort_keys=True).encode()).hexdigest()[:12]
+        self._splits: Optional[DataSplits] = None
 
     def prepare(self) -> DataSplits:
-        """Extracts all registered sources, partitions splits, audits for leakage, and caches via cache policy."""
+        """Extracts all registered sources, partitions splits, audits for leakage, and holds splits in memory."""
         if not self.sources:
             raise ValueError("No data sources registered for dataset preparation.")
 
@@ -127,24 +76,13 @@ class Dataset(IDataset):
         if self.leakage_policy.find_leaks(splits.val, splits.test):
             raise ValueError("Contamination invariant violated: val split leaks test holdout.")
 
-        # Delegate caching to injected cache policy with signature
-        sig = self.signature
-        self.cache_policy.put("train", splits.train, signature=sig)
-        self.cache_policy.put("val", splits.val, signature=sig)
-        self.cache_policy.put("test", splits.test, signature=sig)
-
+        self._splits = splits
         return splits
 
     def load(self, split: SplitTag = "train") -> Sequence[DecisionCase]:
-        """Loads domain decision cases from cache; self-prepares from sources on cache miss or signature mismatch."""
-        cached = self.cache_policy.get(split, signature=self.signature)
-        if cached is not None:
-            return cached
-        if self.sources:
-            self.prepare()
-            cached = self.cache_policy.get(split, signature=self.signature)
-            if cached is not None:
-                return cached
-        raise FileNotFoundError(
-            f"Corpus partition '{split}' not found and no data sources available to prepare it."
-        )
+        """Loads domain decision cases from in-memory splits; fails fast if not prepared."""
+        if self._splits is None:
+            raise ValueError(
+                f"In-memory dataset has not been prepared. Call dataset.prepare() or load via DiskStorageLayer."
+            )
+        return getattr(self._splits, split)

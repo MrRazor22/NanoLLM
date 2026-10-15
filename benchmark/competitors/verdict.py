@@ -1,4 +1,4 @@
-from typing import Any, Callable, Optional, Protocol, Sequence, runtime_checkable
+from typing import Callable, Optional, Sequence
 from inference.decision_engine import IDecisionEngine
 from inference.questions import (
     Choice, ChoiceResult, DecisionResult, DecisionState,
@@ -18,7 +18,7 @@ class VerdictEngine(IDecisionEngine):
         self.device = resolve_device(device)
         self._pipeline = None
 
-    def _get_pipeline(self):
+    def decide(self, state: DecisionState, questions: Sequence[Question]) -> DecisionResult:
         if self._pipeline is None:
             try:
                 from gliclass import GLiClassModel, ZeroShotClassificationPipeline
@@ -30,10 +30,8 @@ class VerdictEngine(IDecisionEngine):
                 )
             except Exception as e:
                 raise ImportError(f"Cannot load Verdict ({self.model_id}): {e}. To run live: pip install gliclass transformers")
-        return self._pipeline
 
-    def decide(self, state: DecisionState, questions: Sequence[Question]) -> DecisionResult:
-        pipe = self._get_pipeline()
+        pipe = self._pipeline
         answers = {}
         for q in questions:
             prompt_text = f"Question: {q.instruction}\n\nContext:\n{state}" if q.instruction else str(state)

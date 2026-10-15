@@ -1,6 +1,10 @@
 import json
 from pathlib import Path
-from typing import Optional, Sequence
+from typing import TYPE_CHECKING, Any, Optional, Sequence, Union
+
+if TYPE_CHECKING:
+    from model.policies.weight_cache import IWeightCache
+    from model.torch_model import IModel
 
 from model.policies.weight_cache import DEFAULT_WEIGHTS_DIR
 from model.weights import Weights
@@ -48,3 +52,35 @@ def resolve_device(preferred: Optional[str] = None) -> str:
         pass
 
     return "cpu"
+
+def save_weights(model: "IModel", target: Union[str, Path] = "piqo", stats: Optional[Any] = None, cache: Optional["IWeightCache"] = None) -> Path:
+    """Domain Extension: Persists model weights and optional metadata through weight cache policy."""
+    import time
+    from model.policies.weight_cache import DiskWeightCache
+    from model.weights import Weights
+    c = cache or DiskWeightCache()
+    exported = model.export()
+    t_loss = getattr(stats, "train_loss", getattr(stats, "loss", None)) if stats else None
+    v_loss = getattr(stats, "val_loss", None) if stats else None
+    w = Weights(
+        payload=exported.payload,
+        name=Path(target).stem,
+        epoch=getattr(stats, "epoch", 1) if stats else 1,
+        train_loss=round(t_loss, 6) if t_loss is not None else None,
+        val_loss=round(v_loss, 6) if v_loss is not None else None,
+        saved_at=getattr(stats, "saved_at", time.strftime("%Y-%m-%d %H:%M:%S")),
+    )
+    return c.put(target, w)
+
+def load_weights(model: "IModel", source: Union[Weights, str, Path] = "piqo", cache: Optional["IWeightCache"] = None) -> None:
+    """Domain Extension: Rehydrates model weights from Weights DTO or weight cache identifier/path."""
+    from model.policies.weight_cache import DiskWeightCache
+    from model.weights import Weights
+    if isinstance(source, Weights):
+        model.load(source)
+        return
+    c = cache or DiskWeightCache()
+    w = c.get(source)
+    if not w:
+        raise FileNotFoundError(f"Weights not found: {source}")
+    model.load(w)

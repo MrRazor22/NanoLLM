@@ -11,11 +11,27 @@ class Choice:
     instruction: str | None = None
     target: str | int | None = None
 
+    def matches(self, answer: object) -> bool:
+        if answer is None or self.target is None: return False
+        val = str(getattr(answer, "value", answer))
+        if val == str(self.target): return True
+        keys = list(self.options.keys()) if isinstance(self.options, dict) else list(self.options)
+        if str(self.target).isdigit() and 0 <= int(self.target) < len(keys):
+            return val == str(keys[int(self.target)])
+        if val in keys and str(self.target) in keys:
+            return keys.index(val) == keys.index(str(self.target))
+        return False
+
 @dataclass(frozen=True, slots=True)
 class Noul:
     name: str
     instruction: str | None = None
     target: bool | float | int | None = None
+
+    def matches(self, answer: object) -> bool:
+        if answer is None or self.target is None: return False
+        val = getattr(answer, "value", answer)
+        return bool(val) == bool(self.target)
 
 @dataclass(frozen=True, slots=True)
 class Score:
@@ -24,6 +40,11 @@ class Score:
     max_value: float = 100.0
     instruction: str | None = None
     target: float | None = None
+
+    def matches(self, answer: object) -> bool:
+        if answer is None or self.target is None: return False
+        val = float(getattr(answer, "value", answer))
+        return abs(val - float(self.target)) < 1e-3
 
 Question = Choice | Noul | Score
 

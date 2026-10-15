@@ -1,42 +1,10 @@
-from dataclasses import dataclass, field
-import hashlib
 import statistics
 import time
-from typing import Any, Dict, Mapping, Optional, Protocol, Sequence, runtime_checkable
+from typing import Dict, Optional, Protocol, Sequence, runtime_checkable
+from benchmark.ledger import DiskLedgerPolicy, ILedgerPolicy
+from benchmark.report import BenchmarkReport
 from data.case import DecisionCase
 from inference.decision_engine import IDecisionEngine
-
-@dataclass(slots=True)
-class CategoryHits:
-    correct: int = 0
-    total: int = 0
-    @property
-    def accuracy(self) -> float:
-        return self.correct / max(1, self.total)
-
-@dataclass(frozen=True, slots=True)
-class BenchmarkReport:
-    model: str
-    overall: float
-    count: int
-    p50_ms: float = 0.0
-    slices: Mapping[str, float] = field(default_factory=dict)
-    counts: Mapping[str, int] = field(default_factory=dict)
-    suite: str = "default"
-
-def signature_for(items: Sequence[DecisionCase]) -> str:
-    """Computes a lightweight deterministic hash signature over benchmark cases."""
-    raw = f"{len(items)}|{items[0].state[:30] if items else ''}|{items[-1].state[:30] if items else ''}"
-    return hashlib.sha256(raw.encode()).hexdigest()[:12]
-
-def _matches(answers: Mapping[str, Any], qid: str, target: Any, q_map: Mapping[str, Any]) -> bool:
-    if qid not in answers:
-        return False
-    val = str(answers[qid].value)
-    if val == str(target):
-        return True
-    opts = list(getattr(q_map.get(qid), "options", []))
-    return val == str(opts[int(target)]) if str(target).isdigit() and 0 <= int(target) < len(opts) else False
 
 @runtime_checkable
 class IScorecard(Protocol):
@@ -47,12 +15,19 @@ class IScorecard(Protocol):
         items: Sequence[DecisionCase],
         model_name: str = "Piqo",
         suite: str = "default",
+        force: bool = False,
     ) -> BenchmarkReport: ...
 
 class Scorecard(IScorecard):
     """Core Primitive Implementation: Evaluates decision engines on benchmark items."""
 
-    def __init__(self, show_progress: bool = True, log_interval_sec: float = 3.0):
+    def __init__(
+        self,
+        ledger: Optional[ILedgerPolicy] = None,
+        show_progress: bool = True,
+        log_interval_sec: float = 3.0,
+    ):
+        self.ledger = ledger if ledger is not None else DiskLedgerPolicy()
         self.show_progress = show_progress
         self.log_interval_sec = log_interval_sec
 
@@ -62,8 +37,22 @@ class Scorecard(IScorecard):
         items: Sequence[DecisionCase],
         model_name: str = "Piqo",
         suite: str = "default",
+        force: bool = False,
     ) -> BenchmarkReport:
-        stats: Dict[str, CategoryHits] = {}
+        if not force and self.ledger is not None:
+            cached = self.ledger.get(model_name, suite=suite)
+            if cached is not None:
+                return BenchmarkReport(
+                    model=model_name,
+                    overall=cached.get("OVERALL", 0.0),
+                    count=len(items),
+                    p50_ms=cached.get("LATENCY_P50_MS", 0.0),
+                    slices={k: v for k, v in cached.items() if k not in ("OVERALL", "LATENCY_P50_MS")},
+                    suite=suite,
+                )
+
+        cat_correct: Dict[str, int] = {}
+        cat_total: Dict[str, int] = {}
         latencies, hits = [], []
         total_items = len(items)
         start_time = time.perf_counter()
@@ -71,21 +60,18 @@ class Scorecard(IScorecard):
 
         for idx, item in enumerate(items, 1):
             cat = item.category or "general"
-            if cat not in stats:
-                stats[cat] = CategoryHits()
             t_call = time.perf_counter()
             res = engine.decide(item.state, item.questions)
             dt_ms = res.latency_ms if res.latency_ms > 0 else (time.perf_counter() - t_call) * 1000.0
             latencies.append(dt_ms)
 
-            if item.gold:
-                q_map = {q.name: q for q in item.questions}
-                for qid, tgt in item.gold.items():
-                    m = _matches(res.answers, qid, tgt, q_map)
-                    hits.append(1.0 if m else 0.0)
-                    stats[cat].total += 1
-                    if m:
-                        stats[cat].correct += 1
+            for q in item.questions:
+                if q.target is not None and q.name in res.answers:
+                    is_hit = q.matches(res.answers[q.name])
+                    hits.append(1.0 if is_hit else 0.0)
+                    cat_total[cat] = cat_total.get(cat, 0) + 1
+                    if is_hit:
+                        cat_correct[cat] = cat_correct.get(cat, 0) + 1
 
             now = time.perf_counter()
             if self.show_progress and (now - last_log >= self.log_interval_sec or idx == total_items):
@@ -97,12 +83,15 @@ class Scorecard(IScorecard):
 
         overall = sum(hits) / max(1, len(hits))
         p50 = float(statistics.median(latencies)) if latencies else 0.0
-        return BenchmarkReport(
+        report = BenchmarkReport(
             model=model_name,
             overall=overall,
             count=len(hits),
             p50_ms=p50,
-            slices={c: h.accuracy for c, h in stats.items()},
-            counts={c: h.total for c, h in stats.items()},
+            slices={c: cat_correct.get(c, 0) / cat_total[c] for c in cat_total},
+            counts=cat_total,
             suite=suite,
         )
+        if self.ledger is not None:
+            self.ledger.put(report)
+        return report

@@ -1,8 +1,6 @@
 import json
-import os
 from pathlib import Path
 from typing import Optional, Protocol, Union, runtime_checkable
-
 from model.weights import Weights
 
 DEFAULT_WEIGHTS_DIR = Path(__file__).resolve().parent.parent / "weights"
@@ -19,16 +17,10 @@ class DiskWeightCache(IWeightCache):
     def __init__(self, root_dir: Optional[Union[str, Path]] = None):
         self.root_dir = Path(root_dir) if root_dir is not None else DEFAULT_WEIGHTS_DIR
 
-    def _resolve_file(self, target: Union[str, Path]) -> Path:
-        p = Path(target)
-        if p.is_absolute() or p.parent != Path("."):
-            return p if p.suffix == ".pt" else p.with_suffix(".pt")
-        s = str(target)
-        filename = s if s.endswith(".pt") else f"{s}.pt"
-        return self.root_dir / filename
-
     def get(self, target: Union[str, Path]) -> Optional[Weights]:
-        w_file = self._resolve_file(target)
+        p = Path(target)
+        w_file = p if p.is_absolute() or p.parent != Path(".") else self.root_dir / (p.name if p.name.endswith(".pt") else f"{p.name}.pt")
+        w_file = w_file if w_file.suffix == ".pt" else w_file.with_suffix(".pt")
         if not w_file.exists():
             return None
         meta_file = w_file.parent / f"{w_file.stem}.json"
@@ -43,7 +35,9 @@ class DiskWeightCache(IWeightCache):
         )
 
     def put(self, target: Union[str, Path], weights: Weights) -> Path:
-        w_file = self._resolve_file(target)
+        p = Path(target)
+        w_file = p if p.is_absolute() or p.parent != Path(".") else self.root_dir / (p.name if p.name.endswith(".pt") else f"{p.name}.pt")
+        w_file = w_file if w_file.suffix == ".pt" else w_file.with_suffix(".pt")
         w_file.parent.mkdir(parents=True, exist_ok=True)
         if weights.payload:
             w_file.write_bytes(weights.payload)

@@ -1,11 +1,11 @@
-from dataclasses import asdict, dataclass
-import hashlib
+from dataclasses import dataclass
 import json
 from pathlib import Path
 from typing import Callable, List, Optional, Sequence
 from datasets import load_dataset
 
-from data.case import DecisionCase, IDataSource, SourceRecord
+from data.case import DecisionCase, SourceRecord
+from data.sources.source import IDataSource
 from inference.questions import Choice
 
 RAW_DIR = Path(__file__).resolve().parent.parent / "raw"
@@ -38,10 +38,6 @@ class BenchmarkSpec:
     train_limit: int | None = None
     test_limit: int | None = 400
 
-    @property
-    def signature(self) -> str:
-        return hashlib.sha256(json.dumps(asdict(self), sort_keys=True, default=str).encode()).hexdigest()[:10]
-
 STANDARD_BENCHMARKS: Sequence[BenchmarkSpec] = (
     BenchmarkSpec("mteb/banking77", "intent", "What is the primary customer request?", "banking77", label_field="label_text"),
     BenchmarkSpec("fancyzhx/ag_news", "topic", "What is the topic of article?", "ag_news", label_names=("World", "Sports", "Business", "Sci/Tech"), train_limit=1000),
@@ -53,6 +49,22 @@ STANDARD_BENCHMARKS: Sequence[BenchmarkSpec] = (
     BenchmarkSpec("SetFit/amazon_massive_intent_en-US", "intent", "What is the user intent in this utterance?", "amazon_massive", label_field="label_text", train_limit=2000),
 )
 
+def _load_hf_split(spec: BenchmarkSpec, source_name: str, split: str) -> List[dict]:
+    target = RAW_DIR / f"{source_name}_{split}.jsonl"
+    limit = spec.test_limit if split == "test" else spec.train_limit
+    def _fetch() -> List[dict]:
+        args = [spec.dataset]
+        if spec.subset:
+            args.append(spec.subset)
+        rows = list(load_dataset(*args, split=split))
+        if limit is not None:
+            rows = rows[:limit]
+        return rows
+    rows = read_raw_jsonl(target, _fetch)
+    if limit is not None and len(rows) > limit:
+        rows = rows[:limit]
+    return rows
+
 class HuggingFaceSource(IDataSource):
     """Declarative benchmark dataset adapter: unifies train and test partitions under canonical shared candidate options."""
 
@@ -62,28 +74,8 @@ class HuggingFaceSource(IDataSource):
         if self.spec.subset:
             self.name = f"{self.name}_{self.spec.subset}"
 
-    @property
-    def signature(self) -> str:
-        return self.spec.signature
-
-    def _load_split(self, split: str) -> List[dict]:
-        target = RAW_DIR / f"{self.name}_{split}.jsonl"
-        limit = self.spec.test_limit if split == "test" else self.spec.train_limit
-        def _fetch() -> List[dict]:
-            args = [self.spec.dataset]
-            if self.spec.subset:
-                args.append(self.spec.subset)
-            rows = list(load_dataset(*args, split=split))
-            if limit is not None:
-                rows = rows[:limit]
-            return rows
-        rows = read_raw_jsonl(target, _fetch)
-        if limit is not None and len(rows) > limit:
-            rows = rows[:limit]
-        return rows
-
     def read(self) -> Sequence[SourceRecord]:
-        split_rows = {s: self._load_split(s) for s in self.spec.splits}
+        split_rows = {s: _load_hf_split(self.spec, self.name, s) for s in self.spec.splits}
 
         if self.spec.label_names:
             all_options = list(self.spec.label_names)

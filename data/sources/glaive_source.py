@@ -4,7 +4,8 @@ import random
 import re
 from typing import List, Sequence
 from datasets import load_dataset
-from data.case import DecisionCase, IDataSource, SourceRecord
+from data.case import DecisionCase, SourceRecord
+from data.sources.source import IDataSource
 from inference.questions import Choice
 from data.sources.huggingface_source import RAW_DIR, read_raw_jsonl
 
@@ -15,11 +16,6 @@ class GlaiveSource(IDataSource):
     def __init__(self, seed: int = 42, test_ratio: float = 0.1):
         self.seed = seed
         self.test_ratio = test_ratio
-
-    @property
-    def signature(self) -> str:
-        import hashlib
-        return hashlib.sha256(f"glaive_{self.seed}_{self.test_ratio}".encode()).hexdigest()[:10]
 
     def read(self) -> Sequence[SourceRecord]:
         rng = random.Random(self.seed)

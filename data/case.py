@@ -61,11 +61,3 @@ class DataSplits:
     train: Sequence[DecisionCase]
     val: Sequence[DecisionCase]
     test: Sequence[DecisionCase]
-
-@runtime_checkable
-class IDataSource(Protocol):
-    """Sovereign primitive contract: extracts domain records from external data origins."""
-    name: str
-    @property
-    def signature(self) -> str: ...
-    def read(self) -> Sequence[SourceRecord]: ...

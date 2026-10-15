@@ -84,3 +84,37 @@ def render_summary(ledger: Dict[str, dict]) -> None:
 
     console.print("\n", table, "\n")
 
+def run_playground(engines: Sequence[tuple[str, Any]]) -> None:
+    """Interactive CLI playground session for testing decision engines live."""
+    from inference.questions import Choice
+    names = ", ".join(n for n, _ in engines)
+    print(f"\nPiqo Benchmark Playground [{names}]. Enter query (or 'q' to quit):")
+    while True:
+        try:
+            ctx = input("\nContext (or 'q' to quit): ").strip()
+        except (EOFError, KeyboardInterrupt):
+            break
+        if ctx.lower() in ("q", "quit", "exit"):
+            break
+        if not ctx:
+            continue
+
+        try:
+            raw_choices = input("Choices (comma-separated): ").strip()
+        except (EOFError, KeyboardInterrupt):
+            break
+        opts = [o.strip() for o in raw_choices.split(",") if o.strip()]
+        if not opts:
+            continue
+
+        qs = [Choice("decision", opts)]
+        print(f"\nState: {ctx}\n" + "-" * 55)
+        for m_name, eng in engines:
+            try:
+                res = eng.decide(ctx, qs)
+                ans = res.answers.get("decision")
+                val = f"{str(ans.value):<16s} ({ans.confidence * 100:5.1f}%)" if hasattr(ans, "confidence") else (f"{str(ans.value):<16s}" if ans else "-")
+                print(f"  {m_name:<15s} -> {val} | {res.latency_ms:6.2f} ms")
+            except Exception as e:
+                print(f"  {m_name:<15s} -> Error: {e}")
+

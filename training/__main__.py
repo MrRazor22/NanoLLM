@@ -6,7 +6,8 @@ import typer
 
 transformers.logging.set_verbosity_error()
 
-from data.dataset import CORPUS_DIR, Dataset
+from data.storage_layer import DiskStorageLayer
+from data.dataset_extensions import CORPUS_DIR
 from model.policies.weight_cache import DEFAULT_WEIGHTS_DIR, DiskWeightCache
 from model.torch_model import TorchModel
 from training.epoch_trainer import EpochTrainer, ITrainer
@@ -44,19 +45,18 @@ def main(
 
     model = TorchModel(
         backbone_name=backbone,
-        lr=target_lr,
-        accum_steps=accum_steps,
         compile=compile,
     )
     if init_ckpt:
-        model.load(init_ckpt)
+        from model.model_extensions import load_weights
+        load_weights(model, init_ckpt)
     from training.policies.schedule import ConstantSchedule, CosineSchedule
     sched = ConstantSchedule() if schedule.lower() == "constant" else CosineSchedule(warmup_ratio=warmup_ratio)
-    trainer: ITrainer = EpochTrainer(model=model, batch_size=batch_size, base_lr=target_lr, schedule=sched)
+    trainer: ITrainer = EpochTrainer(model=model, batch_size=batch_size, base_lr=target_lr, accum_steps=accum_steps, schedule=sched)
     trainer = trainer | MetricsLayer(sink=lambda msg: print(msg, flush=True), log_interval_sec=5.0)
     trainer = trainer | CheckpointingLayer(output_path=out_target)
 
-    dataset = Dataset(corpus_dir=corpus_dir)
+    dataset = DiskStorageLayer(corpus_dir=corpus_dir)
     train_cases = dataset.load("train")
     val_cases = dataset.load("val")
 

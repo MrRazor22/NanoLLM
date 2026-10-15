@@ -1,4 +1,4 @@
-from typing import Any, Callable, Optional, Protocol, Sequence, runtime_checkable
+from typing import Callable, Optional, Sequence
 from inference.decision_engine import IDecisionEngine
 from inference.questions import (
     Choice, ChoiceResult, DecisionResult, DecisionState,
@@ -18,7 +18,7 @@ class GlinerDecideEngine(IDecisionEngine):
         self.device = resolve_device(device)
         self._model = None
 
-    def _get_model(self):
+    def decide(self, state: DecisionState, questions: Sequence[Question]) -> DecisionResult:
         if self._model is None:
             try:
                 try:
@@ -31,10 +31,8 @@ class GlinerDecideEngine(IDecisionEngine):
                 self._model = m
             except Exception as e:
                 raise ImportError(f"Cannot load GLiNER2.5-Decide ({self.model_id}): {e}. To run live: pip install gliner2")
-        return self._model
 
-    def decide(self, state: DecisionState, questions: Sequence[Question]) -> DecisionResult:
-        model = self._get_model()
+        model = self._model
         answers = {}
         for q in questions:
             prompt_text = f"Question: {q.instruction}\n\nContext:\n{state}" if q.instruction else str(state)

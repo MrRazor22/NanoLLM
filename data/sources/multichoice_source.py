@@ -1,11 +1,9 @@
-import hashlib
-import json
-from dataclasses import asdict, dataclass
-from pathlib import Path
+from dataclasses import dataclass
 from typing import List, Optional, Sequence
 from datasets import load_dataset
 
-from data.case import DecisionCase, IDataSource, SourceRecord
+from data.case import DecisionCase, SourceRecord
+from data.sources.source import IDataSource
 from inference.questions import Choice
 from data.sources.huggingface_source import RAW_DIR, read_raw_jsonl
 
@@ -22,10 +20,6 @@ class MultiChoiceSpec:
     splits: Sequence[str] = ("train", "test")
     train_limit: Optional[int] = None
     test_limit: Optional[int] = 300
-
-    @property
-    def signature(self) -> str:
-        return hashlib.sha256(json.dumps(asdict(self), sort_keys=True, default=str).encode()).hexdigest()[:10]
 
 MULTICHOICE_REASONING_BENCHMARKS: Sequence[MultiChoiceSpec] = (
     MultiChoiceSpec(
@@ -45,6 +39,24 @@ MULTICHOICE_REASONING_BENCHMARKS: Sequence[MultiChoiceSpec] = (
     ),
 )
 
+def _load_multichoice_split(spec: MultiChoiceSpec, source_name: str, split: str) -> List[dict]:
+    target = RAW_DIR / f"{source_name}_{split}.jsonl"
+    def _fetch() -> List[dict]:
+        args = [spec.dataset]
+        if spec.subset:
+            args.append(spec.subset)
+        rows = list(load_dataset(*args, split=split))
+        limit = spec.test_limit if split == "test" else spec.train_limit
+        if limit is not None:
+            rows = rows[:limit]
+        return rows
+
+    rows = read_raw_jsonl(target, _fetch)
+    limit = spec.test_limit if split == "test" else spec.train_limit
+    if limit is not None and len(rows) > limit:
+        rows = rows[:limit]
+    return rows
+
 class MultiChoiceReasoningSource(IDataSource):
     """Universal source adapter for multi-choice reasoning benchmarks (ARC, OpenBookQA)."""
 
@@ -54,32 +66,10 @@ class MultiChoiceReasoningSource(IDataSource):
         if self.spec.subset:
             self.name = f"{self.name}_{self.spec.subset}"
 
-    @property
-    def signature(self) -> str:
-        return self.spec.signature
-
-    def _load_split(self, split: str) -> List[dict]:
-        target = RAW_DIR / f"{self.name}_{split}.jsonl"
-        def _fetch() -> List[dict]:
-            args = [self.spec.dataset]
-            if self.spec.subset:
-                args.append(self.spec.subset)
-            rows = list(load_dataset(*args, split=split))
-            limit = self.spec.test_limit if split == "test" else self.spec.train_limit
-            if limit is not None:
-                rows = rows[:limit]
-            return rows
-
-        rows = read_raw_jsonl(target, _fetch)
-        limit = self.spec.test_limit if split == "test" else self.spec.train_limit
-        if limit is not None and len(rows) > limit:
-            rows = rows[:limit]
-        return rows
-
     def read(self) -> Sequence[SourceRecord]:
         records: List[SourceRecord] = []
         for split_name in self.spec.splits:
-            rows = self._load_split(split_name)
+            rows = _load_multichoice_split(self.spec, self.name, split_name)
             tag = "test" if split_name == "test" else "train"
             for r in rows:
                 state = r.get(self.spec.question_field, "").strip()
@@ -94,7 +84,6 @@ class MultiChoiceReasoningSource(IDataSource):
                 if not texts or len(texts) < 2:
                     continue
 
-                # Map answerKey to integer index
                 target_idx: Optional[int] = None
                 if ans_key in labels:
                     target_idx = labels.index(ans_key)

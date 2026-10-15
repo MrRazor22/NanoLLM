@@ -1,10 +1,11 @@
 from typing import Optional
 import typer
 
-from data.dataset import CORPUS_DIR, Dataset
+from data.dataset import Dataset
+from data.dataset_extensions import CORPUS_DIR
 from data.curation.budget_split import BudgetSplitPolicy
 from data.curation.ngram_leakage import NGramLeakagePolicy
-from data.disk_cache import DiskCachePolicy
+from data.storage_layer import DiskStorageLayer
 
 app = typer.Typer(add_completion=False, help="Piqo Dataset Corpus Builder CLI")
 
@@ -17,7 +18,7 @@ def main(
     test_quota: Optional[int] = typer.Option(None, help="Test quota"),
     n_gram: int = typer.Option(10, help="N-gram leakage window"),
 ) -> None:
-    dataset = Dataset(
+    inner = Dataset(
         split_policy=BudgetSplitPolicy(
             train_quota=train_quota,
             val_quota=val_quota,
@@ -25,17 +26,17 @@ def main(
             seed=seed,
         ),
         leakage_policy=NGramLeakagePolicy(n_gram=n_gram),
-        cache_policy=DiskCachePolicy(root_dir=corpus_dir),
     )
+    dataset = DiskStorageLayer(inner=inner, corpus_dir=corpus_dir)
 
     print(f"\n[Piqo Data Pipeline] Preparing corpus into: {corpus_dir}")
-    print(f"Sources Registered: {len(dataset.sources)}")
+    print(f"Sources Registered: {len(inner.sources)}")
     print("-" * 75)
     print(f"| {'Source Name':<35} | {'Category':<22} | {'Read Count':>10} |")
     print("-" * 75)
 
     source_counts = []
-    for src in dataset.sources:
+    for src in inner.sources:
         recs = src.read()
         cat = recs[0].sample.category if recs else "unknown"
         source_counts.append((src.name, cat, len(recs)))
@@ -49,16 +50,16 @@ def main(
     splits = dataset.prepare()
 
     print("\n" + "=" * 75)
-    print(f"Corpus Ready (Signature: {dataset.signature})")
+    print("Corpus Ready")
     print("=" * 75)
     print(f"  * Train Split:      {len(splits.train):>6} cases")
     print(f"  * Validation Split: {len(splits.val):>6} cases")
     print(f"  * Test Split:       {len(splits.test):>6} cases")
     print("-" * 75)
     print(f"Leakage Audit Scorecard:")
-    print(f"  * Pruned Overlaps:  {dataset.leak_audit.get('total_unique', 0):>6} cases")
-    print(f"  * Test Leaks:       {dataset.leak_audit.get('test_leaks', 0):>6} (Invariant: 0)")
-    print(f"  * Val Leaks:        {dataset.leak_audit.get('val_leaks', 0):>6} (Invariant: 0)")
+    print(f"  * Pruned Overlaps:  {inner.leak_audit.get('total_unique', 0):>6} cases")
+    print(f"  * Test Leaks:       {inner.leak_audit.get('test_leaks', 0):>6} (Invariant: 0)")
+    print(f"  * Val Leaks:        {inner.leak_audit.get('val_leaks', 0):>6} (Invariant: 0)")
     print("=" * 75 + "\n")
 
 if __name__ == "__main__":

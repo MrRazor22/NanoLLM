@@ -22,8 +22,8 @@ class JevBenchSuite(IBenchmarkSuite):
         }
 
     def load_cases(self) -> Sequence[DecisionCase]:
-        from data.dataset import Dataset
-        cases = Dataset().load("test")
+        from data.storage_layer import DiskStorageLayer
+        cases = DiskStorageLayer().load("test")
         reasoning_cats = {"causal_reasoning", "adversarial_grounding", "abductive_reasoning", "differential_elimination"}
         selected = [c for c in cases if c.category in reasoning_cats]
         return selected if selected else cases[:300]

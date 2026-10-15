@@ -18,17 +18,14 @@ class LayaEngine(IDecisionEngine):
         self.device = resolve_device(device)
         self._agent = None
 
-    def _get_agent(self):
+    def decide(self, state: DecisionState, questions: Sequence[Question]) -> DecisionResult:
         if self._agent is None:
             try:
                 from laya import Agent
                 self._agent = Agent(self.model_variant, device=self.device)
             except ImportError:
                 raise ImportError("Laya is not installed. To run live: pip install laya")
-        return self._agent
 
-    def decide(self, state: DecisionState, questions: Sequence[Question]) -> DecisionResult:
-        agent = self._get_agent()
         q_dict = {}
         for q in questions:
             instr = q.instruction.strip() if q.instruction and q.instruction.strip() else f"Select the best option for {q.name}."
@@ -43,7 +40,7 @@ class LayaEngine(IDecisionEngine):
             elif isinstance(q, Score):
                 q_dict[q.name] = {"type": "score", "instructions": instr, "criteria": [str(q.min_value), str(q.max_value)]}
 
-        raw = agent.system_one(str(state), q_dict)
+        raw = self._agent.system_one(str(state), q_dict)
         answers = {}
         for q in questions:
             ans_raw = raw.get("answers", {}).get(q.name, {})

@@ -6,8 +6,6 @@ from inference.questions import DecisionState
 @runtime_checkable
 class ILeakagePolicy(Protocol):
     """Sovereign policy contract: audits candidate training cases against holdout evaluation suites."""
-    @property
-    def signature(self) -> str: ...
     def find_leaks(
         self,
         candidates: Sequence[DecisionCase],
@@ -31,32 +29,6 @@ class NGramLeakagePolicy(ILeakagePolicy):
         self.disjoint_categories = tuple(disjoint_categories)
         self.exempt_categories = tuple(exempt_categories)
 
-    @property
-    def signature(self) -> str:
-        import hashlib
-        import json
-        payload = {
-            "type": "NGramLeakagePolicy",
-            "n_gram": self.n_gram,
-            "min_short_tokens": self.min_short_tokens,
-            "jaccard_threshold": self.jaccard_threshold,
-            "disjoint_categories": list(self.disjoint_categories),
-            "exempt_categories": list(self.exempt_categories),
-        }
-        return hashlib.sha256(json.dumps(payload, sort_keys=True).encode()).hexdigest()[:10]
-
-    def state_tokens(self, state: Union[DecisionState, str, dict]) -> Tuple[str, ...]:
-        if isinstance(state, dict):
-            text = " ".join(f"{k} {v}" for k, v in state.items())
-        else:
-            text = str(state or "")
-        return tuple(re.findall(r"\w+", text.lower()))
-
-    def extract_shingles(self, tokens: Sequence[str]) -> Set[Tuple[str, ...]]:
-        if len(tokens) < self.n_gram:
-            return set()
-        return {tuple(tokens[i : i + self.n_gram]) for i in range(len(tokens) - self.n_gram + 1)}
-
     def find_leaks(
         self,
         candidates: Sequence[DecisionCase],
@@ -64,6 +36,10 @@ class NGramLeakagePolicy(ILeakagePolicy):
     ) -> Sequence[DecisionCase]:
         if not candidates or not holdouts:
             return []
+
+        def tokenize(st: Union[DecisionState, str, dict]) -> Tuple[str, ...]:
+            txt = " ".join(f"{k} {v}" for k, v in st.items()) if isinstance(st, dict) else str(st or "")
+            return tuple(re.findall(r"\w+", txt.lower()))
 
         exact_holdouts: Set[Tuple[str, ...]] = set()
         holdout_shingles: Set[Tuple[str, ...]] = set()
@@ -76,12 +52,12 @@ class NGramLeakagePolicy(ILeakagePolicy):
         exempt_set = set(self.exempt_categories)
 
         for h in holdouts:
-            toks = self.state_tokens(h.state)
+            toks = tokenize(h.state)
             cat = h.category or "general"
             if toks:
                 exact_holdouts.add(toks)
                 if len(toks) >= self.n_gram:
-                    holdout_shingles.update(self.extract_shingles(toks))
+                    holdout_shingles.update(tuple(toks[i : i + self.n_gram]) for i in range(len(toks) - self.n_gram + 1))
                 elif len(toks) >= self.min_short_tokens:
                     short_holdout_by_first.setdefault(toks[0], []).append(f" {' '.join(toks)} ")
                 holdout_texts.append(" ".join(toks))
@@ -106,7 +82,7 @@ class NGramLeakagePolicy(ILeakagePolicy):
                     leaked.append(c)
                     continue
 
-            toks = self.state_tokens(c.state)
+            toks = tokenize(c.state)
             if not toks:
                 continue
 
@@ -115,7 +91,8 @@ class NGramLeakagePolicy(ILeakagePolicy):
                 continue
 
             if len(toks) >= self.n_gram:
-                if self.extract_shingles(toks) & holdout_shingles:
+                cand_shingles = {tuple(toks[i : i + self.n_gram]) for i in range(len(toks) - self.n_gram + 1)}
+                if cand_shingles & holdout_shingles:
                     leaked.append(c)
                     continue
                 cand_str = f" {' '.join(toks)} "

@@ -8,7 +8,7 @@ import typer
 os.environ["TOKENIZERS_PARALLELISM"] = "false"
 warnings.filterwarnings("ignore")
 
-from inference.decision_engine import DecisionEngine, IDecisionEngine, load_engine
+from inference.decision_engine import DecisionEngine, IDecisionEngine
 from inference.profiling_layer import ProfilingLayer
 from inference.questions import Choice, ChoiceResult, DecisionResult, Noul, NoulResult, Question, Score, ScoreResult
 from model.model_extensions import list_weights
@@ -57,7 +57,7 @@ def main(
         for c in list_weights(): t.add_row(c.name, f"{c.size_mb:.1f} MB", f"{c.val_loss:.4f}" if c.val_loss else "-", c.saved_at or "-")
         console.print(t); return
 
-    engine: IDecisionEngine = (load_engine(model, device=device) if model else DecisionEngine()) | ProfilingLayer()
+    engine: IDecisionEngine = DecisionEngine.from_weights(model, device=device) | ProfilingLayer()
 
     if play or state is None:
         console.print(f"[bold cyan]Piqo Playground[/] [{model or 'piqo'}]. Enter context (or 'q' to quit):")

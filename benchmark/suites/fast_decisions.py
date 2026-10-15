@@ -18,8 +18,8 @@ class FastDecisionsSuite(IBenchmarkSuite):
         }
 
     def load_cases(self) -> Sequence[DecisionCase]:
-        from data.dataset import Dataset
-        cases = Dataset().load("test")
+        from data.storage_layer import DiskStorageLayer
+        cases = DiskStorageLayer().load("test")
         ops_cats = {"customer_support", "banking77", "function_calling", "phishing_email", "enron_spam", "toxic_chat"}
         selected = [c for c in cases if c.category in ops_cats]
         return selected if selected else cases[:500]

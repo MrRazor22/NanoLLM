@@ -20,7 +20,6 @@ class DecisionEngine(IDecisionEngine):
         if model is None:
             from model.torch_model import TorchModel
             model = TorchModel()
-            model.load()
         self.model, self.resolver = model, resolver or DecisionResolver()
 
     def decide(self, state: DecisionState, questions: Sequence[Question]) -> DecisionResult:
@@ -30,9 +29,18 @@ class DecisionEngine(IDecisionEngine):
     def __or__(self, layer: Callable[["IDecisionEngine"], "IDecisionEngine"]) -> "IDecisionEngine":
         return layer(self)
 
-def load_engine(source: Union[str, Path] = "piqo", device: Optional[str] = None, resolver: Optional[IResolver] = None) -> IDecisionEngine:
-    """Domain Extension: Outside ergonomic factory for loading engine from weights."""
-    from model.torch_model import TorchModel
-    m = TorchModel(device=device)
-    m.load(source)
-    return DecisionEngine(model=m, resolver=resolver)
+    @classmethod
+    def from_weights(
+        cls,
+        source: Optional[Union[str, Path]] = None,
+        device: Optional[str] = None,
+        resolver: Optional[IResolver] = None,
+    ) -> IDecisionEngine:
+        from model.model_extensions import load_weights
+        from model.torch_model import TorchModel
+
+        m = TorchModel(device=device)
+        load_weights(m, source) if source is not None else load_weights(m)
+        return cls(model=m, resolver=resolver)
+
+

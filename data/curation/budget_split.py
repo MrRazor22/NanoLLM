@@ -5,8 +5,6 @@ from data.case import DataSplits, DecisionCase, SourceRecord
 @runtime_checkable
 class ISplitPolicy(Protocol):
     """Sovereign policy contract: partitions source records into train, val, and test splits."""
-    @property
-    def signature(self) -> str: ...
     def partition(self, records: Sequence[SourceRecord]) -> DataSplits: ...
 
 class BudgetSplitPolicy(ISplitPolicy):
@@ -26,21 +24,6 @@ class BudgetSplitPolicy(ISplitPolicy):
         self.test_quota_per_category = test_quota_per_category
         self.balanced_test = balanced_test
         self.seed = seed
-
-    @property
-    def signature(self) -> str:
-        import hashlib
-        import json
-        payload = {
-            "type": "BudgetSplitPolicy",
-            "train_quota": self.train_quota,
-            "val_quota": self.val_quota,
-            "test_quota": self.test_quota,
-            "test_quota_per_category": self.test_quota_per_category,
-            "balanced_test": self.balanced_test,
-            "seed": self.seed,
-        }
-        return hashlib.sha256(json.dumps(payload, sort_keys=True).encode()).hexdigest()[:10]
 
     def partition(self, records: Sequence[SourceRecord]) -> DataSplits:
         rng = random.Random(self.seed)
