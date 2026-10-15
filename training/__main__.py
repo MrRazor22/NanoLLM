@@ -59,7 +59,7 @@ def main(
     from training.policies.schedule import ConstantSchedule, CosineSchedule
     sched = ConstantSchedule() if schedule.lower() == "constant" else CosineSchedule(warmup_ratio=warmup_ratio)
     trainer: ITrainer = EpochTrainer(model=model, batch_size=batch_size, base_lr=target_lr, schedule=sched)
-    trainer = trainer | MetricsLayer(sink=lambda msg: print(msg, flush=True), log_interval_sec=5.0)
+    trainer = trainer | MetricsLayer(log_interval_sec=5.0)
     trainer = trainer | CheckpointingLayer(output_path=out_target)
 
     dataset = DiskStorageLayer(corpus_dir=corpus_dir)

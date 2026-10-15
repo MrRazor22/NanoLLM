@@ -17,6 +17,7 @@ from data.sources.multichoice_source import (
     MULTICHOICE_REASONING_BENCHMARKS,
 )
 from data.sources.sciq_source import SciQSource
+from data.sources.reclor_source import ReClorSource
 
 DATA_DIR = Path(__file__).resolve().parent
 CORPUS_DIR = DATA_DIR / "corpus"
@@ -34,4 +35,5 @@ def standard_sources(seed: int = 42) -> List[IDataSource]:
         ARTSource(),
         COPASource(),
         SciQSource(),
+        ReClorSource(),
     ]

@@ -12,6 +12,7 @@ class BudgetSplitPolicy(ISplitPolicy):
     def __init__(
         self,
         train_quota: int = 40000,
+        train_quota_per_category: Optional[int] = 1500,
         val_quota: int = 2500,
         test_quota: Optional[int] = None,
         test_quota_per_category: Optional[int] = 400,
@@ -19,6 +20,7 @@ class BudgetSplitPolicy(ISplitPolicy):
         seed: int = 42,
     ):
         self.train_quota = train_quota
+        self.train_quota_per_category = train_quota_per_category
         self.val_quota = val_quota
         self.test_quota = test_quota
         self.test_quota_per_category = test_quota_per_category
@@ -84,6 +86,20 @@ class BudgetSplitPolicy(ISplitPolicy):
                 balanced_test_recs.extend(selected)
 
             test_recs = balanced_test_recs
+
+        if self.train_quota_per_category is not None and train_recs:
+            by_train_cat: dict[str, list[DecisionCase]] = {}
+            for c in train_recs:
+                by_train_cat.setdefault(c.category or "general", []).append(c)
+
+            balanced_train: list[DecisionCase] = []
+            for cat_items in by_train_cat.values():
+                if len(cat_items) <= self.train_quota_per_category:
+                    balanced_train.extend(cat_items)
+                else:
+                    rng.shuffle(cat_items)
+                    balanced_train.extend(cat_items[: self.train_quota_per_category])
+            train_recs = balanced_train
 
         needed_val = max(0, self.val_quota - len(val_recs))
         if needed_val > 0 and train_recs:

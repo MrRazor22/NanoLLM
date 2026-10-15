@@ -35,6 +35,20 @@ MULTICHOICE_REASONING_BENCHMARKS: Sequence[MultiChoiceSpec] = (
         instruction="Which conclusion logically follows?",
         train_limit=1500,
     ),
+    MultiChoiceSpec(
+        dataset="tau/commonsense_qa",
+        question_field="question",
+        category="commonsense_reasoning",
+        instruction="Which option best answers the question?",
+        train_limit=2000,
+    ),
+    MultiChoiceSpec(
+        dataset="allenai/qasc",
+        question_field="question",
+        category="multihop_reasoning",
+        instruction="Which option best completes the reasoning chain?",
+        train_limit=2000,
+    ),
 )
 
 class MultiChoiceReasoningSource(IDataSource):

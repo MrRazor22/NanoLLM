@@ -26,6 +26,12 @@
   ```bash
   python -m data
   ```
+- **Pristine Reset / Clean Slate Workflow:**
+  ```powershell
+  # Wipe stale corpus splits, weights, and scores (preserves data/raw/ cache)
+  Get-ChildItem data\corpus, model\weights -File -Recurse | Remove-Item -Force
+  if (Test-Path benchmark\scores.json) { Remove-Item -Force benchmark\scores.json }
+  ```
 - **Run Training (Self-Wiring Defaults):**
   ```bash
   python -m training                  # Continuous adaptation (defaults: 1 epoch, lr=1e-5, on latest checkpoint)

@@ -14,6 +14,7 @@ def main(
     corpus_dir: str = typer.Option(str(CORPUS_DIR), help="Path to corpus directory"),
     seed: int = typer.Option(42, help="Random seed"),
     train_quota: int = typer.Option(40000, help="Train quota"),
+    train_quota_per_category: Optional[int] = typer.Option(1500, help="Train quota per category"),
     val_quota: int = typer.Option(2500, help="Val quota"),
     test_quota: Optional[int] = typer.Option(None, help="Test quota"),
     n_gram: int = typer.Option(10, help="N-gram leakage window"),
@@ -21,6 +22,7 @@ def main(
     inner = Dataset(
         split_policy=BudgetSplitPolicy(
             train_quota=train_quota,
+            train_quota_per_category=train_quota_per_category,
             val_quota=val_quota,
             test_quota=test_quota,
             seed=seed,
