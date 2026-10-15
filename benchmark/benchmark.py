@@ -42,8 +42,13 @@ class Benchmark(IBenchmark):
     ) -> None:
         active_names: list[str] = []
         for suite in suites:
+            try:
+                items = list(suite.load_cases())
+            except FileNotFoundError as e:
+                print(f"\n[UNAVAILABLE] Suite '{suite.name.upper()}': {e}")
+                continue
+
             active_names.append(suite.name)
-            items = list(suite.load_cases())
             if limit:
                 items = items[:limit]
 

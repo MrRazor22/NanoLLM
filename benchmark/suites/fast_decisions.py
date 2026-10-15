@@ -1,7 +1,9 @@
+from pathlib import Path
 from typing import Mapping, Sequence
 from data.case import DecisionCase
-from data.storage_layer import DiskStorageLayer
 from benchmark.suites.suite import IBenchmarkSuite
+
+BENCHMARK_DATA_DIR = Path(__file__).resolve().parent.parent / "data"
 
 class FastDecisionsSuite(IBenchmarkSuite):
     """Fastino Labs GLiNER2.5-Decide published 17-task operational benchmark."""
@@ -19,10 +21,13 @@ class FastDecisionsSuite(IBenchmarkSuite):
         }
 
     def load_cases(self) -> Sequence[DecisionCase]:
-        cases = DiskStorageLayer().load("test")
-        ops_cats = {"customer_support", "banking77", "function_calling", "phishing_email", "enron_spam", "toxic_chat"}
-        selected = [c for c in cases if c.category in ops_cats]
-        return selected if selected else cases[:500]
-
-# Backward-compatible alias
-GlinerFastDecisionsSuite = FastDecisionsSuite
+        path = BENCHMARK_DATA_DIR / "fast_decisions_test.jsonl"
+        if not path.exists():
+            raise FileNotFoundError(
+                f"Official Fastino 17-task test set not found at '{path}'. "
+                "Slicing local training data is strictly prohibited under PFD. "
+                "Provide the official frozen dataset to run this benchmark."
+            )
+        import json
+        with open(path, "r", encoding="utf-8") as f:
+            return [DecisionCase(**json.loads(line)) for line in f if line.strip()]

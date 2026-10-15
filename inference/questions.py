@@ -39,25 +39,28 @@ class Choice:
 
     def matches(self, answer: AnswerInput) -> bool:
         if answer is None or self.target is None: return False
-        val = str(getattr(answer, "value", answer))
-        if val == str(self.target): return True
+        val = str(getattr(answer, "value", answer)).strip()
+        tgt = str(self.target).strip()
+        if val == tgt or val.lower() == tgt.lower(): return True
         keys = list(self.options.keys()) if isinstance(self.options, dict) else list(self.options)
-        if str(self.target).isdigit() and 0 <= int(self.target) < len(keys):
-            return val == str(keys[int(self.target)])
-        if val in keys and str(self.target) in keys:
-            return keys.index(val) == keys.index(str(self.target))
+        if tgt.isdigit() and 0 <= int(tgt) < len(keys):
+            return val == str(keys[int(tgt)]) or val.lower() == str(keys[int(tgt)]).lower()
+        if val in keys and tgt in keys:
+            return keys.index(val) == keys.index(tgt)
         return False
 
 @dataclass(frozen=True, slots=True)
 class Noul:
     name: str
     instruction: str | None = None
-    target: bool | float | int | None = None
+    target: bool | float | int | str | None = None
 
     def matches(self, answer: AnswerInput) -> bool:
         if answer is None or self.target is None: return False
         val = getattr(answer, "value", answer)
-        return bool(val) == bool(self.target)
+        val_bool = val.strip().lower() in ("true", "1", "yes") if isinstance(val, str) else bool(val)
+        tgt_bool = self.target.strip().lower() in ("true", "1", "yes") if isinstance(self.target, str) else bool(self.target)
+        return val_bool == tgt_bool
 
 @dataclass(frozen=True, slots=True)
 class Score:

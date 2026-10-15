@@ -32,21 +32,39 @@ class DecisionCase:
 
     @classmethod
     def from_dict(cls, d: dict) -> "DecisionCase":
-        state, cat = d.get("state", ""), d.get("category", "general")
-        qs, gold = d.get("questions", {}), d.get("gold", {}) or {}
-        specs = []
+        import json
+        state = d.get("state", "")
+        cat = d.get("category") or d.get("workflow", "general")
+        raw_qs, raw_gold = d.get("questions", {}), d.get("gold", {}) or {}
+        qs = json.loads(raw_qs) if isinstance(raw_qs, str) else (raw_qs or {})
+        gold = json.loads(raw_gold) if isinstance(raw_gold, str) else (raw_gold or {})
+
+        specs: list[Question] = []
         if isinstance(qs, dict):
             for name, spec in qs.items():
-                opts, ins = spec.get("options") or spec.get("criteria", {}), spec.get("instructions")
-                q_type = spec.get("type", "choice" if opts else "noul")
-                tgt = gold.get(name) if isinstance(gold, dict) else None
-                if q_type == "choice" and opts:
-                    keys = list(opts.keys()) if isinstance(opts, dict) else list(opts)
-                    specs.append(Choice(name=name, options=opts, instruction=ins, target=keys.index(str(tgt)) if str(tgt) in keys else tgt))
+                crit = spec.get("criteria") or spec.get("options")
+                ins = spec.get("instructions") or spec.get("instruction")
+                q_type = spec.get("type", "choice" if crit else "noul")
+                g_item = gold.get(name, {}) if isinstance(gold, dict) else None
+                tgt = g_item.get("label") if isinstance(g_item, dict) else (g_item if g_item is not None else None)
+
+                if q_type == "choice":
+                    opts = crit if isinstance(crit, dict) else {o: o for o in (crit or [])}
+                    specs.append(Choice(name=name, options=opts, instruction=ins, target=tgt))
+                elif q_type == "noul":
+                    opts = crit if (isinstance(crit, dict) and crit) else {"false": "False", "true": "True"}
+                    specs.append(Choice(name=name, options=opts, instruction=ins, target=str(tgt).lower() if tgt is not None else None))
+                elif q_type == "score" and isinstance(crit, list) and crit:
+                    opts = {str(i): desc for i, desc in enumerate(crit)}
+                    specs.append(Choice(name=name, options=opts, instruction=ins, target=str(tgt) if tgt is not None else None))
                 elif q_type == "score":
-                    specs.append(Score(name=name, instruction=ins, target=float(tgt) if tgt is not None else 0.0))
+                    min_v, max_v = float(spec.get("min_value", 0.0)), float(spec.get("max_value", 100.0))
+                    specs.append(Score(name=name, min_value=min_v, max_value=max_v, instruction=ins, target=float(tgt) if tgt is not None else None))
+                elif crit:
+                    specs.append(Choice(name=name, options=crit, instruction=ins, target=tgt))
                 else:
-                    specs.append(Noul(name=name, instruction=ins, target=bool(tgt) if tgt is not None else False))
+                    specs.append(Noul(name=name, instruction=ins, target=tgt))
+
         return cls(state=state, questions=specs, category=cat)
 
 @dataclass(frozen=True, slots=True)

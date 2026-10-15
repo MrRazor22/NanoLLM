@@ -1,7 +1,9 @@
+from pathlib import Path
 from typing import Mapping, Sequence
 from data.case import DecisionCase
-from data.storage_layer import DiskStorageLayer
 from benchmark.suites.suite import IBenchmarkSuite
+
+BENCHMARK_DATA_DIR = Path(__file__).resolve().parent.parent / "data"
 
 class JevBenchSuite(IBenchmarkSuite):
     """TypeSafe AI / JevBench official benchmark tasks across hard reasoning and policy decisions."""
@@ -22,7 +24,13 @@ class JevBenchSuite(IBenchmarkSuite):
         }
 
     def load_cases(self) -> Sequence[DecisionCase]:
-        cases = DiskStorageLayer().load("test")
-        reasoning_cats = {"causal_reasoning", "adversarial_grounding", "abductive_reasoning", "differential_elimination"}
-        selected = [c for c in cases if c.category in reasoning_cats]
-        return selected if selected else cases[:300]
+        path = BENCHMARK_DATA_DIR / f"jevbench_{self.track}_test.jsonl"
+        if not path.exists():
+            raise FileNotFoundError(
+                f"Official JevBench {self.track} benchmark records not found at '{path}'. "
+                "Slicing local training data is strictly prohibited under PFD. "
+                "Obtain official benchmark records to claim official reproduction."
+            )
+        import json
+        with open(path, "r", encoding="utf-8") as f:
+            return [DecisionCase(**json.loads(line)) for line in f if line.strip()]

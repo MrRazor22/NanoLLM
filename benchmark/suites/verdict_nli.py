@@ -1,10 +1,16 @@
+from pathlib import Path
 from typing import Mapping, Sequence
 from data.case import DecisionCase
-from data.storage_layer import DiskStorageLayer
 from benchmark.suites.suite import IBenchmarkSuite
 
+BENCHMARK_DATA_DIR = Path(__file__).resolve().parent.parent / "data"
+
 class VerdictNliSuite(IBenchmarkSuite):
-    """Verdict 2.0 (ModernBERT-151M) multi-candidate decision benchmark."""
+    """Verdict multi-candidate decision benchmark.
+
+    Note: Verdict's published baseline (0.261) was officially established on
+    LocalLLaMA/typed-decisions (test split); see LayaTypedDecisionsSuite.
+    """
 
     @property
     def name(self) -> str:
@@ -13,12 +19,19 @@ class VerdictNliSuite(IBenchmarkSuite):
     @property
     def published_baselines(self) -> Mapping[str, float]:
         return {
-            "Verdict-151M": 0.660,
-            "GLiClass-ModernBERT": 0.635,
+            "Verdict-151M": 0.261,
+            "GLiClass-ModernBERT": 0.240,
         }
 
     def load_cases(self) -> Sequence[DecisionCase]:
-        cases = DiskStorageLayer().load("test")
-        nli_cats = {"adversarial_reasoning", "causal_reasoning", "deductive_reasoning"}
-        selected = [c for c in cases if c.category in nli_cats]
-        return selected if selected else cases[:400]
+        path = BENCHMARK_DATA_DIR / "verdict_nli_test.jsonl"
+        if not path.exists():
+            raise FileNotFoundError(
+                f"Official Verdict evaluation manifest not found at '{path}'. "
+                "Note: Verdict's official published evaluation was established on "
+                "LocalLLaMA/typed-decisions (run with '-s laya_typed' instead). "
+                "Slicing local training data is strictly prohibited under PFD."
+            )
+        import json
+        with open(path, "r", encoding="utf-8") as f:
+            return [DecisionCase(**json.loads(line)) for line in f if line.strip()]

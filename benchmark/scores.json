@@ -1,0 +1,21 @@
+{
+  "laya_typed_decisions": {
+    "count": 5,
+    "agent_trace_observability": {
+      "count": 5,
+      "Piqo": 0.2
+    },
+    "OVERALL": {
+      "count": 5,
+      "Piqo": 0.2
+    },
+    "LATENCY_P50_MS": {
+      "count": "-",
+      "Piqo": 673.21
+    },
+    "BRIER_SCORE": {
+      "count": "-",
+      "Piqo": 1.1339
+    }
+  }
+}

@@ -9,7 +9,7 @@ warnings.filterwarnings("ignore")
 
 from benchmark.benchmark import Benchmark
 from benchmark.policies.ledger import DiskLedgerPolicy
-from benchmark.registry import AVAILABLE_ENGINES, PUBLISHED_SUITES
+from benchmark.registry import AVAILABLE_ENGINES, OFFICIAL_SUITES, PUBLISHED_SUITES
 from benchmark.suites.suite import IBenchmarkSuite
 from inference.decision_engine import IDecisionEngine
 from inference.profiling_layer import ProfilingLayer
@@ -19,12 +19,16 @@ app = typer.Typer(add_completion=False, help="Piqo Sovereign Benchmark CLI")
 
 def resolve_suites(suite_arg: str) -> Sequence[IBenchmarkSuite]:
     """Resolves CLI suite argument into sovereign IBenchmarkSuite primitives."""
-    if suite_arg.strip().lower() == "all":
+    arg = suite_arg.strip().lower()
+    if arg in ("all", "official"):
+        unique_classes = list(dict.fromkeys(OFFICIAL_SUITES.values()))
+        return [cls() for cls in unique_classes]
+    if arg == "all_suites":
         unique_classes = list(dict.fromkeys(PUBLISHED_SUITES.values()))
         return [cls() for cls in unique_classes]
     keys = [s.strip().lower() for s in suite_arg.split(",") if s.strip().lower() in PUBLISHED_SUITES]
     unique_classes = list(dict.fromkeys([PUBLISHED_SUITES[k] for k in keys]))
-    return [cls() for cls in unique_classes] if unique_classes else [PUBLISHED_SUITES["laya"]()]
+    return [cls() for cls in unique_classes] if unique_classes else [OFFICIAL_SUITES["laya"]()]
 
 def resolve_engines(
     model_arg: str,

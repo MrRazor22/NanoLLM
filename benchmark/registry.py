@@ -23,18 +23,20 @@ AVAILABLE_ENGINES: dict[str, Type[IDecisionEngine]] = {
     "verdict": VerdictEngine,
 }
 
-PUBLISHED_SUITES: dict[str, Type[IBenchmarkSuite]] = {
+OFFICIAL_SUITES: dict[str, Type[IBenchmarkSuite]] = {
     "laya": LayaTypedDecisionsSuite,
     "laya_typed": LayaTypedDecisionsSuite,
     "laya_typed_decisions": LayaTypedDecisionsSuite,
+    "typed_decisions": LayaTypedDecisionsSuite,
+}
+
+PUBLISHED_SUITES: dict[str, Type[IBenchmarkSuite]] = {
+    **OFFICIAL_SUITES,
     "gliner": FastDecisionsSuite,
     "fastino": FastDecisionsSuite,
     "fast_decisions": FastDecisionsSuite,
-    "gliner_fast_decisions": FastDecisionsSuite,
     "jev": JevBenchSuite,
     "jevbench": JevBenchSuite,
-    "jev_bench": JevBenchSuite,
-    "jevbench_hard": JevBenchSuite,
     "kev": KevTransferSuite,
     "kev_transfer": KevTransferSuite,
     "verdict": VerdictNliSuite,

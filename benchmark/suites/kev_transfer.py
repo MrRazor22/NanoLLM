@@ -1,7 +1,9 @@
+from pathlib import Path
 from typing import Mapping, Sequence
 from data.case import DecisionCase
-from data.storage_layer import DiskStorageLayer
 from benchmark.suites.suite import IBenchmarkSuite
+
+BENCHMARK_DATA_DIR = Path(__file__).resolve().parent.parent / "data"
 
 class KevTransferSuite(IBenchmarkSuite):
     """Jared Palmer's official Kev out-of-domain transfer evaluation suite (SciQ, ANLI, Emotion, ARC)."""
@@ -19,7 +21,13 @@ class KevTransferSuite(IBenchmarkSuite):
         }
 
     def load_cases(self) -> Sequence[DecisionCase]:
-        cases = DiskStorageLayer().load("test")
-        transfer_cats = {"deductive_reasoning", "scientific_reasoning", "emotion", "adversarial_reasoning"}
-        selected = [c for c in cases if c.category in transfer_cats]
-        return selected if selected else cases[:400]
+        path = BENCHMARK_DATA_DIR / "kev_transfer_v4.jsonl"
+        if not path.exists():
+            raise FileNotFoundError(
+                f"Official Kev transfer-v4 manifest not found at '{path}'. "
+                "Slicing local training data is strictly prohibited under PFD. "
+                "Reproduce Kev's frozen transfer-v4 suite and manifest to run."
+            )
+        import json
+        with open(path, "r", encoding="utf-8") as f:
+            return [DecisionCase(**json.loads(line)) for line in f if line.strip()]
