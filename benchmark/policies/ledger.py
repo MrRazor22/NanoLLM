@@ -1,9 +1,9 @@
 import json
 from pathlib import Path
 from typing import Dict, Optional, Protocol, Union, runtime_checkable
-from benchmark.report import BenchmarkReport
+from benchmark.policies.scorer import BenchmarkReport
 
-DEFAULT_SCORES_FILE = Path(__file__).resolve().parent / "scores.json"
+DEFAULT_SCORES_FILE = Path(__file__).resolve().parent.parent / "scores.json"
 
 @runtime_checkable
 class ILedgerPolicy(Protocol):
@@ -36,6 +36,9 @@ class DiskLedgerPolicy(ILedgerPolicy):
         overall["count"], overall[report.model] = report.count, round(report.overall, 4)
         lat = suite_data.setdefault("LATENCY_P50_MS", {})
         lat["count"], lat[report.model] = "-", round(report.p50_ms, 2)
+        if report.brier_score > 0:
+            brier_entry = suite_data.setdefault("BRIER_SCORE", {})
+            brier_entry["count"], brier_entry[report.model] = "-", round(report.brier_score, 4)
 
         self.scores_path.write_text(json.dumps(data, indent=2), encoding="utf-8")
 

@@ -36,6 +36,7 @@ class GlinerDecideEngine(IDecisionEngine):
         answers = {}
         for q in questions:
             prompt_text = f"Question: {q.instruction}\n\nContext:\n{state}" if q.instruction else str(state)
+
             if isinstance(q, Choice):
                 if isinstance(q.options, dict):
                     opt_map = {desc if desc else k: k for k, desc in q.options.items()}

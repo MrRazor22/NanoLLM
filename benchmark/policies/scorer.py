@@ -1,64 +1,57 @@
 import statistics
 import time
-from typing import Dict, Optional, Protocol, Sequence, runtime_checkable
-from benchmark.ledger import DiskLedgerPolicy, ILedgerPolicy
-from benchmark.report import BenchmarkReport
+from dataclasses import dataclass, field
+from typing import Dict, Mapping, Optional, Protocol, Sequence, runtime_checkable
 from data.case import DecisionCase
 from inference.decision_engine import IDecisionEngine
 
+@dataclass(frozen=True, slots=True)
+class BenchmarkReport:
+    """Pure domain DTO: verified evaluation report for a decision engine on a benchmark suite."""
+    model: str
+    overall: float
+    count: int
+    p50_ms: float = 0.0
+    brier_score: float = 0.0
+    slices: Mapping[str, float] = field(default_factory=dict)
+    counts: Mapping[str, int] = field(default_factory=dict)
+    suite: str = "default"
+
 @runtime_checkable
-class IScorecard(Protocol):
-    """Core Primitive: Evaluates decision engines on benchmark items to produce verified score reports."""
-    def evaluate(
+class IScorerPolicy(Protocol):
+    """Opinion sub-primitive: scores decisions against ground truth to produce a report."""
+    def score(
         self,
         engine: IDecisionEngine,
-        items: Sequence[DecisionCase],
+        cases: Sequence[DecisionCase],
         model_name: str = "Piqo",
         suite: str = "default",
-        force: bool = False,
     ) -> BenchmarkReport: ...
 
-class Scorecard(IScorecard):
-    """Core Primitive Implementation: Evaluates decision engines on benchmark items."""
+class ScorerPolicy(IScorerPolicy):
+    """Concrete evaluation policy: runs live engine inference, tracks metrics, and computes scores."""
 
-    def __init__(
-        self,
-        ledger: Optional[ILedgerPolicy] = None,
-        show_progress: bool = True,
-        log_interval_sec: float = 3.0,
-    ):
-        self.ledger = ledger if ledger is not None else DiskLedgerPolicy()
+    def __init__(self, show_progress: bool = True, log_interval_sec: float = 3.0):
         self.show_progress = show_progress
         self.log_interval_sec = log_interval_sec
 
-    def evaluate(
+    def score(
         self,
         engine: IDecisionEngine,
-        items: Sequence[DecisionCase],
+        cases: Sequence[DecisionCase],
         model_name: str = "Piqo",
         suite: str = "default",
-        force: bool = False,
     ) -> BenchmarkReport:
-        if not force and self.ledger is not None:
-            cached = self.ledger.get(model_name, suite=suite)
-            if cached is not None:
-                return BenchmarkReport(
-                    model=model_name,
-                    overall=cached.get("OVERALL", 0.0),
-                    count=len(items),
-                    p50_ms=cached.get("LATENCY_P50_MS", 0.0),
-                    slices={k: v for k, v in cached.items() if k not in ("OVERALL", "LATENCY_P50_MS")},
-                    suite=suite,
-                )
-
         cat_correct: Dict[str, int] = {}
         cat_total: Dict[str, int] = {}
-        latencies, hits = [], []
-        total_items = len(items)
+        latencies: list[float] = []
+        hits: list[float] = []
+        brier_diffs: list[float] = []
+        total_items = len(cases)
         start_time = time.perf_counter()
         last_log = start_time
 
-        for idx, item in enumerate(items, 1):
+        for idx, item in enumerate(cases, 1):
             cat = item.category or "general"
             t_call = time.perf_counter()
             res = engine.decide(item.state, item.questions)
@@ -67,11 +60,21 @@ class Scorecard(IScorecard):
 
             for q in item.questions:
                 if q.target is not None and q.name in res.answers:
-                    is_hit = q.matches(res.answers[q.name])
+                    ans = res.answers[q.name]
+                    is_hit = q.matches(ans)
                     hits.append(1.0 if is_hit else 0.0)
                     cat_total[cat] = cat_total.get(cat, 0) + 1
                     if is_hit:
                         cat_correct[cat] = cat_correct.get(cat, 0) + 1
+
+                    probs = getattr(ans, "probabilities", None)
+                    if probs and isinstance(probs, dict):
+                        target_str = str(q.target)
+                        b_sum = sum((float(p_val) - (1.0 if str(opt_k) == target_str else 0.0)) ** 2 for opt_k, p_val in probs.items())
+                        brier_diffs.append(b_sum)
+                    elif hasattr(ans, "confidence") and ans.confidence is not None:
+                        c = float(ans.confidence)
+                        brier_diffs.append((c - (1.0 if is_hit else 0.0)) ** 2)
 
             now = time.perf_counter()
             if self.show_progress and (now - last_log >= self.log_interval_sec or idx == total_items):
@@ -83,15 +86,14 @@ class Scorecard(IScorecard):
 
         overall = sum(hits) / max(1, len(hits))
         p50 = float(statistics.median(latencies)) if latencies else 0.0
-        report = BenchmarkReport(
+        brier = float(sum(brier_diffs) / max(1, len(brier_diffs))) if brier_diffs else 0.0
+        return BenchmarkReport(
             model=model_name,
             overall=overall,
             count=len(hits),
             p50_ms=p50,
+            brier_score=brier,
             slices={c: cat_correct.get(c, 0) / cat_total[c] for c in cat_total},
             counts=cat_total,
             suite=suite,
         )
-        if self.ledger is not None:
-            self.ledger.put(report)
-        return report

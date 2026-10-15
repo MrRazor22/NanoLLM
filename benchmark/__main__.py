@@ -1,82 +1,77 @@
 import os, warnings
-os.environ["HF_HUB_OFFLINE"] = os.environ.get("HF_HUB_OFFLINE", "1")
+from pathlib import Path
+from typing import Mapping, Optional, Sequence
+import typer
+
 os.environ["HF_HUB_DISABLE_PROGRESS_BARS"] = "1"
 os.environ["TOKENIZERS_PARALLELISM"] = "false"
 warnings.filterwarnings("ignore")
 
-from typing import Optional
-import typer
-from benchmark.competitors import AVAILABLE_COMPETITORS
-from benchmark.scorecard import Scorecard
-from benchmark.scorecard_extensions import render_suite, render_summary, run_playground
-from benchmark.suites import PUBLISHED_SUITES
-from inference.decision_engine import DecisionEngine, IDecisionEngine
-from inference.questions import Choice
+from benchmark.benchmark import Benchmark
+from benchmark.policies.ledger import DiskLedgerPolicy
+from benchmark.registry import AVAILABLE_ENGINES, PUBLISHED_SUITES
+from benchmark.suites.suite import IBenchmarkSuite
+from inference.decision_engine import IDecisionEngine
 from inference.profiling_layer import ProfilingLayer
+from inference.questions import Choice
 
-app = typer.Typer(add_completion=False, help="Piqo Benchmark Runner CLI")
+app = typer.Typer(add_completion=False, help="Piqo Sovereign Benchmark CLI")
+
+def resolve_suites(suite_arg: str) -> Sequence[IBenchmarkSuite]:
+    """Resolves CLI suite argument into sovereign IBenchmarkSuite primitives."""
+    if suite_arg.strip().lower() == "all":
+        unique_classes = list(dict.fromkeys(PUBLISHED_SUITES.values()))
+        return [cls() for cls in unique_classes]
+    keys = [s.strip().lower() for s in suite_arg.split(",") if s.strip().lower() in PUBLISHED_SUITES]
+    unique_classes = list(dict.fromkeys([PUBLISHED_SUITES[k] for k in keys]))
+    return [cls() for cls in unique_classes] if unique_classes else [PUBLISHED_SUITES["laya"]()]
+
+def resolve_engines(
+    model_arg: str,
+    device: Optional[str] = None,
+    checkpoint: Optional[str] = None,
+) -> Mapping[str, IDecisionEngine]:
+    """Resolves CLI model argument into instantiated IDecisionEngine primitives."""
+    arg = model_arg.strip().lower()
+    keys = list(AVAILABLE_ENGINES.keys()) if arg == "all" else [k.strip() for k in arg.split(",") if k.strip() in AVAILABLE_ENGINES]
+    engines: dict[str, IDecisionEngine] = {}
+    for k in keys:
+        cls = AVAILABLE_ENGINES[k]
+        kwargs = {"device": device}
+        if k == "piqo" and checkpoint is not None:
+            kwargs["checkpoint"] = checkpoint
+        engines[k.title()] = cls(**kwargs)
+    return engines
 
 @app.command()
 def main(
-    checkpoint: Optional[str] = typer.Option(None, help="Model checkpoint path"),
-    name: str = typer.Option("Piqo", help="Model label"),
-    play: bool = typer.Option(False, "--play", "-p", help="Playground mode"),
-    suite: str = typer.Option("all", help="Benchmark suite (all, laya, kev, jev, gliner, verdict)"),
+    suite: str = typer.Option("all", "--suite", "-s", help="Benchmark suite(s): all, gliner, jev, kev, laya (comma-separated)"),
+    model: str = typer.Option("all", "--model", "-m", help="Model(s) to evaluate: all, piqo, gliner, jev, kev, laya, verdict (comma-separated)"),
+    report: bool = typer.Option(False, "--report", "-r", help="Show leaderboard report without running models"),
+    out: Path = typer.Option(Path("benchmark/scores.json"), "--out", "-o", help="Scorecard ledger JSON file path"),
     limit: Optional[int] = typer.Option(None, help="Item limit per suite"),
-    device: Optional[str] = typer.Option(None, help="Target compute device"),
-    competitor: str = typer.Option("all", help="Competitor to benchmark (all, none, laya, verdict, kev, gliner)"),
-    force: bool = typer.Option(False, "--force", help="Force re-evaluation"),
+    device: Optional[str] = typer.Option(None, help="Target compute device (cpu, cuda, mps)"),
+    checkpoint: Optional[str] = typer.Option(None, help="Model checkpoint path for Piqo"),
+    skip_cached: bool = typer.Option(False, "--skip-cached", help="Skip models that already have scores in ledger"),
+    play: bool = typer.Option(False, "--play", "-p", help="Playground mode"),
 ) -> None:
-    competitor_keys = list(AVAILABLE_COMPETITORS.keys()) if competitor == "all" else ([competitor] if competitor != "none" else [])
-    targets = [(name, name)] + [(c.capitalize(), c) for c in competitor_keys]
+    bench = Benchmark(ledger=DiskLedgerPolicy(scores_path=out))
+    active_suites = resolve_suites(suite)
 
-    engine_cache: dict[str, IDecisionEngine] = {}
-    def resolve_engine(m_key: str) -> IDecisionEngine:
-        if m_key not in engine_cache:
-            if m_key == name:
-                engine_cache[m_key] = DecisionEngine.from_weights(checkpoint, device=device)
-            elif m_key.lower() in AVAILABLE_COMPETITORS:
-                cls = AVAILABLE_COMPETITORS[m_key.lower()]
-                engine_cache[m_key] = cls(device=device)
-        return engine_cache[m_key]
-
-    if play:
-        print("Loading models for playground...")
-        live_engines = []
-        for label, key in targets:
-            try:
-                eng = resolve_engine(key) | ProfilingLayer()
-                eng.decide("warmup", [Choice("decision", ["warm"])])
-                live_engines.append((label, eng))
-            except Exception as e:
-                print(f"Skipping '{label}': {e}")
-        run_playground(live_engines)
+    if report:
+        bench.report(suites=active_suites)
         return
 
-    card = Scorecard()
-    selected_suites = list(PUBLISHED_SUITES.values()) if suite == "all" else ([PUBLISHED_SUITES[suite]] if suite in PUBLISHED_SUITES else [PUBLISHED_SUITES["laya"]])
+    active_engines = resolve_engines(model, device=device, checkpoint=checkpoint)
 
-    for suite_cls in selected_suites:
-        active_suite = suite_cls()
-        items = list(active_suite.load_cases())[:limit] if limit else list(active_suite.load_cases())
+    if play:
+        live_engines = [(name, eng | ProfilingLayer()) for name, eng in active_engines.items()]
+        for _, eng in live_engines:
+            eng.decide("warmup", [Choice("decision", ["warm"])])
+        bench.playground(live_engines)
+        return
 
-        print(f"\n{'=' * 65}\nEvaluating Suite: {active_suite.name.upper()} ({len(items)} items)")
-        if active_suite.published_baselines:
-            print("Published Baselines:")
-            for b_name, b_score in active_suite.published_baselines.items():
-                print(f"  {b_name:<24}: {b_score * 100:.1f}%")
-        print(f"{'=' * 65}")
-
-        for label, key in targets:
-            try:
-                card.evaluate(resolve_engine(key), items, model_name=label, suite=active_suite.name, force=force)
-            except Exception as e:
-                print(f"Skipping run for '{label}': {e}")
-
-        render_suite(card.ledger.all(active_suite.name), active_suite.name)
-
-    if suite == "all":
-        render_summary(card.ledger.all())
+    bench.run(active_suites, active_engines, limit=limit, skip_cached=skip_cached)
 
 if __name__ == "__main__":
     app()

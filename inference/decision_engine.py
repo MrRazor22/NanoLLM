@@ -16,10 +16,18 @@ class IDecisionEngine(Protocol):
 class DecisionEngine(IDecisionEngine):
     """Core Primitive Implementation: Coordinates neural prediction and decision resolution."""
 
-    def __init__(self, model: Optional["IModel"] = None, resolver: Optional[IResolver] = None):
+    def __init__(
+        self,
+        model: Optional["IModel"] = None,
+        device: Optional[str] = None,
+        checkpoint: Optional[Union[str, Path]] = None,
+        resolver: Optional[IResolver] = None,
+    ):
         if model is None:
+            from model.model_extensions import load_weights
             from model.torch_model import TorchModel
-            model = TorchModel()
+            model = TorchModel(device=device)
+            load_weights(model, checkpoint) if checkpoint is not None else load_weights(model)
         self.model, self.resolver = model, resolver or DecisionResolver()
 
     def decide(self, state: DecisionState, questions: Sequence[Question]) -> DecisionResult:
