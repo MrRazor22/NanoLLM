@@ -28,7 +28,7 @@ class MultiChoiceSpec:
 MULTICHOICE_REASONING_BENCHMARKS: Sequence[MultiChoiceSpec] = (
     MultiChoiceSpec("allenai/ai2_arc", subset="ARC-Challenge", target_field="answerKey", category="deductive_reasoning"),
     MultiChoiceSpec("allenai/openbookqa", subset="main", state_field="question_stem", target_field="answerKey", category="causal_reasoning", train_limit=1500),
-    MultiChoiceSpec("facebook/anli", state_field=("premise", "hypothesis"), fixed_options=("Entailment", "Neutral", "Contradiction"), splits=(("train_r1", "train"), ("test_r1", "test")), category="adversarial_reasoning", train_limit=1500, test_limit=200),
+    MultiChoiceSpec("facebook/anli", state_field=("premise", "hypothesis"), fixed_options=("Entailment", "Neutral", "Contradiction"), splits=(("train_r1", "train"), ("test_r1", "test"), ("train_r2", "train"), ("test_r2", "test")), category="adversarial_reasoning", train_limit=1500, test_limit=200),
     MultiChoiceSpec("allenai/art", state_field=("observation_1", "observation_2"), option_fields=("hypothesis_1", "hypothesis_2"), one_based=True, splits=(("train", "train"), ("validation", "test")), category="abductive_reasoning", train_limit=2000),
     MultiChoiceSpec("aps/super_glue", subset="copa", state_field="premise", option_fields=("choice1", "choice2"), splits=(("train", "train"), ("validation", "test")), category="causal_reasoning", train_limit=500, test_limit=200),
     MultiChoiceSpec("Rowan/hellaswag", state_field="ctx", options_field="endings", splits=(("train", "train"), ("validation", "test")), category="contextual_continuation", train_limit=2000),
