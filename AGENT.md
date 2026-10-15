@@ -43,8 +43,8 @@
 - **Knowledge Channeling Over Knowledge Injection:** Adaptation exists strictly to channel the backbone's latent representations into structured decision slots, calibrating confidence and aligning question constraints with candidate choices.
 - **Pure Reasoning Curricula:** The training corpus is strictly composed of domain-agnostic reasoning, reading comprehension, differential elimination, and counterfactual constraint resolution. Domain capabilities emerge naturally from structured deduction, not memorized answers.
 
-## 4. Strict Operational Gating: Zero Autonomous Execution
-- **Zero Unprompted Data Builds, Training, or Tests:** NEVER run dataset preparation (`python -m data`, `dataset.prepare()`), model training (`python -m training`), benchmark evaluation (`python -m benchmark`), or tests automatically or in the background without an unmistakable, explicit user command.
-- **Explicit Command Barrier:** Focus strictly on sound architecture, contract design, and code edits. Always delegate execution to the user by providing the exact command line to run.
+## 4. Operational Gating: Fast Verification vs. Heavy Compute
+- **Heavy Compute Gated:** NEVER run heavy dataset builds (`python -m data`), full training (`python -m training`), or long benchmark evaluation (`python -m benchmark`) automatically without an explicit user command; delegate them with ready-to-run snippets.
+- **Fast, Lightweight Verification Permitted:** If a test or verification check is fast and small (e.g. quick unit tests, import checks, smoke validation), run it directly and swiftly to confirm correctness without stalling dialogue.
 
 

@@ -1,10 +1,9 @@
 import json
 from typing import List, Sequence
-from datasets import load_dataset
 from data.case import DecisionCase, SourceRecord
 from data.sources.source import IDataSource
 from inference.questions import Choice
-from data.sources.huggingface_source import RAW_DIR, read_raw_jsonl
+from data.sources.huggingface_source import load_raw_jsonl
 
 class DecisionsSource(IDataSource):
     """Real Typed-Decisions dataset extractor: loads multi-question typed decision benchmarks."""
@@ -16,11 +15,7 @@ class DecisionsSource(IDataSource):
     def read(self) -> Sequence[SourceRecord]:
         records: List[SourceRecord] = []
         for split_name, tag in [("train", "train"), ("test", "test")]:
-            target = RAW_DIR / f"{self.name}_{split_name}.jsonl"
-            rows = read_raw_jsonl(
-                target,
-                lambda s=split_name: list(load_dataset("LocalLLaMA/typed-decisions", "all", split=s)),
-            )
+            rows = load_raw_jsonl(f"{self.name}_{split_name}", "LocalLLaMA/typed-decisions", split=split_name, subset="all")
 
             split_records: List[SourceRecord] = []
             for row in rows:

@@ -16,7 +16,7 @@ from model.model_extensions import list_weights
 console = Console()
 app = typer.Typer(add_completion=False, help="Piqo Micro-Decision Engine CLI")
 
-def _questions(choice: list[str], noul: list[str], score: list[str]) -> list[Question]:
+def parse_cli_questions(choice: list[str], noul: list[str], score: list[str]) -> list[Question]:
     return (
         [Choice(c.partition(":")[0].strip(), [o.strip() for o in c.partition(":")[2].split(",") if o.strip()] or ["Yes", "No"]) for c in choice]
         + [Noul(n.partition(":")[0].strip(), instruction=n.partition(":")[2].strip() or None) for n in noul]
@@ -54,7 +54,7 @@ def main(
     if weights:
         t = Table(title="Saved Weights", box=box.ROUNDED)
         for col in ("Identity", "Size", "Val Loss", "Saved At"): t.add_column(col)
-        for c in list_weights(): t.add_row(c.name, f"{c.size_mb:.1f} MB", f"{c.val_loss:.4f}" if c.val_loss else "-", c.saved_at or "-")
+        for c in list_weights(): t.add_row(c.name, f"{c.size_mb:.1f} MB", f"{c.meta.val_loss:.4f}" if c.meta.val_loss else "-", c.meta.saved_at or "-")
         console.print(t); return
 
     engine: IDecisionEngine = DecisionEngine.from_weights(model, device=device) | ProfilingLayer()
@@ -66,7 +66,7 @@ def main(
             if opts: render(engine.decide(ctx, [Choice("decision", opts)]), ctx)
         return
 
-    render(engine.decide(state, _questions(choice or [], noul or [], score or []) or [Choice("decision", ["Yes", "No"])]), state)
+    render(engine.decide(state, parse_cli_questions(choice or [], noul or [], score or []) or [Choice("decision", ["Yes", "No"])]), state)
 
 if __name__ == "__main__":
     app()

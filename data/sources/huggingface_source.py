@@ -10,18 +10,37 @@ from inference.questions import Choice
 
 RAW_DIR = Path(__file__).resolve().parent.parent / "raw"
 
-def read_raw_jsonl(path: Path, fetcher: Optional[Callable[[], List[dict]]] = None) -> List[dict]:
-    """Reads raw JSONL dataset from disk; fetches from source if absent."""
+def read_raw_jsonl(path: Path) -> List[dict]:
+    """Reads raw JSONL dataset from disk; returns empty list if absent."""
     if path.exists():
         with open(path, "r", encoding="utf-8") as f:
             return [json.loads(line) for line in f if line.strip()]
-    if fetcher is not None:
-        rows = list(fetcher())
-        if rows:
-            path.parent.mkdir(parents=True, exist_ok=True)
-            path.write_text("\n".join(json.dumps(r, default=str) for r in rows) + "\n", encoding="utf-8")
-        return rows
     return []
+
+def load_raw_jsonl(
+    target_name: str,
+    dataset: str,
+    split: str,
+    subset: Optional[str] = None,
+    limit: Optional[int] = None,
+) -> List[dict]:
+    """Loads dataset rows from local disk cache, fetching and persisting from HuggingFace if absent."""
+    target = RAW_DIR / f"{target_name}.jsonl"
+    if target.exists():
+        with open(target, "r", encoding="utf-8") as f:
+            rows = [json.loads(line) for line in f if line.strip()]
+            return rows[:limit] if limit is not None else rows
+
+    args = [dataset]
+    if subset:
+        args.append(subset)
+    rows = list(load_dataset(*args, split=split))
+    if limit is not None:
+        rows = rows[:limit]
+    if rows:
+        target.parent.mkdir(parents=True, exist_ok=True)
+        target.write_text("\n".join(json.dumps(r, default=str) for r in rows) + "\n", encoding="utf-8")
+    return rows
 
 @dataclass(frozen=True, slots=True)
 class BenchmarkSpec:
@@ -49,22 +68,6 @@ STANDARD_BENCHMARKS: Sequence[BenchmarkSpec] = (
     BenchmarkSpec("SetFit/amazon_massive_intent_en-US", "intent", "What is the user intent in this utterance?", "amazon_massive", label_field="label_text", train_limit=2000),
 )
 
-def _load_hf_split(spec: BenchmarkSpec, source_name: str, split: str) -> List[dict]:
-    target = RAW_DIR / f"{source_name}_{split}.jsonl"
-    limit = spec.test_limit if split == "test" else spec.train_limit
-    def _fetch() -> List[dict]:
-        args = [spec.dataset]
-        if spec.subset:
-            args.append(spec.subset)
-        rows = list(load_dataset(*args, split=split))
-        if limit is not None:
-            rows = rows[:limit]
-        return rows
-    rows = read_raw_jsonl(target, _fetch)
-    if limit is not None and len(rows) > limit:
-        rows = rows[:limit]
-    return rows
-
 class HuggingFaceSource(IDataSource):
     """Declarative benchmark dataset adapter: unifies train and test partitions under canonical shared candidate options."""
 
@@ -75,7 +78,16 @@ class HuggingFaceSource(IDataSource):
             self.name = f"{self.name}_{self.spec.subset}"
 
     def read(self) -> Sequence[SourceRecord]:
-        split_rows = {s: _load_hf_split(self.spec, self.name, s) for s in self.spec.splits}
+        split_rows = {
+            s: load_raw_jsonl(
+                f"{self.name}_{s}",
+                self.spec.dataset,
+                split=s,
+                subset=self.spec.subset,
+                limit=(self.spec.test_limit if s == "test" else self.spec.train_limit),
+            )
+            for s in self.spec.splits
+        }
 
         if self.spec.label_names:
             all_options = list(self.spec.label_names)

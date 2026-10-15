@@ -10,23 +10,24 @@ class IReporterPolicy(Protocol):
     def summary(self, ledger: Dict[str, dict], suites: Optional[Sequence[str]] = None) -> None: ...
     def playground(self, engines: Sequence[tuple[str, Any]]) -> None: ...
 
+def order_models(models: Iterable[str]) -> List[str]:
+    """Pure domain transform: sorts model identifiers with Piqo pinned first."""
+    ordered = sorted(models)
+    if "Piqo" in ordered:
+        ordered = ["Piqo"] + [m for m in ordered if m != "Piqo"]
+    return ordered
+
 class ConsoleReporterPolicy(IReporterPolicy):
     """Rich console presentation policy for formatted benchmark tables and playground."""
 
     def __init__(self, console: Optional[Console] = None):
         self.console = console or Console()
 
-    def _order_models(self, models: Iterable[str]) -> List[str]:
-        ordered = sorted(models)
-        if "Piqo" in ordered:
-            ordered = ["Piqo"] + [m for m in ordered if m != "Piqo"]
-        return ordered
-
     def suite(self, data: Dict[str, dict], suite_name: str) -> None:
         if not data:
             return
         tracks_data = {k: v for k, v in data.items() if isinstance(v, dict) and k != "count"}
-        models = self._order_models({m for entry in tracks_data.values() for m in entry if m != "count"})
+        models = order_models({m for entry in tracks_data.values() for m in entry if m != "count"})
         if not models:
             return
 
@@ -74,7 +75,7 @@ class ConsoleReporterPolicy(IReporterPolicy):
         if not all_models:
             return
 
-        sorted_models = self._order_models(all_models)
+        sorted_models = order_models(all_models)
         table = Table(
             title="EXECUTIVE BENCHMARK SUMMARY (OVERALL ACCURACY)",
             box=box.DOUBLE_EDGE,

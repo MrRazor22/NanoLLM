@@ -1,11 +1,9 @@
 from dataclasses import dataclass
 from typing import List, Optional, Sequence
-from datasets import load_dataset
-
 from data.case import DecisionCase, SourceRecord
 from data.sources.source import IDataSource
 from inference.questions import Choice
-from data.sources.huggingface_source import RAW_DIR, read_raw_jsonl
+from data.sources.huggingface_source import load_raw_jsonl
 
 @dataclass(frozen=True, slots=True)
 class MultiChoiceSpec:
@@ -39,24 +37,6 @@ MULTICHOICE_REASONING_BENCHMARKS: Sequence[MultiChoiceSpec] = (
     ),
 )
 
-def _load_multichoice_split(spec: MultiChoiceSpec, source_name: str, split: str) -> List[dict]:
-    target = RAW_DIR / f"{source_name}_{split}.jsonl"
-    def _fetch() -> List[dict]:
-        args = [spec.dataset]
-        if spec.subset:
-            args.append(spec.subset)
-        rows = list(load_dataset(*args, split=split))
-        limit = spec.test_limit if split == "test" else spec.train_limit
-        if limit is not None:
-            rows = rows[:limit]
-        return rows
-
-    rows = read_raw_jsonl(target, _fetch)
-    limit = spec.test_limit if split == "test" else spec.train_limit
-    if limit is not None and len(rows) > limit:
-        rows = rows[:limit]
-    return rows
-
 class MultiChoiceReasoningSource(IDataSource):
     """Universal source adapter for multi-choice reasoning benchmarks (ARC, OpenBookQA)."""
 
@@ -69,7 +49,14 @@ class MultiChoiceReasoningSource(IDataSource):
     def read(self) -> Sequence[SourceRecord]:
         records: List[SourceRecord] = []
         for split_name in self.spec.splits:
-            rows = _load_multichoice_split(self.spec, self.name, split_name)
+            limit = self.spec.test_limit if split_name == "test" else self.spec.train_limit
+            rows = load_raw_jsonl(
+                f"{self.name}_{split_name}",
+                self.spec.dataset,
+                split=split_name,
+                subset=self.spec.subset,
+                limit=limit,
+            )
             tag = "test" if split_name == "test" else "train"
             for r in rows:
                 state = r.get(self.spec.question_field, "").strip()

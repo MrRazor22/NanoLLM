@@ -1,24 +1,9 @@
 from typing import List, Sequence
-from datasets import load_dataset
 
 from data.case import DecisionCase, SourceRecord
 from data.sources.source import IDataSource
 from inference.questions import Choice
-from data.sources.huggingface_source import RAW_DIR, read_raw_jsonl
-
-def _load_copa_split(split: str, limit: int) -> List[dict]:
-    target = RAW_DIR / f"copa_{split}.jsonl"
-
-    def _fetch() -> List[dict]:
-        rows = list(load_dataset("aps/super_glue", "copa", split=split))
-        if limit is not None:
-            rows = rows[:limit]
-        return rows
-
-    rows = read_raw_jsonl(target, _fetch)
-    if limit is not None and len(rows) > limit:
-        rows = rows[:limit]
-    return rows
+from data.sources.huggingface_source import load_raw_jsonl
 
 class COPASource(IDataSource):
     """Choice of Plausible Alternatives (COPA) Source: causal directionality and root cause deduction."""
@@ -32,7 +17,7 @@ class COPASource(IDataSource):
         records: List[SourceRecord] = []
         for split_name, tag in [("train", "train"), ("validation", "test")]:
             limit = self.test_limit if split_name in ("validation", "test") else self.train_limit
-            rows = _load_copa_split(split_name, limit)
+            rows = load_raw_jsonl(f"copa_{split_name}", "aps/super_glue", split=split_name, subset="copa", limit=limit)
             for r in rows:
                 premise = str(r.get("premise", "")).strip()
                 choice1 = str(r.get("choice1", "")).strip()

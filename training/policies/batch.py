@@ -1,6 +1,6 @@
 import itertools
 import random
-from typing import Callable, Iterator, Optional, Protocol, Sequence, runtime_checkable
+from typing import Iterator, Protocol, Sequence, runtime_checkable
 from data.case import DecisionCase
 
 @runtime_checkable
@@ -8,21 +8,22 @@ class IBatch(Protocol):
     """Policy contract for partitioning and ordering domain cases into batches."""
     def batch(self, cases: Sequence[DecisionCase], batch_size: int = 16) -> Iterator[Sequence[DecisionCase]]: ...
 
+def estimate_case_length(case: DecisionCase) -> int:
+    """Pure Transform: Estimates token footprint of a case for bucketed batching."""
+    state_len = len(case.state) // 4 if isinstance(case.state, str) else 30
+    opt_len = sum(len(q.options) * 5 if hasattr(q, "options") and q.options else 10 for q in case.questions)
+    return state_len + opt_len
+
 class BucketedBatch(IBatch):
     """Batches cases sorted by length heuristic to minimize sequence padding waste."""
 
-    def __init__(
-        self,
-        key: Optional[Callable[[DecisionCase], int]] = None,
-        shuffle: bool = True,
-    ):
-        self.key = key or (lambda c: (len(c.state) // 4 if isinstance(c.state, str) else 30) + sum(len(q.options) * 5 if hasattr(q, "options") and q.options else 10 for q in c.questions))
+    def __init__(self, shuffle: bool = True):
         self.shuffle = shuffle
 
     def batch(self, cases: Sequence[DecisionCase], batch_size: int = 16) -> Iterator[Sequence[DecisionCase]]:
         if not cases:
             return
-        sorted_cases = sorted(cases, key=self.key)
+        sorted_cases = sorted(cases, key=estimate_case_length)
         chunks = list(itertools.batched(sorted_cases, batch_size))
         if self.shuffle:
             random.shuffle(chunks)

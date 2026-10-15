@@ -1,14 +1,15 @@
 import time
 from typing import Optional, Sequence
 from inference.questions import DecisionResult, DecisionState, Question
-from inference.decision_engine import IDecisionEngine
+from inference.decision_engine import IDecisionEngine, IDecisionEngineLayer
 
-def _sync_cuda() -> None:
+def synchronize_device() -> None:
+    """Domain Transform: Synchronizes CUDA compute target if active."""
     try:
         import torch
         if torch.cuda.is_available():
             torch.cuda.synchronize()
-    except ImportError:
+    except (ImportError, AttributeError):
         pass
 
 class ProfilingLayer(IDecisionEngine):
@@ -22,12 +23,12 @@ class ProfilingLayer(IDecisionEngine):
 
     def decide(self, state: DecisionState, questions: Sequence[Question]) -> DecisionResult:
         if self.inner is None: raise RuntimeError("ProfilingLayer is not attached to an inner engine.")
-        _sync_cuda()
+        synchronize_device()
         t0 = time.perf_counter()
         result = self.inner.decide(state, questions)
-        _sync_cuda()
+        synchronize_device()
         result.latency_ms = (time.perf_counter() - t0) * 1000.0
         return result
 
-    def __or__(self, layer) -> IDecisionEngine:
+    def __or__(self, layer: IDecisionEngineLayer) -> IDecisionEngine:
         return layer(self)

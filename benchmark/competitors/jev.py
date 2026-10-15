@@ -1,8 +1,8 @@
 import json
 import os
-from typing import Callable, Optional, Sequence
+from typing import Optional, Sequence
 import httpx
-from inference.decision_engine import IDecisionEngine
+from inference.decision_engine import IDecisionEngine, IDecisionEngineLayer
 from inference.questions import (
     Choice, ChoiceResult, DecisionResult, DecisionState,
     Noul, NoulResult, Question, Score, ScoreResult,
@@ -85,5 +85,5 @@ class JevEngine(IDecisionEngine):
         latency = float(data.get("latency_ms", 0.0))
         return DecisionResult(answers=answers, latency_ms=latency)
 
-    def __or__(self, layer: Callable[[IDecisionEngine], IDecisionEngine]) -> IDecisionEngine:
+    def __or__(self, layer: IDecisionEngineLayer) -> IDecisionEngine:
         return layer(self)

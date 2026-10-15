@@ -1,28 +1,12 @@
 from typing import List, Sequence
-from datasets import load_dataset
 
 from data.case import DecisionCase, SourceRecord
 from data.sources.source import IDataSource
 from inference.questions import Choice
-from data.sources.huggingface_source import RAW_DIR, read_raw_jsonl
+from data.sources.huggingface_source import load_raw_jsonl
 
 NLI_OPTIONS = ["Entailment", "Neutral", "Contradiction"]
 NLI_INSTRUCTION = "What is the logical relationship between the context and the statement?"
-
-def _load_anli_split(round_name: str, split_type: str, limit: int) -> List[dict]:
-    hf_split = f"{split_type}_{round_name}"
-    target = RAW_DIR / f"anli_{hf_split}.jsonl"
-
-    def _fetch() -> List[dict]:
-        rows = list(load_dataset("facebook/anli", split=hf_split))
-        if limit is not None:
-            rows = rows[:limit]
-        return rows
-
-    rows = read_raw_jsonl(target, _fetch)
-    if limit is not None and len(rows) > limit:
-        rows = rows[:limit]
-    return rows
 
 class ANLISource(IDataSource):
     """Adversarial NLI (ANLI) dataset source: extracts human-crafted counterfactuals and refutations."""
@@ -43,7 +27,8 @@ class ANLISource(IDataSource):
         for r_name in self.rounds:
             for split_type, tag in [("train", "train"), ("test", "test")]:
                 limit = self.test_limit if split_type == "test" else self.train_limit
-                rows = _load_anli_split(r_name, split_type, limit)
+                hf_split = f"{split_type}_{r_name}"
+                rows = load_raw_jsonl(f"anli_{hf_split}", "facebook/anli", split=hf_split, limit=limit)
                 for r in rows:
                     premise = str(r.get("premise", "")).strip()
                     hypothesis = str(r.get("hypothesis", "")).strip()

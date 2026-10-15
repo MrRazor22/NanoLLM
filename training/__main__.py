@@ -29,7 +29,7 @@ def main(
     epochs: Optional[int] = typer.Option(None, help="Number of training epochs (default: 2 for --from-scratch, 1 for adaptation)"),
     batch_size: int = typer.Option(16, help="Batch size"),
     lr: Optional[float] = typer.Option(None, help="Learning rate (default: 3e-5 for --from-scratch, 1e-5 for adaptation)"),
-    accum_steps: int = typer.Option(1, help="Gradient accumulation steps"),
+    accum_steps: int = typer.Option(2, help="Gradient accumulation steps"),
     seed: int = typer.Option(42, help="Random seed"),
     compile: bool = typer.Option(False, "--compile", help="Compile model with torch.compile"),
     schedule: str = typer.Option("cosine", help="Learning rate schedule policy ('cosine', 'constant')"),
@@ -81,21 +81,10 @@ def main(
     final_val = f" | Val Loss: {stats[-1].val_loss:.4f}" if stats and stats[-1].val_loss is not None else ""
 
     if eval_test:
-        from training.stats import EvalStats
         test_cases = dataset.load("test")
         print(f"\nEvaluating internal holdout test split ({len(test_cases)} cases)...", flush=True)
-
-        def _print_eval_progress(s: EvalStats) -> None:
-            pct = int((s.step / max(1, s.total_steps)) * 100)
-            elapsed_str = f"{int(s.elapsed_sec) // 60:02d}:{int(s.elapsed_sec) % 60:02d}"
-            rem_sec = int((s.elapsed_sec / max(1, s.step)) * max(0, s.total_steps - s.step))
-            eta_str = f"{rem_sec // 60:02d}:{rem_sec % 60:02d}"
-            vram = f" | VRAM: {s.vram_gb:.1f}GB" if s.vram_gb > 0 else ""
-            speed = f"{s.elapsed_sec * 1000.0 / max(1, s.step):.0f}ms/step"
-            print(f"Eval Test | Step {s.step}/{s.total_steps} ({pct}%) | Loss: {s.loss:.4f}{vram} | {speed} | Elapsed: {elapsed_str} | ETA: {eta_str}", flush=True)
-
         t_eval_start = time.perf_counter()
-        test_loss = trainer.evaluate(test_cases, on_progress=_print_eval_progress)
+        test_loss = trainer.evaluate(test_cases)
         eval_elapsed_ms = (time.perf_counter() - t_eval_start) * 1000.0
         print(f"Test Holdout Complete | Final Loss: {test_loss:.4f} | Total Time: {eval_elapsed_ms / 1000.0:.1f}s ({eval_elapsed_ms / max(1, len(test_cases)):.2f}ms/case)")
 

@@ -1,5 +1,5 @@
-from typing import Callable, Optional, Sequence
-from inference.decision_engine import IDecisionEngine
+from typing import Optional, Sequence
+from inference.decision_engine import IDecisionEngine, IDecisionEngineLayer
 from inference.questions import (
     Choice, ChoiceResult, DecisionResult, DecisionState,
     Noul, NoulResult, Question, Score, ScoreResult,
@@ -67,5 +67,5 @@ class GlinerDecideEngine(IDecisionEngine):
                 answers[q.name] = ScoreResult(score=50.0, normalized=0.5)
         return DecisionResult(answers=answers)
 
-    def __or__(self, layer: Callable[[IDecisionEngine], IDecisionEngine]) -> IDecisionEngine:
+    def __or__(self, layer: IDecisionEngineLayer) -> IDecisionEngine:
         return layer(self)

@@ -32,7 +32,7 @@ def list_weights(root: Optional[Path] = None) -> Sequence[Weights]:
                 ),
             )
         )
-    return sorted(results, key=lambda x: x.saved_at or "", reverse=True)
+    return sorted(results, key=lambda x: x.meta.saved_at or "", reverse=True)
 
 def resolve_device(preferred: Optional[str] = None) -> str:
     """Domain Extension: Resolves optimal compute target device name without substrate leakage."""
@@ -56,18 +56,18 @@ def resolve_device(preferred: Optional[str] = None) -> str:
 
     return "cpu"
 
-def save_weights(model: "IModel", target: Union[str, Path] = "piqo", stats: Optional[Any] = None, cache: Optional["IWeightCache"] = None) -> Path:
+def save_weights(model: "IModel", target: Union[str, Path] = "piqo", meta: Optional[WeightMeta] = None, cache: Optional["IWeightCache"] = None) -> Path:
     """Domain Extension: Persists model weights and optional metadata through weight cache policy."""
     import time
-    t_loss = getattr(stats, "train_loss", getattr(stats, "loss", None)) if stats else None
-    v_loss = getattr(stats, "val_loss", None) if stats else None
-    meta = WeightMeta(
-        epoch=getattr(stats, "epoch", 1) if stats else 1,
-        train_loss=round(t_loss, 6) if t_loss is not None else None,
-        val_loss=round(v_loss, 6) if v_loss is not None else None,
-        saved_at=getattr(stats, "saved_at", time.strftime("%Y-%m-%d %H:%M:%S")),
-    )
-    return model.save(target, meta=meta)
+    resolved_meta = meta or WeightMeta(saved_at=time.strftime("%Y-%m-%d %H:%M:%S"))
+    if not resolved_meta.saved_at:
+        resolved_meta = WeightMeta(
+            epoch=resolved_meta.epoch,
+            train_loss=resolved_meta.train_loss,
+            val_loss=resolved_meta.val_loss,
+            saved_at=time.strftime("%Y-%m-%d %H:%M:%S"),
+        )
+    return model.save(target, meta=resolved_meta)
 
 def load_weights(model: "IModel", source: Union[Weights, str, Path] = "piqo", cache: Optional["IWeightCache"] = None) -> None:
     """Domain Extension: Rehydrates model weights from Weights DTO or weight cache identifier/path."""

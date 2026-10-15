@@ -1,7 +1,7 @@
 from pathlib import Path
-from typing import Callable, Iterator, Optional, Union
+from typing import Iterator, Optional, Union
 
-from training.epoch_trainer import ITrainer
+from training.epoch_trainer import ITrainer, ITrainerLayer
 from training.stats import StepStats
 
 class CheckpointingLayer(ITrainer):
@@ -42,10 +42,10 @@ class CheckpointingLayer(ITrainer):
                     model.save(target, meta=meta)
             yield s
 
-    def evaluate(self, cases, on_progress=None) -> float:
+    def evaluate(self, cases) -> float:
         if self.inner is None:
             raise RuntimeError("CheckpointingLayer has no inner trainer.")
-        return self.inner.evaluate(cases, on_progress=on_progress)
+        return self.inner.evaluate(cases)
 
-    def __or__(self, layer: Callable[[ITrainer], ITrainer]) -> ITrainer:
+    def __or__(self, layer: ITrainerLayer) -> ITrainer:
         return layer(self)

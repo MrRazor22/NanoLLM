@@ -1,7 +1,7 @@
 import json
-from typing import Callable, Optional, Sequence
+from typing import Optional, Sequence
 import httpx
-from inference.decision_engine import IDecisionEngine
+from inference.decision_engine import IDecisionEngine, IDecisionEngineLayer
 from inference.questions import (
     Choice, ChoiceResult, DecisionResult, DecisionState,
     Noul, NoulResult, Question, Score, ScoreResult,
@@ -89,5 +89,5 @@ class KevEngine(IDecisionEngine):
 
         return DecisionResult(answers=answers)
 
-    def __or__(self, layer: Callable[[IDecisionEngine], IDecisionEngine]) -> IDecisionEngine:
+    def __or__(self, layer: IDecisionEngineLayer) -> IDecisionEngine:
         return layer(self)

@@ -1,7 +1,7 @@
 import orjson
 from pathlib import Path
 from typing import Optional, Protocol, Union, runtime_checkable
-from model.weights import Weights
+from model.weights import WeightMeta, Weights, weights_from_bytes
 
 DEFAULT_WEIGHTS_DIR = Path(__file__).resolve().parent.parent / "weights"
 
@@ -23,14 +23,17 @@ class DiskWeightCache(IWeightCache):
         if not w_file.is_file():
             return None
         meta_file = w_file.with_suffix(".json")
-        meta = orjson.loads(meta_file.read_bytes()) if meta_file.exists() else {}
-        return Weights.from_bytes(
+        meta_dict = orjson.loads(meta_file.read_bytes()) if meta_file.exists() else {}
+        meta = WeightMeta(
+            epoch=meta_dict.get("epoch", 1),
+            train_loss=meta_dict.get("train_loss"),
+            val_loss=meta_dict.get("val_loss"),
+            saved_at=meta_dict.get("saved_at"),
+        )
+        return weights_from_bytes(
             payload=w_file.read_bytes(),
-            name=meta.get("name", w_file.stem),
-            epoch=meta.get("epoch", 1),
-            train_loss=meta.get("train_loss"),
-            val_loss=meta.get("val_loss"),
-            saved_at=meta.get("saved_at"),
+            name=meta_dict.get("name", w_file.stem),
+            meta=meta,
         )
 
     def put(self, target: Union[str, Path], weights: Weights) -> Path:
@@ -42,10 +45,10 @@ class DiskWeightCache(IWeightCache):
 
         meta = {
             "name": weights.name or w_file.stem,
-            "epoch": weights.epoch,
-            "train_loss": weights.train_loss,
-            "val_loss": weights.val_loss,
-            "saved_at": weights.saved_at,
+            "epoch": weights.meta.epoch,
+            "train_loss": weights.meta.train_loss,
+            "val_loss": weights.meta.val_loss,
+            "saved_at": weights.meta.saved_at,
         }
         w_file.with_suffix(".json").write_bytes(orjson.dumps(meta, option=orjson.OPT_INDENT_2))
         return w_file

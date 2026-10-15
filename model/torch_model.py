@@ -59,15 +59,12 @@ class TorchModel(IModel):
         self.tokenizer = tokenizer or AutoTokenizer.from_pretrained(backbone_name)
         hidden_dim = getattr(self.backbone.config, "hidden_size", 768) if hasattr(self.backbone, "config") else 768
 
-        self.head = head or MLPHead(hidden_dim=hidden_dim)
-        if hasattr(self.head, "to"):
-            self.head = self.head.to(self.device)
+        self.head = (head or MLPHead(hidden_dim=hidden_dim)).to(self.device)
         self.layout = layout or MaskedLayout(tokenizer=self.tokenizer, max_state_tokens=max_state_tokens)
         self.loss_policy = loss_policy or CalibratedLoss()
         self.weight_cache = weight_cache or DiskWeightCache()
 
-        head_params = list(self.head.parameters()) if hasattr(self.head, "parameters") else []
-        params = list(self.backbone.parameters()) + head_params
+        params = list(self.backbone.parameters()) + list(self.head.parameters())
         self.optimizer_policy = optimizer_policy or AdamWOptimizer(params, lr=lr, accum_steps=accum_steps, device=self.device)
 
         if weights is not None:
@@ -78,8 +75,7 @@ class TorchModel(IModel):
     def predict(self, state: DecisionState, questions: Sequence[Question]) -> PredictionLayout:
         layout = self.layout.encode(state, questions)
         self.backbone.eval()
-        if hasattr(self.head, "eval"):
-            self.head.eval()
+        self.head.eval()
         ids = torch.as_tensor(layout.input_ids, dtype=torch.long, device=self.device).unsqueeze(0)
         mask = torch.as_tensor(layout.mask, dtype=torch.float, device=self.device).unsqueeze(0)
         with torch.no_grad(), torch.amp.autocast(self.device.type, enabled=self.device.type == "cuda"):
@@ -90,23 +86,21 @@ class TorchModel(IModel):
     def step(self, cases: Sequence["DecisionCase"], backward: bool = True, lr: Optional[float] = None) -> float:
         batch = self.layout.collate(cases, shuffle=backward)
         self.backbone.train(backward)
-        if hasattr(self.head, "train"):
-            self.head.train(backward)
+        self.head.train(backward)
         ids = batch.input_ids.to(self.device, non_blocking=True)
         mask = batch.mask.to(self.device, non_blocking=True)
         with torch.set_grad_enabled(backward), torch.amp.autocast(self.device.type, enabled=self.device.type == "cuda"):
             hidden = self.backbone(input_ids=ids, attention_mask=mask).last_hidden_state
             preds = self.head.score(hidden)
             loss = self.loss_policy.compute(preds, batch.targets)
-            if backward and self.optimizer_policy:
-                self.optimizer_policy.step(loss, lr=lr)
+        if backward and self.optimizer_policy:
+            self.optimizer_policy.step(loss, lr=lr)
         return loss.item()
 
     def save(self, target: Union[str, Path] = "piqo", meta: Optional[WeightMeta] = None) -> Path:
         from safetensors.torch import save
         tensors = {f"backbone.{k}": v.contiguous() for k, v in self.backbone.state_dict().items()}
-        if hasattr(self.head, "state_dict"):
-            tensors.update({f"head.{k}": v.contiguous() for k, v in self.head.state_dict().items()})
+        tensors.update({f"head.{k}": v.contiguous() for k, v in self.head.state_dict().items()})
         raw_bytes = save(tensors)
         metadata = meta or WeightMeta(saved_at=time.strftime("%Y-%m-%d %H:%M:%S"))
         if not metadata.saved_at:
@@ -126,5 +120,5 @@ class TorchModel(IModel):
         h_sd = {k.removeprefix("head."): v for k, v in sd.items() if k.startswith("head.")}
         if bb_sd:
             self.backbone.load_state_dict(bb_sd, strict=False)
-        if h_sd and hasattr(self.head, "load_state_dict"):
+        if h_sd:
             self.head.load_state_dict(h_sd, strict=False)

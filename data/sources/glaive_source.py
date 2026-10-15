@@ -1,11 +1,10 @@
 import random
 import re
 from typing import List, Sequence
-from datasets import load_dataset
 from data.case import DecisionCase, SourceRecord
 from data.sources.source import IDataSource
 from inference.questions import Choice
-from data.sources.huggingface_source import RAW_DIR, read_raw_jsonl
+from data.sources.huggingface_source import load_raw_jsonl
 
 class GlaiveSource(IDataSource):
     """Real Glaive function-calling extractor: parses tool calls and yields tagged source records."""
@@ -17,10 +16,7 @@ class GlaiveSource(IDataSource):
 
     def read(self) -> Sequence[SourceRecord]:
         rng = random.Random(self.seed)
-        def _fetch() -> List[dict]:
-            return list(load_dataset("glaiveai/glaive-function-calling-v2", split="train"))
-
-        rows = read_raw_jsonl(RAW_DIR / f"{self.name}.jsonl", _fetch)
+        rows = load_raw_jsonl(self.name, "glaiveai/glaive-function-calling-v2", split="train")
 
         raw_pairs, tool_registry = [], {}
         for row in rows:

@@ -1,26 +1,11 @@
 from typing import List, Sequence
-from datasets import load_dataset
 
 from data.case import DecisionCase, SourceRecord
 from data.sources.source import IDataSource
 from inference.questions import Choice
-from data.sources.huggingface_source import RAW_DIR, read_raw_jsonl
+from data.sources.huggingface_source import load_raw_jsonl
 
 MEDQA_INSTRUCTION = "What is the most likely diagnosis, mechanism, or correct next step?"
-
-def _load_medqa_split(split: str, limit: int) -> List[dict]:
-    target = RAW_DIR / f"medqa_{split}.jsonl"
-
-    def _fetch() -> List[dict]:
-        rows = list(load_dataset("GBaker/MedQA-USMLE-4-options", split=split))
-        if limit is not None:
-            rows = rows[:limit]
-        return rows
-
-    rows = read_raw_jsonl(target, _fetch)
-    if limit is not None and len(rows) > limit:
-        rows = rows[:limit]
-    return rows
 
 class MedQASource(IDataSource):
     """Differential Elimination Source: extracts multi-variable clinical elimination decisions."""
@@ -34,7 +19,7 @@ class MedQASource(IDataSource):
         records: List[SourceRecord] = []
         for split_name in ("train", "test"):
             limit = self.test_limit if split_name == "test" else self.train_limit
-            rows = _load_medqa_split(split_name, limit)
+            rows = load_raw_jsonl(f"medqa_{split_name}", "GBaker/MedQA-USMLE-4-options", split=split_name, limit=limit)
             tag = "test" if split_name == "test" else "train"
             for r in rows:
                 state = str(r.get("question", "")).strip()

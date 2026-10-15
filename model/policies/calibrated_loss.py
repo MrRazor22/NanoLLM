@@ -8,7 +8,7 @@ from model.token_layout import SampleTargets
 @runtime_checkable
 class ILoss(Protocol):
     """Injected Opinion Sub-Primitive: Evaluates multi-task loss over predictions and targets."""
-    def compute(self, predictions: Sequence, targets: Sequence[SampleTargets]) -> float: ...
+    def compute(self, predictions: torch.Tensor, targets: Sequence[SampleTargets]) -> torch.Tensor: ...
 
 class CalibratedLoss(nn.Module, ILoss):
     """Brier-calibrated multi-task loss policy: vectorizes cross-entropy, Brier, and MSE losses."""
@@ -17,7 +17,7 @@ class CalibratedLoss(nn.Module, ILoss):
         super().__init__()
         self.brier_weight = brier_weight
 
-    def compute(self, predictions, targets: Sequence[SampleTargets]):
+    def compute(self, predictions: torch.Tensor, targets: Sequence[SampleTargets]) -> torch.Tensor:
         dev = predictions.device
         c_logits, c_tgts = [], []
         b_idx, b_pos, b_tgts = [], [], []

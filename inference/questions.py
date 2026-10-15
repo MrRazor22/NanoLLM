@@ -4,6 +4,14 @@ from typing import Mapping, Protocol, Sequence, runtime_checkable
 
 DecisionState = str | Mapping[str, str]
 
+@runtime_checkable
+class IAnswer(Protocol):
+    """Polymorphic Data Stream Contract: Shared capability for typed answer values."""
+    @property
+    def value(self) -> str | bool | float: ...
+
+AnswerInput = IAnswer | str | int | float | bool | None
+
 @dataclass(frozen=True, slots=True)
 class Choice:
     name: str
@@ -29,7 +37,7 @@ class Choice:
         opts = {keys[i]: self.options[keys[i]] for i in indices} if isinstance(self.options, dict) else [keys[i] for i in indices]
         return Choice(name=self.name, options=opts, instruction=self.instruction, target=new_target)
 
-    def matches(self, answer: object) -> bool:
+    def matches(self, answer: AnswerInput) -> bool:
         if answer is None or self.target is None: return False
         val = str(getattr(answer, "value", answer))
         if val == str(self.target): return True
@@ -46,7 +54,7 @@ class Noul:
     instruction: str | None = None
     target: bool | float | int | None = None
 
-    def matches(self, answer: object) -> bool:
+    def matches(self, answer: AnswerInput) -> bool:
         if answer is None or self.target is None: return False
         val = getattr(answer, "value", answer)
         return bool(val) == bool(self.target)
@@ -59,18 +67,12 @@ class Score:
     instruction: str | None = None
     target: float | None = None
 
-    def matches(self, answer: object) -> bool:
+    def matches(self, answer: AnswerInput) -> bool:
         if answer is None or self.target is None: return False
         val = float(getattr(answer, "value", answer))
         return abs(val - float(self.target)) < 1e-3
 
 Question = Choice | Noul | Score
-
-@runtime_checkable
-class IAnswer(Protocol):
-    """Polymorphic Data Stream Contract: Shared capability for typed answer values."""
-    @property
-    def value(self) -> str | bool | float: ...
 
 @dataclass(frozen=True, slots=True)
 class ChoiceResult:
