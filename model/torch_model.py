@@ -29,7 +29,7 @@ class IModel(Protocol):
     def save(self, target: Union[str, Path] = "piqo", meta: Optional[WeightMeta] = None) -> Path: ...
     def load(self, source: Optional[Union[Weights, str, Path]] = None) -> None: ...
 
-class TorchModel(nn.Module, IModel):
+class TorchModel(IModel):
     """Core Primitive Implementation: ModernBERT backbone with modular decision head, layout, and optimizer."""
 
     def __init__(
@@ -49,7 +49,6 @@ class TorchModel(nn.Module, IModel):
         device: Optional[Union[str, torch.device]] = None,
         compile: bool = False,
     ):
-        super().__init__()
         target_dev = device if isinstance(device, torch.device) else resolve_device(device)
         self.device = torch.device(target_dev) if isinstance(target_dev, str) else target_dev
         if self.device.type == "cuda":
@@ -66,7 +65,8 @@ class TorchModel(nn.Module, IModel):
         self.loss_policy = loss_policy or CalibratedLoss()
         self.weight_cache = weight_cache or DiskWeightCache()
 
-        params = list(self.backbone.parameters()) + list(self.head.parameters())
+        head_params = list(self.head.parameters()) if hasattr(self.head, "parameters") else []
+        params = list(self.backbone.parameters()) + head_params
         self.optimizer_policy = optimizer_policy or AdamWOptimizer(params, lr=lr, accum_steps=accum_steps, device=self.device)
 
         if weights is not None:
@@ -74,26 +74,28 @@ class TorchModel(nn.Module, IModel):
         if compile and hasattr(torch, "compile"):
             self.backbone = torch.compile(self.backbone)
 
-    def forward(self, input_ids: torch.Tensor, attention_mask: torch.Tensor) -> torch.Tensor:
-        hidden = self.backbone(input_ids=input_ids, attention_mask=attention_mask).last_hidden_state
-        return self.head.score(hidden)
-
     def predict(self, state: DecisionState, questions: Sequence[Question]) -> PredictionLayout:
         layout = self.layout.encode(state, questions)
-        self.eval()
+        self.backbone.eval()
+        if hasattr(self.head, "eval"):
+            self.head.eval()
         ids = torch.as_tensor(layout.input_ids, dtype=torch.long, device=self.device).unsqueeze(0)
         mask = torch.as_tensor(layout.mask, dtype=torch.float, device=self.device).unsqueeze(0)
         with torch.no_grad(), torch.amp.autocast(self.device.type, enabled=self.device.type == "cuda"):
-            scores = self(ids, mask).squeeze(0).cpu().tolist()
+            hidden = self.backbone(input_ids=ids, attention_mask=mask).last_hidden_state
+            scores = self.head.score(hidden).squeeze(0).cpu().tolist()
         return PredictionLayout(scores=scores, slots=layout.slots)
 
     def step(self, cases: Sequence["DecisionCase"], backward: bool = True, lr: Optional[float] = None) -> float:
         batch = self.layout.collate(cases, shuffle=backward)
-        self.train(backward)
+        self.backbone.train(backward)
+        if hasattr(self.head, "train"):
+            self.head.train(backward)
         ids = batch.input_ids.to(self.device, non_blocking=True)
         mask = batch.mask.to(self.device, non_blocking=True)
         with torch.set_grad_enabled(backward), torch.amp.autocast(self.device.type, enabled=self.device.type == "cuda"):
-            preds = self(ids, mask)
+            hidden = self.backbone(input_ids=ids, attention_mask=mask).last_hidden_state
+            preds = self.head.score(hidden)
             loss = self.loss_policy.compute(preds, batch.targets)
             if backward and self.optimizer_policy:
                 self.optimizer_policy.step(loss, lr=lr)
@@ -101,7 +103,8 @@ class TorchModel(nn.Module, IModel):
 
     def save(self, target: Union[str, Path] = "piqo", meta: Optional[WeightMeta] = None) -> Path:
         buf = io.BytesIO()
-        torch.save(self.state_dict(), buf)
+        head_sd = self.head.state_dict() if hasattr(self.head, "state_dict") else {}
+        torch.save({"backbone": self.backbone.state_dict(), "head": head_sd}, buf)
         metadata = meta or WeightMeta(saved_at=time.strftime("%Y-%m-%d %H:%M:%S"))
         if not metadata.saved_at:
             metadata = WeightMeta(epoch=metadata.epoch, train_loss=metadata.train_loss, val_loss=metadata.val_loss, saved_at=time.strftime("%Y-%m-%d %H:%M:%S"))
@@ -115,4 +118,16 @@ class TorchModel(nn.Module, IModel):
         if not weights.payload:
             return
         sd = torch.load(io.BytesIO(weights.payload), map_location=self.device)
-        self.load_state_dict(sd.get("model_state_dict", sd) if isinstance(sd, dict) else sd, strict=False)
+        if isinstance(sd, dict) and "backbone" in sd and "head" in sd:
+            self.backbone.load_state_dict(sd["backbone"], strict=False)
+            if hasattr(self.head, "load_state_dict"):
+                self.head.load_state_dict(sd["head"], strict=False)
+        else:
+            bb_sd = {k.replace("backbone.", ""): v for k, v in sd.items() if k.startswith("backbone.")}
+            h_sd = {k.replace("head.", ""): v for k, v in sd.items() if k.startswith("head.")}
+            if bb_sd:
+                self.backbone.load_state_dict(bb_sd, strict=False)
+            else:
+                self.backbone.load_state_dict(sd.get("model_state_dict", sd) if isinstance(sd, dict) else sd, strict=False)
+            if h_sd and hasattr(self.head, "load_state_dict"):
+                self.head.load_state_dict(h_sd, strict=False)

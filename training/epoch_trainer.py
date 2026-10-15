@@ -23,6 +23,8 @@ class ITrainer(Protocol):
         on_progress: Optional[Callable[[EvalStats], None]] = None,
     ) -> float: ...
 
+    def __or__(self, layer: Callable[["ITrainer"], "ITrainer"]) -> "ITrainer": ...
+
 class EpochTrainer(ITrainer):
     """Core Primitive Implementation: Supervised training loop over domain decision cases."""
 
