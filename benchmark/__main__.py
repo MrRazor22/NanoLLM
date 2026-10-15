@@ -68,9 +68,17 @@ def main(
     active_engines = resolve_engines(model, device=device, checkpoint=checkpoint)
 
     if play:
-        live_engines = [(name, eng | ProfilingLayer()) for name, eng in active_engines.items()]
-        for _, eng in live_engines:
-            eng.decide("warmup", [Choice("decision", ["warm"])])
+        live_engines = []
+        for name, eng in active_engines.items():
+            try:
+                profiled = eng | ProfilingLayer()
+                profiled.decide("warmup", [Choice("decision", ["warm"])])
+                live_engines.append((name, profiled))
+            except Exception as e:
+                print(f"[{name}] Skipping playground: {e}")
+        if not live_engines:
+            print("No active engines available for playground.")
+            return
         bench.playground(live_engines)
         return
 
