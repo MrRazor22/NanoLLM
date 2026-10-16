@@ -58,7 +58,7 @@ class VerdictEngine(IDecisionEngine):
                 score = float(top.get("score", 0.5))
                 answers[q.name] = NoulResult(is_positive=is_pos, probability=score)
             elif isinstance(q, Score):
-                answers[q.name] = ScoreResult(score=50.0, normalized=0.5)
+                raise NotImplementedError(f"Verdict does not support continuous regression questions ({type(q).__name__})")
         return DecisionResult(answers=answers)
 
     def __or__(self, layer: IDecisionEngineLayer) -> IDecisionEngine:

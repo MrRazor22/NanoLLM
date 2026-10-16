@@ -21,19 +21,30 @@ class Choice:
 
     @property
     def target_index(self) -> int:
-        if self.target is None: return 0
-        if isinstance(self.target, int): return self.target
+        if self.target is None:
+            raise ValueError(f"Choice question '{self.name}' has no target defined.")
         keys = list(self.options.keys()) if isinstance(self.options, dict) else list(self.options)
-        if self.target in keys: return keys.index(self.target)
-        return int(self.target) if str(self.target).isdigit() else 0
+        if isinstance(self.target, int):
+            if 0 <= self.target < len(keys):
+                return self.target
+            raise ValueError(f"Target index {self.target} is out of bounds for options of length {len(keys)} in '{self.name}'.")
+        tgt_str = str(self.target).strip()
+        if tgt_str in keys:
+            return keys.index(tgt_str)
+        lower_keys = [k.lower() for k in keys]
+        if tgt_str.lower() in lower_keys:
+            return lower_keys.index(tgt_str.lower())
+        if tgt_str.isdigit() and 0 <= int(tgt_str) < len(keys):
+            return int(tgt_str)
+        raise ValueError(f"Target '{self.target}' is not in options {keys} for question '{self.name}'.")
 
     def shuffle(self) -> "Choice":
         import random
         keys = list(self.options.keys()) if isinstance(self.options, dict) else list(self.options)
         indices = list(range(len(keys)))
         random.shuffle(indices)
-        target = self.target_index
-        new_target = indices.index(target) if 0 <= target < len(indices) else 0
+        target = self.target_index if self.target is not None else None
+        new_target = indices.index(target) if (target is not None and 0 <= target < len(indices)) else None
         opts = {keys[i]: self.options[keys[i]] for i in indices} if isinstance(self.options, dict) else [keys[i] for i in indices]
         return Choice(name=self.name, options=opts, instruction=self.instruction, target=new_target)
 
@@ -70,10 +81,19 @@ class Score:
     instruction: str | None = None
     target: float | None = None
 
-    def matches(self, answer: AnswerInput) -> bool:
+    def to_norm(self, value: float) -> float:
+        """Projects continuous score value to bounded [0, 1] interval."""
+        span = self.max_value - self.min_value
+        return max(0.0, min(1.0, (float(value) - self.min_value) / span)) if span > 0 else 0.0
+
+    def from_norm(self, norm: float) -> float:
+        """Projects bounded [0, 1] activation back to continuous score domain."""
+        return self.min_value + max(0.0, min(1.0, float(norm))) * (self.max_value - self.min_value)
+
+    def matches(self, answer: AnswerInput, tolerance: float = 0.05) -> bool:
         if answer is None or self.target is None: return False
         val = float(getattr(answer, "value", answer))
-        return abs(val - float(self.target)) < 1e-3
+        return abs(self.to_norm(val) - self.to_norm(float(self.target))) <= tolerance
 
 Question = Choice | Noul | Score
 
@@ -113,5 +133,6 @@ def format_state(state: DecisionState) -> str:
         try:
             parsed = json.loads(state)
             if isinstance(parsed, dict): return " | ".join(f"{k}: {v}" for k, v in parsed.items())
-        except Exception: pass
+        except json.JSONDecodeError:
+            pass
     return str(state)

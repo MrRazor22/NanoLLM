@@ -10,6 +10,7 @@ class IGradientNode(Protocol):
 class IOptimizerPolicy(Protocol):
     """Sub-Primitive Policy: Coordinates parameter update strategy, gradient scaling, and accumulation."""
     def step(self, loss: IGradientNode, lr: Optional[float] = None) -> None: ...
+    def flush(self) -> None: ...
     def zero_grad(self) -> None: ...
 
 class AdamWOptimizer(IOptimizerPolicy):
@@ -49,6 +50,17 @@ class AdamWOptimizer(IOptimizerPolicy):
             else:
                 self.optimizer.step()
             self.optimizer.zero_grad(set_to_none=True)
+
+    def flush(self) -> None:
+        """Flushes any pending accumulated gradients before epoch or iteration boundaries."""
+        if self.opt_count % self.accum_steps != 0:
+            if self.scaler.is_enabled():
+                self.scaler.step(self.optimizer)
+                self.scaler.update()
+            else:
+                self.optimizer.step()
+            self.optimizer.zero_grad(set_to_none=True)
+            self.opt_count = 0
 
     def zero_grad(self) -> None:
         self.optimizer.zero_grad(set_to_none=True)

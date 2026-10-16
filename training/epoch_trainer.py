@@ -74,6 +74,9 @@ class EpochTrainer(ITrainer):
                 dt = (time.perf_counter() - t0) * 1000.0
                 total_loss += loss
 
+                if n + 1 == total_batches and hasattr(self.model, "flush"):
+                    self.model.flush()
+
                 is_val_cadence = val_cases and (n + 1 == total_batches or n + 1 == (total_batches // 2))
                 val_loss = self.evaluate(val_cases) if is_val_cadence else None
 

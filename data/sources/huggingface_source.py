@@ -1,7 +1,7 @@
 from dataclasses import dataclass
 import json
 from pathlib import Path
-from typing import Callable, List, Optional, Sequence
+from typing import List, Optional, Sequence
 from datasets import load_dataset
 
 from data.case import DecisionCase, SourceRecord

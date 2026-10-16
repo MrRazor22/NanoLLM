@@ -39,7 +39,7 @@ class DecisionResolver(IResolver):
                 case Noul(name=name):
                     prob = float(sp.expit(scores[slot_indices[0]]))
                     answers[name] = NoulResult(is_positive=prob >= 0.5, probability=prob)
-                case Score(name=name, min_value=min_val, max_value=max_val):
+                case Score(name=name):
                     norm = float(sp.expit(scores[slot_indices[0]]))
-                    answers[name] = ScoreResult(score=min_val + norm * (max_val - min_val), normalized=norm)
+                    answers[name] = ScoreResult(score=q.from_norm(norm), normalized=norm)
         return answers

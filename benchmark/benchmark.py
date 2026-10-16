@@ -60,7 +60,7 @@ class Benchmark(IBenchmark):
             print(f"{'=' * 65}")
 
             for label, engine in engines.items():
-                if skip_cached and self.ledger.get(label, suite=suite.name) is not None:
+                if skip_cached and self.ledger.get(label, suite=suite.name, expected_count=len(items)) is not None:
                     print(f"[{label}] Cached run found for '{suite.name}'. Skipping.")
                     continue
                 try:

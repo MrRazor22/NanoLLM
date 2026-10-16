@@ -1,9 +1,9 @@
 from pathlib import Path
 from typing import Mapping, Sequence
 from data.case import DecisionCase
-from benchmark.suites.suite import IBenchmarkSuite
+from benchmark.suites.suite import IBenchmarkSuite, load_verified_manifest
 
-BENCHMARK_DATA_DIR = Path(__file__).resolve().parent.parent / "data"
+BENCHMARK_MANIFESTS_DIR = Path(__file__).resolve().parent / "manifests"
 
 class KevTransferSuite(IBenchmarkSuite):
     """Jared Palmer's official Kev out-of-domain transfer evaluation suite (SciQ, ANLI, Emotion, ARC)."""
@@ -21,13 +21,7 @@ class KevTransferSuite(IBenchmarkSuite):
         }
 
     def load_cases(self) -> Sequence[DecisionCase]:
-        path = BENCHMARK_DATA_DIR / "kev_transfer_v4.jsonl"
-        if not path.exists():
-            raise FileNotFoundError(
-                f"Official Kev transfer-v4 manifest not found at '{path}'. "
-                "Slicing local training data is strictly prohibited under PFD. "
-                "Reproduce Kev's frozen transfer-v4 suite and manifest to run."
-            )
         import json
-        with open(path, "r", encoding="utf-8") as f:
-            return [DecisionCase(**json.loads(line)) for line in f if line.strip()]
+        url = "https://raw.githubusercontent.com/jaredpalmer/kev/main/evals/v4/transfer-v4/test.jsonl"
+        content = load_verified_manifest(BENCHMARK_MANIFESTS_DIR / "kev_transfer_v4.jsonl", "c30a91274f9b483aac9e4f02ada5dea953b3f1a2829456e0bc07806c4e73b517", url)
+        return [DecisionCase.from_dict(json.loads(line)) for line in content.decode("utf-8").splitlines() if line.strip()]

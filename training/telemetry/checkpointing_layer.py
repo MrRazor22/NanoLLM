@@ -14,6 +14,7 @@ class CheckpointingLayer(ITrainer):
     ):
         self.inner = inner
         self.output_path = Path(output_path) if output_path else None
+        self.best_val_loss: float = float("inf")
 
     @property
     def model(self):
@@ -39,7 +40,10 @@ class CheckpointingLayer(ITrainer):
                     model.save(p_target, meta=meta)
                 else:
                     model.save(f"{target}_v{s.epoch}", meta=meta)
-                    model.save(target, meta=meta)
+                    if s.val_loss is None or s.val_loss < self.best_val_loss:
+                        if s.val_loss is not None:
+                            self.best_val_loss = s.val_loss
+                        model.save(target, meta=meta)
             yield s
 
     def evaluate(self, cases) -> float:

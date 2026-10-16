@@ -57,7 +57,14 @@ def main(
         for c in list_weights(): t.add_row(c.name, f"{c.size_mb:.1f} MB", f"{c.meta.val_loss:.4f}" if c.meta.val_loss else "-", c.meta.saved_at or "-")
         console.print(t); return
 
-    engine: IDecisionEngine = DecisionEngine.from_weights(model, device=device) | ProfilingLayer()
+    try:
+        engine: IDecisionEngine = DecisionEngine.from_weights(model, device=device) | ProfilingLayer()
+    except FileNotFoundError as e:
+        console.print(f"[bold red]Model Error:[/] {e}")
+        available = [w.name for w in list_weights()]
+        if available:
+            console.print(f"Available weights in cache: {available}")
+        raise typer.Exit(code=1)
 
     if play or state is None:
         console.print(f"[bold cyan]Piqo Playground[/] [{model or 'piqo'}]. Enter context (or 'q' to quit):")

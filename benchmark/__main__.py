@@ -9,7 +9,7 @@ warnings.filterwarnings("ignore")
 
 from benchmark.benchmark import Benchmark
 from benchmark.policies.ledger import DiskLedgerPolicy
-from benchmark.registry import AVAILABLE_ENGINES, OFFICIAL_SUITES, PUBLISHED_SUITES
+from benchmark.registry import AVAILABLE_ENGINES, BENCHMARK_SUITES
 from benchmark.suites.suite import IBenchmarkSuite
 from inference.decision_engine import IDecisionEngine
 from inference.profiling_layer import ProfilingLayer
@@ -20,15 +20,13 @@ app = typer.Typer(add_completion=False, help="Piqo Sovereign Benchmark CLI")
 def resolve_suites(suite_arg: str) -> Sequence[IBenchmarkSuite]:
     """Resolves CLI suite argument into sovereign IBenchmarkSuite primitives."""
     arg = suite_arg.strip().lower()
-    if arg in ("all", "official"):
-        unique_classes = list(dict.fromkeys(OFFICIAL_SUITES.values()))
-        return [cls() for cls in unique_classes]
-    if arg == "all_suites":
-        unique_classes = list(dict.fromkeys(PUBLISHED_SUITES.values()))
-        return [cls() for cls in unique_classes]
-    keys = [s.strip().lower() for s in suite_arg.split(",") if s.strip().lower() in PUBLISHED_SUITES]
-    unique_classes = list(dict.fromkeys([PUBLISHED_SUITES[k] for k in keys]))
-    return [cls() for cls in unique_classes] if unique_classes else [OFFICIAL_SUITES["laya"]()]
+    if arg in ("all", "all_suites", "official"):
+        return [cls() for cls in BENCHMARK_SUITES.values()]
+    queries = [s.strip().lower() for s in suite_arg.split(",") if s.strip()]
+    matched = [cls for key, cls in BENCHMARK_SUITES.items() if any(q in key for q in queries)]
+    if not matched:
+        raise typer.BadParameter(f"No benchmark suites matched '{suite_arg}'. Available: {list(BENCHMARK_SUITES.keys())}")
+    return [cls() for cls in dict.fromkeys(matched)]
 
 def resolve_engines(
     model_arg: str,
@@ -37,7 +35,14 @@ def resolve_engines(
 ) -> Mapping[str, IDecisionEngine]:
     """Resolves CLI model argument into instantiated IDecisionEngine primitives."""
     arg = model_arg.strip().lower()
-    keys = list(AVAILABLE_ENGINES.keys()) if arg == "all" else [k.strip() for k in arg.split(",") if k.strip() in AVAILABLE_ENGINES]
+    if arg == "all":
+        keys = list(AVAILABLE_ENGINES.keys())
+    else:
+        requested = [k.strip() for k in arg.split(",") if k.strip()]
+        invalid = [k for k in requested if k not in AVAILABLE_ENGINES]
+        if invalid:
+            raise typer.BadParameter(f"Unrecognized engine(s): {invalid}. Available: {list(AVAILABLE_ENGINES.keys())}")
+        keys = requested
     engines: dict[str, IDecisionEngine] = {}
     for k in keys:
         cls = AVAILABLE_ENGINES[k]
@@ -48,11 +53,13 @@ def resolve_engines(
             engines[k.title()] = cls(**kwargs)
         except Exception as e:
             print(f"[{k.title()}] Skipping: could not initialize ({e})")
+    if not engines:
+        raise typer.BadParameter(f"No engines could be initialized for '{model_arg}'.")
     return engines
 
 @app.command()
 def main(
-    suite: str = typer.Option("all", "--suite", "-s", help="Benchmark suite(s): all, gliner, jev, kev, laya (comma-separated)"),
+    suite: str = typer.Option("all", "--suite", "-s", help="Benchmark suite(s): all, laya, jev, kev (comma-separated)"),
     model: str = typer.Option("all", "--model", "-m", help="Model(s) to evaluate: all, piqo, gliner, jev, kev, laya, verdict (comma-separated)"),
     report: bool = typer.Option(False, "--report", "-r", help="Show leaderboard report without running models"),
     out: Path = typer.Option(Path("benchmark/scores.json"), "--out", "-o", help="Scorecard ledger JSON file path"),

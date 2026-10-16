@@ -1,10 +1,9 @@
-import json
 from pathlib import Path
 from typing import Mapping, Sequence
 from data.case import DecisionCase
-from benchmark.suites.suite import IBenchmarkSuite
+from benchmark.suites.suite import IBenchmarkSuite, load_verified_manifest
 
-BENCHMARK_DATA_DIR = Path(__file__).resolve().parent.parent / "data"
+BENCHMARK_MANIFESTS_DIR = Path(__file__).resolve().parent / "manifests"
 
 class LayaTypedDecisionsSuite(IBenchmarkSuite):
     """Official LocalLLaMA/typed-decisions 400-case test benchmark (Laya, Jev, Verdict)."""
@@ -23,12 +22,8 @@ class LayaTypedDecisionsSuite(IBenchmarkSuite):
         }
 
     def load_cases(self) -> Sequence[DecisionCase]:
-        path = BENCHMARK_DATA_DIR / "typed_decisions_test.jsonl"
-        if not path.exists():
-            from datasets import load_dataset
-            rows = list(load_dataset("LocalLLaMA/typed-decisions", split="test"))
-            path.parent.mkdir(parents=True, exist_ok=True)
-            path.write_text("\n".join(json.dumps(r, default=str) for r in rows) + "\n", encoding="utf-8")
-
-        with open(path, "r", encoding="utf-8") as f:
-            return [DecisionCase.from_dict(json.loads(line)) for line in f if line.strip()]
+        import pyarrow.parquet as pq
+        path = BENCHMARK_MANIFESTS_DIR / "typed_decisions_test.parquet"
+        url = "https://huggingface.co/datasets/LocalLLaMA/typed-decisions/resolve/main/all/test-00000-of-00001.parquet"
+        load_verified_manifest(path, "4f294f218ea1da27f3efef936359389c62ea4d3973a41457732990f1d31b647c", url)
+        return [DecisionCase.from_dict(r) for r in pq.read_table(path).to_pylist()]

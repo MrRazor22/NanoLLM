@@ -45,8 +45,8 @@ class DecisionCase:
                 crit = spec.get("criteria") or spec.get("options")
                 ins = spec.get("instructions") or spec.get("instruction")
                 q_type = spec.get("type", "choice" if crit else "noul")
-                g_item = gold.get(name, {}) if isinstance(gold, dict) else None
-                tgt = g_item.get("label") if isinstance(g_item, dict) else (g_item if g_item is not None else None)
+                g_item = gold.get(name) if isinstance(gold, dict) else None
+                tgt = g_item.get("label") if isinstance(g_item, dict) else (g_item if g_item is not None else spec.get("label", spec.get("target")))
 
                 if q_type == "choice":
                     opts = crit if isinstance(crit, dict) else {o: o for o in (crit or [])}

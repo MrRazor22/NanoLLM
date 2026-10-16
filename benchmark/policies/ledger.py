@@ -8,7 +8,7 @@ DEFAULT_SCORES_FILE = Path(__file__).resolve().parent.parent / "scores.json"
 @runtime_checkable
 class ILedgerPolicy(Protocol):
     """Sovereign opinion sub-primitive: manages storage, retrieval, and caching of benchmark reports."""
-    def get(self, model: str, suite: str = "default") -> Optional[Dict[str, float]]: ...
+    def get(self, model: str, suite: str = "default", expected_count: Optional[int] = None) -> Optional[Dict[str, float]]: ...
     def put(self, report: BenchmarkReport) -> None: ...
     def all(self, suite: Optional[str] = None) -> Dict[str, dict]: ...
 
@@ -18,8 +18,10 @@ class DiskLedgerPolicy(ILedgerPolicy):
     def __init__(self, scores_path: Optional[Union[str, Path]] = None):
         self.scores_path = Path(scores_path or DEFAULT_SCORES_FILE)
 
-    def get(self, model: str, suite: str = "default") -> Optional[Dict[str, float]]:
+    def get(self, model: str, suite: str = "default", expected_count: Optional[int] = None) -> Optional[Dict[str, float]]:
         suite_data = self.all(suite)
+        if expected_count is not None and suite_data.get("count") != expected_count:
+            return None
         scores = {t: entry[model] for t, entry in suite_data.items() if isinstance(entry, dict) and model in entry}
         return scores if scores else None
 

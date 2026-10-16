@@ -62,9 +62,24 @@ class GlinerDecideEngine(IDecisionEngine):
 
                 answers[q.name] = ChoiceResult(choice=str(chosen_key), confidence=score, probabilities={str(chosen_key): score})
             elif isinstance(q, Noul):
-                answers[q.name] = NoulResult(is_positive=False, probability=0.5)
+                if hasattr(model, "classify_text"):
+                    preds = model.classify_text(prompt_text, {q.name: ["Yes", "No"]})
+                    is_pos = (preds.get(q.name, "") == "Yes")
+                    answers[q.name] = NoulResult(is_positive=is_pos, probability=1.0 if is_pos else 0.0)
+                elif hasattr(model, "classify"):
+                    preds = model.classify(prompt_text, ["Yes", "No"])
+                    top_label = preds[0]["label"] if preds else "No"
+                    score = float(preds[0].get("score", 0.5)) if preds else 0.5
+                    is_pos = (top_label == "Yes")
+                    answers[q.name] = NoulResult(is_positive=is_pos, probability=score if is_pos else 1.0 - score)
+                else:
+                    preds = model.predict_entities(prompt_text, ["Yes", "No"])
+                    top_label = preds[0]["label"] if preds else "No"
+                    score = float(preds[0].get("score", 0.5)) if preds else 0.5
+                    is_pos = (top_label == "Yes")
+                    answers[q.name] = NoulResult(is_positive=is_pos, probability=score if is_pos else 1.0 - score)
             elif isinstance(q, Score):
-                answers[q.name] = ScoreResult(score=50.0, normalized=0.5)
+                raise NotImplementedError(f"GLiNER does not support continuous regression questions ({type(q).__name__})")
         return DecisionResult(answers=answers)
 
     def __or__(self, layer: IDecisionEngineLayer) -> IDecisionEngine:

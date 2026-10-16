@@ -61,7 +61,7 @@ class CalibratedLoss(nn.Module, ILoss):
         if s_idx:
             pred = predictions[torch.as_tensor(s_idx, device=dev), torch.as_tensor(s_pos, device=dev)]
             tgt = torch.as_tensor(s_tgts, dtype=torch.float, device=dev)
-            losses.append(torch.mean(4.0 * (torch.sigmoid(pred) - tgt) ** 2))
+            losses.append(F.mse_loss(torch.sigmoid(pred), tgt))
             counts.append(len(s_idx))
 
         if not losses:

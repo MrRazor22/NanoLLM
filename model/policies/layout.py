@@ -23,7 +23,7 @@ class ILayout(Protocol):
 class MaskedLayout(ILayout):
     """Standard masked token layout policy encoding questions and candidate slots."""
 
-    def __init__(self, tokenizer: Optional[ITokenizer] = None, max_state_tokens: int = 384):
+    def __init__(self, tokenizer: Optional[ITokenizer] = None, max_state_tokens: int = 2048):
         if tokenizer is None:
             from transformers import AutoTokenizer
             tokenizer = AutoTokenizer.from_pretrained("answerdotai/ModernBERT-base")
@@ -79,10 +79,13 @@ class MaskedLayout(ILayout):
             for q, pos in zip(questions, layout.slots):
                 if isinstance(q, Choice):
                     slots.append(TargetSlot("choice", pos, q.target_index))
+                elif isinstance(q, Score):
+                    target_val = q.to_norm(q.target) if q.target is not None else 0.0
+                    slots.append(TargetSlot("score", pos, target_val))
                 else:
-                    target_type = "score" if isinstance(q, Score) else "noul"
-                    target_val = float(q.target) if q.target is not None else 0.0
-                    slots.append(TargetSlot(target_type, pos, target_val))
+                    tgt = q.target
+                    is_pos = (tgt is True or str(tgt).strip().lower() in ("true", "1", "yes")) if tgt is not None else False
+                    slots.append(TargetSlot("noul", pos, 1.0 if is_pos else 0.0))
             all_targets.append(SampleTargets(slots))
 
         max_len = max((len(l.input_ids) for l in padded_layouts), default=0)

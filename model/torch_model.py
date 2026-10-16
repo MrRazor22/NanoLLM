@@ -25,8 +25,9 @@ class IModel(Protocol):
     """Core Primitive: Neural computation boundary for inference scoring and loss computation."""
     def predict(self, state: DecisionState, questions: Sequence[Question]) -> PredictionLayout: ...
     def step(self, cases: Sequence["DecisionCase"], backward: bool = True, lr: Optional[float] = None) -> float: ...
+    def flush(self) -> None: ...
     def save(self, target: Union[str, Path] = "piqo", meta: Optional[WeightMeta] = None) -> Path: ...
-    def load(self, source: Optional[Union[Weights, str, Path]] = None) -> None: ...
+    def load(self, source: Optional[Union[Weights, str, Path]] = None, strict: bool = True) -> None: ...
 
 class TorchModel(IModel):
     """Core Primitive Implementation: ModernBERT backbone with modular decision head, layout, and optimizer."""
@@ -44,7 +45,7 @@ class TorchModel(IModel):
         weights: Optional[Weights] = None,
         lr: float = 2e-5,
         accum_steps: int = 1,
-        max_state_tokens: int = 384,
+        max_state_tokens: int = 2048,
         device: Optional[Union[str, torch.device]] = None,
         compile: bool = False,
     ):
@@ -97,6 +98,10 @@ class TorchModel(IModel):
             self.optimizer_policy.step(loss, lr=lr)
         return loss.item()
 
+    def flush(self) -> None:
+        if self.optimizer_policy:
+            self.optimizer_policy.flush()
+
     def save(self, target: Union[str, Path] = "piqo", meta: Optional[WeightMeta] = None) -> Path:
         from safetensors.torch import save
         tensors = {f"backbone.{k}": v.contiguous() for k, v in self.backbone.state_dict().items()}
@@ -107,7 +112,7 @@ class TorchModel(IModel):
             metadata = WeightMeta(epoch=metadata.epoch, train_loss=metadata.train_loss, val_loss=metadata.val_loss, saved_at=time.strftime("%Y-%m-%d %H:%M:%S"))
         return self.weight_cache.put(target, Weights(payload=raw_bytes, name=Path(target).stem, meta=metadata))
 
-    def load(self, source: Optional[Union[Weights, str, Path]] = None) -> None:
+    def load(self, source: Optional[Union[Weights, str, Path]] = None, strict: bool = True) -> None:
         target = "piqo" if source is None else source
         weights = target if isinstance(target, Weights) else self.weight_cache.get(target)
         if not weights:
@@ -119,6 +124,12 @@ class TorchModel(IModel):
         bb_sd = {k.removeprefix("backbone."): v for k, v in sd.items() if k.startswith("backbone.")}
         h_sd = {k.removeprefix("head."): v for k, v in sd.items() if k.startswith("head.")}
         if bb_sd:
-            self.backbone.load_state_dict(bb_sd, strict=False)
+            res_bb = self.backbone.load_state_dict(bb_sd, strict=strict)
+            if not strict and (res_bb.missing_keys or res_bb.unexpected_keys):
+                import warnings
+                warnings.warn(f"Checkpoint '{target}' backbone loaded with missing: {res_bb.missing_keys}, unexpected: {res_bb.unexpected_keys}")
         if h_sd:
-            self.head.load_state_dict(h_sd, strict=False)
+            res_h = self.head.load_state_dict(h_sd, strict=strict)
+            if not strict and (res_h.missing_keys or res_h.unexpected_keys):
+                import warnings
+                warnings.warn(f"Checkpoint '{target}' head loaded with missing: {res_h.missing_keys}, unexpected: {res_h.unexpected_keys}")

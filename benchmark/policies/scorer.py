@@ -1,9 +1,10 @@
+from dataclasses import dataclass, field
 import statistics
 import time
-from dataclasses import dataclass, field
-from typing import Dict, Mapping, Optional, Protocol, Sequence, runtime_checkable
+from typing import Dict, Mapping, Protocol, Sequence, runtime_checkable
 from data.case import DecisionCase
 from inference.decision_engine import IDecisionEngine
+from inference.questions import Choice, Noul, Score
 
 @dataclass(frozen=True, slots=True)
 class BenchmarkReport:
@@ -16,6 +17,7 @@ class BenchmarkReport:
     slices: Mapping[str, float] = field(default_factory=dict)
     counts: Mapping[str, int] = field(default_factory=dict)
     suite: str = "default"
+    omissions: int = 0
 
 @runtime_checkable
 class IScorerPolicy(Protocol):
@@ -47,6 +49,7 @@ class ScorerPolicy(IScorerPolicy):
         latencies: list[float] = []
         hits: list[float] = []
         brier_diffs: list[float] = []
+        omissions = 0
         total_items = len(cases)
         start_time = time.perf_counter()
         last_log = start_time
@@ -68,17 +71,26 @@ class ScorerPolicy(IScorerPolicy):
                         if is_hit:
                             cat_correct[cat] = cat_correct.get(cat, 0) + 1
 
-                        probs = getattr(ans, "probabilities", None)
-                        if probs and isinstance(probs, dict):
-                            target_str = str(q.target)
-                            b_sum = sum((float(p_val) - (1.0 if str(opt_k) == target_str else 0.0)) ** 2 for opt_k, p_val in probs.items())
-                            brier_diffs.append(b_sum)
-                        elif hasattr(ans, "confidence") and ans.confidence is not None:
-                            c = float(ans.confidence)
-                            brier_diffs.append((c - (1.0 if is_hit else 0.0)) ** 2)
+                        if isinstance(q, Choice):
+                            q_keys = list(q.options.keys()) if isinstance(q.options, dict) else list(q.options)
+                            probs = getattr(ans, "probabilities", None)
+                            if probs and len(probs) >= len(q_keys):
+                                tgt_str = str(q.target)
+                                b_sum = sum((float(probs.get(k, 0.0)) - (1.0 if str(k) == tgt_str else 0.0)) ** 2 for k in q_keys)
+                                brier_diffs.append(b_sum)
+                        elif isinstance(q, Noul):
+                            prob = getattr(ans, "probability", None)
+                            if prob is not None:
+                                tgt_bool = 1.0 if (q.target is True or str(q.target).lower() in ("true", "1", "yes")) else 0.0
+                                brier_diffs.append((float(prob) - tgt_bool) ** 2)
+                        elif isinstance(q, Score):
+                            norm_val = getattr(ans, "normalized", None)
+                            if norm_val is not None:
+                                tgt_norm = q.to_norm(float(q.target))
+                                brier_diffs.append((float(norm_val) - tgt_norm) ** 2)
                     else:
                         hits.append(0.0)
-                        brier_diffs.append(1.0)
+                        omissions += 1
 
             now = time.perf_counter()
             if self.show_progress and (now - last_log >= self.log_interval_sec or idx == total_items):
@@ -100,4 +112,5 @@ class ScorerPolicy(IScorerPolicy):
             slices={c: cat_correct.get(c, 0) / cat_total[c] for c in cat_total},
             counts=cat_total,
             suite=suite,
+            omissions=omissions,
         )
