@@ -1,6 +1,7 @@
 from pathlib import Path
-from typing import Iterator, Optional, Union
+from typing import Iterator, Optional, Sequence, Union
 
+from data.case import DecisionCase
 from training.epoch_trainer import ITrainer, ITrainerLayer
 from training.stats import StepStats
 
@@ -24,29 +25,34 @@ class CheckpointingLayer(ITrainer):
         self.inner = inner
         return self
 
-    def fit(self, train_data, epochs: int = 1, **kwargs) -> Iterator[StepStats]:
+    def fit(
+        self,
+        cases: Sequence[DecisionCase],
+        epochs: int = 1,
+        val_cases: Optional[Sequence[DecisionCase]] = None,
+    ) -> Iterator[StepStats]:
         if not self.inner:
             raise RuntimeError("CheckpointingLayer has no inner trainer.")
         model = self.model
         if self.output_path and model is None:
             raise RuntimeError("CheckpointingLayer cannot locate model in trainer pipeline.")
-        for s in self.inner.fit(train_data, epochs=epochs, **kwargs):
-            if self.output_path and s.batch == s.total_batches and model:
+        for s in self.inner.fit(cases, epochs=epochs, val_cases=val_cases):
+            if self.output_path and model:
                 from model.weights import WeightMeta
                 target = self.output_path
                 meta = WeightMeta(epoch=s.epoch, train_loss=s.loss, val_loss=s.val_loss)
                 p_target = Path(target)
-                if p_target.suffix or p_target.parent != Path("."):
-                    model.save(p_target, meta=meta)
-                else:
-                    model.save(f"{target}_v{s.epoch}", meta=meta)
-                    if s.val_loss is None or s.val_loss < self.best_val_loss:
-                        if s.val_loss is not None:
-                            self.best_val_loss = s.val_loss
+                if s.val_loss is not None and s.val_loss < self.best_val_loss:
+                    self.best_val_loss = s.val_loss
+                    model.save(target, meta=meta)
+                if s.batch == s.total_batches:
+                    epoch_target = p_target if (p_target.suffix or p_target.parent != Path(".")) else f"{target}_v{s.epoch}"
+                    model.save(epoch_target, meta=meta)
+                    if s.val_loss is None:
                         model.save(target, meta=meta)
             yield s
 
-    def evaluate(self, cases) -> float:
+    def evaluate(self, cases: Sequence[DecisionCase]) -> float:
         if self.inner is None:
             raise RuntimeError("CheckpointingLayer has no inner trainer.")
         return self.inner.evaluate(cases)

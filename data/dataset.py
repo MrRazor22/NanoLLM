@@ -3,8 +3,9 @@ from typing import List, Optional, Protocol, Sequence, runtime_checkable
 from data.case import DataSplits, DecisionCase, SourceRecord, SplitTag
 from data.curation.budget_split import BudgetSplitPolicy, ISplitPolicy
 from data.curation.ngram_leakage import ILeakagePolicy, NGramLeakagePolicy
-from data.dataset_extensions import standard_sources
+from data.registry import AVAILABLE_SOURCES
 from data.sources.source import IDataSource
+from data.storage_policy import DiskStoragePolicy, IStoragePolicy
 
 @runtime_checkable
 class IDataset(Protocol):
@@ -19,11 +20,13 @@ class Dataset(IDataset):
         self,
         split_policy: Optional[ISplitPolicy] = None,
         leakage_policy: Optional[ILeakagePolicy] = None,
+        storage_policy: Optional[IStoragePolicy] = None,
         sources: Optional[Sequence[IDataSource]] = None,
     ):
         self.split_policy = split_policy or BudgetSplitPolicy()
         self.leakage_policy = leakage_policy or NGramLeakagePolicy()
-        self.sources: List[IDataSource] = list(sources) if sources is not None else standard_sources()
+        self.storage = storage_policy or DiskStoragePolicy()
+        self.sources: List[IDataSource] = list(sources) if sources is not None else [src() for src in AVAILABLE_SOURCES.values()]
         self.leak_audit: dict[str, int] = {}
         self._splits: Optional[DataSplits] = None
 
@@ -44,18 +47,11 @@ class Dataset(IDataset):
         val_test_leaks = list(self.leakage_policy.find_leaks(splits.val, splits.test))
 
         unique_val_test = {id(c): c for c in val_test_leaks}
-        if unique_val_test:
-            splits = DataSplits(
-                train=splits.train,
-                val=[c for c in splits.val if id(c) not in unique_val_test],
-                test=splits.test,
-            )
-
         unique_train_leaks = {id(c): c for c in (test_leaks + val_leaks)}
-        if unique_train_leaks:
+        if unique_val_test or unique_train_leaks:
             splits = DataSplits(
                 train=[c for c in splits.train if id(c) not in unique_train_leaks],
-                val=splits.val,
+                val=[c for c in splits.val if id(c) not in unique_val_test],
                 test=splits.test,
             )
 
@@ -77,12 +73,13 @@ class Dataset(IDataset):
             raise ValueError("Contamination invariant violated: val split leaks test holdout.")
 
         self._splits = splits
+        self.storage.save(splits)
         return splits
 
     def load(self, split: SplitTag = "train") -> Sequence[DecisionCase]:
-        """Loads domain decision cases from in-memory splits; fails fast if not prepared."""
-        if self._splits is None:
-            raise ValueError(
-                f"In-memory dataset has not been prepared. Call dataset.prepare() or load via DiskStorageLayer."
-            )
-        return getattr(self._splits, split)
+        """Loads domain decision cases from in-memory splits or persistent storage policy."""
+        if self._splits is not None:
+            return getattr(self._splits, split)
+        return self.storage.load(split)
+
+__all__ = ["IDataset", "Dataset"]

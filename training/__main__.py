@@ -10,10 +10,9 @@ import typer
 
 transformers.logging.set_verbosity_error()
 
-from data.storage_layer import DiskStorageLayer
-from data.dataset_extensions import CORPUS_DIR
-from model.policies.weight_cache import DiskWeightCache
+from data.dataset import Dataset
 from model.torch_model import TorchModel
+from model.weights import list_weights
 from training.epoch_trainer import EpochTrainer, ITrainer
 from training.policies.schedule import ConstantSchedule, CosineSchedule
 from training.telemetry.checkpointing_layer import CheckpointingLayer
@@ -34,7 +33,6 @@ def make_card(title: str, rows: list[tuple[str, str]], style: str = "bold magent
 @app.command()
 def main(
     backbone: str = typer.Option(DEFAULT_BACKBONE, help="HuggingFace backbone model"),
-    corpus_dir: str = typer.Option(str(CORPUS_DIR), help="Path to corpus directory"),
     name: str = typer.Option("piqo", "--name", "-n", help="Target weights name/prefix (default: 'piqo')"),
     init_weights: Optional[str] = typer.Option(None, "--init", help="Initial weights to resume from"),
     from_scratch: bool = typer.Option(False, "--from-scratch", help="Train from raw base backbone"),
@@ -54,8 +52,7 @@ def main(
     if torch.cuda.is_available():
         torch.cuda.manual_seed_all(seed)
 
-    cache = DiskWeightCache()
-    has_piqo = cache.get("piqo") is not None
+    has_piqo = any(w.name == "piqo" for w in list_weights())
     init_ckpt = None if from_scratch or (init_weights and init_weights.lower() in ("none", "")) else (init_weights or ("piqo" if has_piqo else None))
     out_target = name
 
@@ -66,14 +63,14 @@ def main(
     if init_ckpt:
         model.load(init_ckpt)
 
-    sched = ConstantSchedule() if schedule.lower() == "constant" else CosineSchedule(warmup_ratio=warmup_ratio)
+    schedule_policy = ConstantSchedule() if schedule.lower() == "constant" else CosineSchedule(warmup_ratio=warmup_ratio)
     trainer: ITrainer = (
-        EpochTrainer(model=model, batch_size=batch_size, base_lr=target_lr, schedule=sched)
+        EpochTrainer(model=model, batch_size=batch_size, base_lr=target_lr, schedule=schedule_policy)
         | MetricsLayer(log_interval_sec=5.0)
         | CheckpointingLayer(output_path=out_target)
     )
 
-    dataset = DiskStorageLayer(corpus_dir=corpus_dir)
+    dataset = Dataset()
     train_cases = dataset.load("train")
     val_cases = dataset.load("val")
 

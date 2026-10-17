@@ -4,11 +4,10 @@ from typing import Mapping, Optional, Sequence
 import typer
 
 os.environ["HF_HUB_DISABLE_PROGRESS_BARS"] = "1"
-os.environ["TOKENIZERS_PARALLELISM"] = "false"
-warnings.filterwarnings("ignore")
+warnings.filterwarnings("ignore", category=FutureWarning)
+warnings.filterwarnings("ignore", category=UserWarning, module="torch")
 
 from benchmark.benchmark import Benchmark
-from benchmark.policies.ledger import DiskLedgerPolicy
 from benchmark.registry import AVAILABLE_ENGINES, BENCHMARK_SUITES
 from benchmark.suites.suite import IBenchmarkSuite
 from inference.decision_engine import IDecisionEngine
@@ -57,19 +56,49 @@ def resolve_engines(
         raise typer.BadParameter(f"No engines could be initialized for '{model_arg}'.")
     return engines
 
+def run_playground(engines: Sequence[tuple[str, IDecisionEngine]]) -> None:
+    names = ", ".join(n for n, _ in engines)
+    print(f"\nPiqo Benchmark Playground [{names}]. Enter query (or 'q' to quit):")
+    while True:
+        try:
+            ctx = input("\nContext (or 'q' to quit): ").strip()
+        except (EOFError, KeyboardInterrupt):
+            break
+        if ctx.lower() in ("q", "quit", "exit") or not ctx:
+            if not ctx: continue
+            break
+        try:
+            raw_choices = input("Choices (comma-separated): ").strip()
+        except (EOFError, KeyboardInterrupt):
+            break
+        opts = [o.strip() for o in raw_choices.split(",") if o.strip()]
+        if not opts:
+            continue
+        qs = [Choice("decision", opts)]
+        print(f"\nState: {ctx}\n" + "-" * 55)
+        for m_name, eng in engines:
+            try:
+                res = eng.decide(ctx, qs)
+                ans = res.answers.get("decision")
+                val = getattr(ans, "choice", getattr(ans, "value", str(ans)))
+                conf = getattr(ans, "confidence", 1.0)
+                print(f"[{m_name:<10}] Choice: {val:<20} | Conf: {conf*100:.1f}% | Lat: {res.latency_ms:.1f}ms")
+            except Exception as e:
+                print(f"[{m_name:<10}] Error: {e}")
+        print("-" * 55)
+
 @app.command()
 def main(
     suite: str = typer.Option("all", "--suite", "-s", help="Benchmark suite(s): all, laya, jev, kev (comma-separated)"),
     model: str = typer.Option("all", "--model", "-m", help="Model(s) to evaluate: all, piqo, gliner, jev, kev, laya, verdict (comma-separated)"),
     report: bool = typer.Option(False, "--report", "-r", help="Show leaderboard report without running models"),
-    out: Path = typer.Option(Path("benchmark/scores.json"), "--out", "-o", help="Scorecard ledger JSON file path"),
     limit: Optional[int] = typer.Option(None, help="Item limit per suite"),
     device: Optional[str] = typer.Option(None, help="Target compute device (cpu, cuda, mps)"),
     checkpoint: Optional[str] = typer.Option(None, help="Model checkpoint path for Piqo"),
     skip_cached: bool = typer.Option(False, "--skip-cached", help="Skip models that already have scores in ledger"),
     play: bool = typer.Option(False, "--play", "-p", help="Playground mode"),
 ) -> None:
-    bench = Benchmark(ledger=DiskLedgerPolicy(scores_path=out))
+    bench = Benchmark()
     active_suites = resolve_suites(suite)
 
     if report:
@@ -90,7 +119,7 @@ def main(
         if not live_engines:
             print("No active engines available for playground.")
             return
-        bench.playground(live_engines)
+        run_playground(live_engines)
         return
 
     bench.run(active_suites, active_engines, limit=limit, skip_cached=skip_cached)

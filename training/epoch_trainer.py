@@ -36,11 +36,12 @@ class EpochTrainer(ITrainer):
         schedule: Optional[ISchedule] = None,
         batching: Optional[IBatch] = None,
         eval_batching: Optional[IBatch] = None,
+        warmup_ratio: float = 0.05,
     ):
         self.model = model or TorchModel()
         self.batch_size = batch_size
         self.base_lr = base_lr
-        self.schedule = schedule or CosineSchedule()
+        self.schedule = schedule or CosineSchedule(warmup_ratio=warmup_ratio)
         self.batching = batching or BucketedBatch()
         self.eval_batching = eval_batching or SequentialBatch()
 
@@ -74,7 +75,7 @@ class EpochTrainer(ITrainer):
                 dt = (time.perf_counter() - t0) * 1000.0
                 total_loss += loss
 
-                if n + 1 == total_batches and hasattr(self.model, "flush"):
+                if n + 1 == total_batches:
                     self.model.flush()
 
                 is_val_cadence = val_cases and (n + 1 == total_batches or n + 1 == (total_batches // 2))

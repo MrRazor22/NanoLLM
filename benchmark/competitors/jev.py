@@ -4,7 +4,7 @@ import httpx
 from inference.decision_engine import IDecisionEngine, IDecisionEngineLayer
 from inference.questions import (
     Choice, ChoiceResult, DecisionResult, DecisionState,
-    Noul, NoulResult, Question, Score, ScoreResult,
+    Noul, NoulResult, Question, Score, ScoreResult, score_to_norm,
 )
 
 class JevEngine(IDecisionEngine):
@@ -67,7 +67,9 @@ class JevEngine(IDecisionEngine):
         answers = {}
         results = data.get("results", {})
         for q in questions:
-            res = results.get(q.name, {})
+            if q.name not in results:
+                continue
+            res = results[q.name]
             if isinstance(q, Choice):
                 choice = res.get("choice", "")
                 probs = res.get("probabilities", {})
@@ -77,9 +79,9 @@ class JevEngine(IDecisionEngine):
                 is_pos = res.get("decision", False)
                 p = res.get("probability", 1.0 if is_pos else 0.0)
                 answers[q.name] = NoulResult(is_positive=bool(is_pos), probability=float(p))
-            elif isinstance(q, Score):
-                val = res.get("score", 0.0)
-                answers[q.name] = ScoreResult(score=float(val), normalized=float(val) / 100.0)
+            elif isinstance(q, Score) and "score" in res:
+                val = float(res["score"])
+                answers[q.name] = ScoreResult(score=val, normalized=score_to_norm(q, val))
 
         latency = float(data.get("latency_ms", 0.0))
         return DecisionResult(answers=answers, latency_ms=latency)

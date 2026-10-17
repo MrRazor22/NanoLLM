@@ -53,7 +53,13 @@ class AdamWOptimizer(IOptimizerPolicy):
 
     def flush(self) -> None:
         """Flushes any pending accumulated gradients before epoch or iteration boundaries."""
-        if self.opt_count % self.accum_steps != 0:
+        remainder = self.opt_count % self.accum_steps
+        if remainder != 0:
+            scale_factor = self.accum_steps / remainder
+            for p in self.optimizer.param_groups:
+                for param in p["params"]:
+                    if param.grad is not None:
+                        param.grad.mul_(scale_factor)
             if self.scaler.is_enabled():
                 self.scaler.step(self.optimizer)
                 self.scaler.update()

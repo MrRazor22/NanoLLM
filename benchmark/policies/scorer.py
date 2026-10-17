@@ -4,7 +4,7 @@ import time
 from typing import Dict, Mapping, Protocol, Sequence, runtime_checkable
 from data.case import DecisionCase
 from inference.decision_engine import IDecisionEngine
-from inference.questions import Choice, Noul, Score
+from inference.questions import Choice, Noul, Score, choice_keys, matches_answer, score_to_norm
 
 @dataclass(frozen=True, slots=True)
 class BenchmarkReport:
@@ -14,6 +14,7 @@ class BenchmarkReport:
     count: int
     p50_ms: float = 0.0
     brier_score: float = 0.0
+    regression_mse: float = 0.0
     slices: Mapping[str, float] = field(default_factory=dict)
     counts: Mapping[str, int] = field(default_factory=dict)
     suite: str = "default"
@@ -49,6 +50,7 @@ class ScorerPolicy(IScorerPolicy):
         latencies: list[float] = []
         hits: list[float] = []
         brier_diffs: list[float] = []
+        regression_diffs: list[float] = []
         omissions = 0
         total_items = len(cases)
         start_time = time.perf_counter()
@@ -66,31 +68,27 @@ class ScorerPolicy(IScorerPolicy):
                     cat_total[cat] = cat_total.get(cat, 0) + 1
                     if q.name in res.answers:
                         ans = res.answers[q.name]
-                        is_hit = q.matches(ans)
+                        is_hit = matches_answer(q, ans)
                         hits.append(1.0 if is_hit else 0.0)
                         if is_hit:
                             cat_correct[cat] = cat_correct.get(cat, 0) + 1
 
                         if isinstance(q, Choice):
-                            q_keys = list(q.options.keys()) if isinstance(q.options, dict) else list(q.options)
                             probs = getattr(ans, "probabilities", None)
-                            if probs and len(probs) >= len(q_keys):
-                                tgt_str = str(q.target)
-                                b_sum = sum((float(probs.get(k, 0.0)) - (1.0 if str(k) == tgt_str else 0.0)) ** 2 for k in q_keys)
-                                brier_diffs.append(b_sum)
+                            keys = choice_keys(q)
+                            b_val = sum((float(probs.get(k, 0.0)) - (1.0 if str(k) == str(q.target) else 0.0)) ** 2 for k in keys) if (probs and len(probs) >= len(keys)) else 1.0
+                            brier_diffs.append(b_val)
                         elif isinstance(q, Noul):
                             prob = getattr(ans, "probability", None)
-                            if prob is not None:
-                                tgt_bool = 1.0 if (q.target is True or str(q.target).lower() in ("true", "1", "yes")) else 0.0
-                                brier_diffs.append((float(prob) - tgt_bool) ** 2)
+                            tgt_b = 1.0 if (q.target is True or str(q.target).lower() in ("true", "1", "yes")) else 0.0
+                            brier_diffs.append((float(prob) - tgt_b) ** 2 if prob is not None else 1.0)
                         elif isinstance(q, Score):
-                            norm_val = getattr(ans, "normalized", None)
-                            if norm_val is not None:
-                                tgt_norm = q.to_norm(float(q.target))
-                                brier_diffs.append((float(norm_val) - tgt_norm) ** 2)
+                            norm = getattr(ans, "normalized", None)
+                            regression_diffs.append((float(norm) - score_to_norm(q, float(q.target))) ** 2 if norm is not None else 1.0)
                     else:
                         hits.append(0.0)
                         omissions += 1
+                        (regression_diffs if isinstance(q, Score) else brier_diffs).append(1.0)
 
             now = time.perf_counter()
             if self.show_progress and (now - last_log >= self.log_interval_sec or idx == total_items):
@@ -100,15 +98,13 @@ class ScorerPolicy(IScorerPolicy):
                 print(f"[{model_name}] {idx}/{total_items} ({idx*100.0/total_items:.1f}%) | Acc: {acc:.1f}% | P50: {p50:.1f}ms | {speed:.1f} it/s", flush=True)
                 last_log = now
 
-        overall = sum(hits) / max(1, len(hits))
-        p50 = float(statistics.median(latencies)) if latencies else 0.0
-        brier = float(sum(brier_diffs) / max(1, len(brier_diffs))) if brier_diffs else 0.0
         return BenchmarkReport(
             model=model_name,
-            overall=overall,
+            overall=sum(hits) / max(1, len(hits)),
             count=len(hits),
-            p50_ms=p50,
-            brier_score=brier,
+            p50_ms=float(statistics.median(latencies)) if latencies else 0.0,
+            brier_score=float(sum(brier_diffs) / max(1, len(brier_diffs))) if brier_diffs else 0.0,
+            regression_mse=float(sum(regression_diffs) / max(1, len(regression_diffs))) if regression_diffs else 0.0,
             slices={c: cat_correct.get(c, 0) / cat_total[c] for c in cat_total},
             counts=cat_total,
             suite=suite,

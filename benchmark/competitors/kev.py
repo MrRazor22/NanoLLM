@@ -3,7 +3,7 @@ import httpx
 from inference.decision_engine import IDecisionEngine, IDecisionEngineLayer
 from inference.questions import (
     Choice, ChoiceResult, DecisionResult, DecisionState,
-    Noul, NoulResult, Question, Score, ScoreResult,
+    Noul, NoulResult, Question, Score, ScoreResult, score_to_norm,
 )
 
 class KevEngine(IDecisionEngine):
@@ -71,20 +71,22 @@ class KevEngine(IDecisionEngine):
         scores = raw.get("scores", {})
 
         for q in questions:
-            if isinstance(q, Choice):
-                c_data = choices.get(q.name, {})
+            if isinstance(q, Choice) and q.name in choices:
+                c_data = choices[q.name]
                 choice_str = str(c_data.get("choice", ""))
                 conf = float(c_data.get("confidence", 1.0))
-                answers[q.name] = ChoiceResult(choice=choice_str, confidence=conf, probabilities={choice_str: conf})
-            elif isinstance(q, Noul):
+                answers[q.name] = ChoiceResult(choice=choice_str, confidence=conf, probabilities=c_data.get("probabilities", {choice_str: conf}))
+            elif isinstance(q, Noul) and (q.name in nouls or q.name in choices):
                 n_data = nouls.get(q.name, choices.get(q.name, {}))
-                val = n_data.get("noul", False)
-                p = 1.0 if val else 0.0
-                answers[q.name] = NoulResult(is_positive=bool(val), probability=p)
-            elif isinstance(q, Score):
+                val = n_data.get("noul", n_data.get("decision"))
+                if val is not None:
+                    p = float(n_data.get("probability", 1.0 if val else 0.0))
+                    answers[q.name] = NoulResult(is_positive=bool(val), probability=p)
+            elif isinstance(q, Score) and (q.name in scores or q.name in choices):
                 s_data = scores.get(q.name, choices.get(q.name, {}))
-                score_val = float(s_data.get("score", 50.0))
-                answers[q.name] = ScoreResult(score=score_val, normalized=score_val / 100.0)
+                if "score" in s_data:
+                    score_val = float(s_data["score"])
+                    answers[q.name] = ScoreResult(score=score_val, normalized=score_to_norm(q, score_val))
 
         return DecisionResult(answers=answers)
 

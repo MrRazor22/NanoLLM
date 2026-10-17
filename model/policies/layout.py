@@ -2,8 +2,11 @@ from typing import Optional, Protocol, Sequence, runtime_checkable
 import torch
 
 from data.case import DecisionCase
-from inference.questions import Choice, DecisionState, Question, Score, format_state
-from model.token_layout import Batch, SampleTargets, TargetSlot, TokenLayout
+from inference.questions import (
+    Choice, DecisionState, Question, Score, choice_target_index, format_state,
+    score_to_norm, shuffle_choice,
+)
+from model.token_layout import Batch, SampleTargets, TargetSlot, TokenLayout, TokenSlot
 
 @runtime_checkable
 class ITokenizer(Protocol):
@@ -23,7 +26,7 @@ class ILayout(Protocol):
 class MaskedLayout(ILayout):
     """Standard masked token layout policy encoding questions and candidate slots."""
 
-    def __init__(self, tokenizer: Optional[ITokenizer] = None, max_state_tokens: int = 2048):
+    def __init__(self, tokenizer: Optional[ITokenizer] = None, max_state_tokens: int = 8192):
         if tokenizer is None:
             from transformers import AutoTokenizer
             tokenizer = AutoTokenizer.from_pretrained("answerdotai/ModernBERT-base")
@@ -31,9 +34,9 @@ class MaskedLayout(ILayout):
         self.max_state_tokens = max_state_tokens
 
     def encode(self, state: DecisionState, questions: Sequence[Question]) -> TokenLayout:
-        cls_id = getattr(self.tokenizer, "cls_token_id", 50281)
-        sep_id = getattr(self.tokenizer, "sep_token_id", 50282)
-        mask_id = getattr(self.tokenizer, "mask_token_id", 50284)
+        cls_id = self.tokenizer.cls_token_id
+        sep_id = self.tokenizer.sep_token_id
+        mask_id = self.tokenizer.mask_token_id
 
         ids = [cls_id]
         slots = []
@@ -51,10 +54,10 @@ class MaskedLayout(ILayout):
                     pos.append(len(ids) - 1)
                     opt_text = f" {k}: {v}" if v else f" {k}"
                     ids.extend(self.tokenizer.encode(opt_text, add_special_tokens=False))
-                slots.append(pos)
+                slots.append(TokenSlot(pos))
             else:
                 ids.append(mask_id)
-                slots.append([len(ids) - 1])
+                slots.append(TokenSlot([len(ids) - 1]))
 
         ids.append(sep_id)
         state_tokens = self.tokenizer.encode(format_state(state), add_special_tokens=False)
@@ -66,21 +69,21 @@ class MaskedLayout(ILayout):
         return TokenLayout(input_ids=ids, mask=[1.0] * len(ids), slots=slots)
 
     def collate(self, cases: Sequence[DecisionCase], shuffle: bool = False) -> Batch:
-        pad_id = getattr(self.tokenizer, "pad_token_id", 50283)
+        pad_id = self.tokenizer.pad_token_id
         padded_layouts: list[TokenLayout] = []
         all_targets: list[SampleTargets] = []
 
         for c in cases:
-            questions = [q.shuffle() if shuffle and isinstance(q, Choice) else q for q in c.questions]
+            questions = [shuffle_choice(q) if shuffle and isinstance(q, Choice) else q for q in c.questions]
             layout = self.encode(c.state, questions)
             padded_layouts.append(layout)
 
             slots = []
             for q, pos in zip(questions, layout.slots):
                 if isinstance(q, Choice):
-                    slots.append(TargetSlot("choice", pos, q.target_index))
+                    slots.append(TargetSlot("choice", pos, choice_target_index(q)))
                 elif isinstance(q, Score):
-                    target_val = q.to_norm(q.target) if q.target is not None else 0.0
+                    target_val = score_to_norm(q, q.target) if q.target is not None else 0.0
                     slots.append(TargetSlot("score", pos, target_val))
                 else:
                     tgt = q.target

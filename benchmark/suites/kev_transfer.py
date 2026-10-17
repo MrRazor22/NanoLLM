@@ -1,6 +1,6 @@
 from pathlib import Path
 from typing import Mapping, Sequence
-from data.case import DecisionCase
+from data.case import DecisionCase, case_from_dict
 from benchmark.suites.suite import IBenchmarkSuite, load_verified_manifest
 
 BENCHMARK_MANIFESTS_DIR = Path(__file__).resolve().parent / "manifests"
@@ -11,6 +11,10 @@ class KevTransferSuite(IBenchmarkSuite):
     @property
     def name(self) -> str:
         return "kev_transfer"
+
+    @property
+    def manifest_hash(self) -> str:
+        return "c30a91274f9b483aac9e4f02ada5dea953b3f1a2829456e0bc07806c4e73b517"
 
     @property
     def published_baselines(self) -> Mapping[str, float]:
@@ -24,4 +28,4 @@ class KevTransferSuite(IBenchmarkSuite):
         import json
         url = "https://raw.githubusercontent.com/jaredpalmer/kev/main/evals/v4/transfer-v4/test.jsonl"
         content = load_verified_manifest(BENCHMARK_MANIFESTS_DIR / "kev_transfer_v4.jsonl", "c30a91274f9b483aac9e4f02ada5dea953b3f1a2829456e0bc07806c4e73b517", url)
-        return [DecisionCase.from_dict(json.loads(line)) for line in content.decode("utf-8").splitlines() if line.strip()]
+        return [case_from_dict(json.loads(line)) for line in content.decode("utf-8").splitlines() if line.strip()]

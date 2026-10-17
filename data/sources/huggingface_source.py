@@ -10,13 +10,6 @@ from inference.questions import Choice
 
 RAW_DIR = Path(__file__).resolve().parent.parent / "raw"
 
-def read_raw_jsonl(path: Path) -> List[dict]:
-    """Reads raw JSONL dataset from disk; returns empty list if absent."""
-    if path.exists():
-        with open(path, "r", encoding="utf-8") as f:
-            return [json.loads(line) for line in f if line.strip()]
-    return []
-
 def load_raw_jsonl(
     target_name: str,
     dataset: str,

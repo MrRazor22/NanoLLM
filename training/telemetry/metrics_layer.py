@@ -1,8 +1,8 @@
-from pathlib import Path
 import time
-from typing import Iterator, Optional, Protocol, Union, runtime_checkable
+from typing import Iterator, Optional, Protocol, Sequence, runtime_checkable
 from rich.console import Console
-import torch
+from data.case import DecisionCase
+from model.device import resolve_vram_gb
 from training.stats import StepStats
 from training.epoch_trainer import ITrainer, ITrainerLayer
 
@@ -25,12 +25,10 @@ class MetricsLayer(ITrainer):
     def __init__(
         self,
         inner: Optional[ITrainer] = None,
-        output_path: Optional[Union[str, Path]] = None,
         sink: Optional[ILogSink] = None,
         log_interval_sec: float = 10.0,
     ):
         self.inner = inner
-        self.output_path = Path(output_path) if output_path else None
         self.sink = sink or ConsoleSink()
         self.log_interval_sec = log_interval_sec
 
@@ -42,12 +40,17 @@ class MetricsLayer(ITrainer):
         self.inner = inner
         return self
 
-    def fit(self, train_data, epochs: int = 1, **kwargs) -> Iterator[StepStats]:
+    def fit(
+        self,
+        cases: Sequence[DecisionCase],
+        epochs: int = 1,
+        val_cases: Optional[Sequence[DecisionCase]] = None,
+    ) -> Iterator[StepStats]:
         if self.inner is None:
             raise RuntimeError("MetricsLayer has no inner trainer.")
         start_time = time.perf_counter()
         last_log = start_time
-        for s in self.inner.fit(train_data, epochs=epochs, **kwargs):
+        for s in self.inner.fit(cases, epochs=epochs, val_cases=val_cases):
             now = time.perf_counter()
             is_epoch_end = (s.batch == s.total_batches)
             is_checkpoint = (s.val_loss is not None)
@@ -58,7 +61,8 @@ class MetricsLayer(ITrainer):
                 el_str = f"{el_s // 60:02d}:{el_s % 60:02d}"
                 rem_s = int((el_s / max(1, s.step)) * max(0, s.total_steps - s.step))
                 eta_str = f"{rem_s // 60:02d}:{rem_s % 60:02d}"
-                vram = f" | VRAM: {torch.cuda.memory_reserved() / (1024**3):.1f}GB" if torch.cuda.is_available() else ""
+                _v = resolve_vram_gb()
+                vram = f" | VRAM: {_v:.1f}GB" if _v is not None else ""
                 val = f" | [bold green]Val Loss: {s.val_loss:.4f}[/bold green]" if s.val_loss is not None else ""
 
                 if is_epoch_end:
@@ -76,7 +80,7 @@ class MetricsLayer(ITrainer):
 
             yield s
 
-    def evaluate(self, cases) -> float:
+    def evaluate(self, cases: Sequence[DecisionCase]) -> float:
         if self.inner is None:
             raise RuntimeError("MetricsLayer has no inner trainer.")
         return self.inner.evaluate(cases)

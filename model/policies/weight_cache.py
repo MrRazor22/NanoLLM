@@ -1,9 +1,7 @@
 import orjson
 from pathlib import Path
 from typing import Optional, Protocol, Union, runtime_checkable
-from model.weights import WeightMeta, Weights, weights_from_bytes
-
-DEFAULT_WEIGHTS_DIR = Path(__file__).resolve().parent.parent / "weights"
+from model.weights import DEFAULT_WEIGHTS_DIR, WeightMeta, Weights, weights_from_bytes
 
 @runtime_checkable
 class IWeightCache(Protocol):

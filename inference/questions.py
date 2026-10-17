@@ -19,59 +19,11 @@ class Choice:
     instruction: str | None = None
     target: str | int | None = None
 
-    @property
-    def target_index(self) -> int:
-        if self.target is None:
-            raise ValueError(f"Choice question '{self.name}' has no target defined.")
-        keys = list(self.options.keys()) if isinstance(self.options, dict) else list(self.options)
-        if isinstance(self.target, int):
-            if 0 <= self.target < len(keys):
-                return self.target
-            raise ValueError(f"Target index {self.target} is out of bounds for options of length {len(keys)} in '{self.name}'.")
-        tgt_str = str(self.target).strip()
-        if tgt_str in keys:
-            return keys.index(tgt_str)
-        lower_keys = [k.lower() for k in keys]
-        if tgt_str.lower() in lower_keys:
-            return lower_keys.index(tgt_str.lower())
-        if tgt_str.isdigit() and 0 <= int(tgt_str) < len(keys):
-            return int(tgt_str)
-        raise ValueError(f"Target '{self.target}' is not in options {keys} for question '{self.name}'.")
-
-    def shuffle(self) -> "Choice":
-        import random
-        keys = list(self.options.keys()) if isinstance(self.options, dict) else list(self.options)
-        indices = list(range(len(keys)))
-        random.shuffle(indices)
-        target = self.target_index if self.target is not None else None
-        new_target = indices.index(target) if (target is not None and 0 <= target < len(indices)) else None
-        opts = {keys[i]: self.options[keys[i]] for i in indices} if isinstance(self.options, dict) else [keys[i] for i in indices]
-        return Choice(name=self.name, options=opts, instruction=self.instruction, target=new_target)
-
-    def matches(self, answer: AnswerInput) -> bool:
-        if answer is None or self.target is None: return False
-        val = str(getattr(answer, "value", answer)).strip()
-        tgt = str(self.target).strip()
-        if val == tgt or val.lower() == tgt.lower(): return True
-        keys = list(self.options.keys()) if isinstance(self.options, dict) else list(self.options)
-        if tgt.isdigit() and 0 <= int(tgt) < len(keys):
-            return val == str(keys[int(tgt)]) or val.lower() == str(keys[int(tgt)]).lower()
-        if val in keys and tgt in keys:
-            return keys.index(val) == keys.index(tgt)
-        return False
-
 @dataclass(frozen=True, slots=True)
 class Noul:
     name: str
     instruction: str | None = None
     target: bool | float | int | str | None = None
-
-    def matches(self, answer: AnswerInput) -> bool:
-        if answer is None or self.target is None: return False
-        val = getattr(answer, "value", answer)
-        val_bool = val.strip().lower() in ("true", "1", "yes") if isinstance(val, str) else bool(val)
-        tgt_bool = self.target.strip().lower() in ("true", "1", "yes") if isinstance(self.target, str) else bool(self.target)
-        return val_bool == tgt_bool
 
 @dataclass(frozen=True, slots=True)
 class Score:
@@ -80,20 +32,6 @@ class Score:
     max_value: float = 100.0
     instruction: str | None = None
     target: float | None = None
-
-    def to_norm(self, value: float) -> float:
-        """Projects continuous score value to bounded [0, 1] interval."""
-        span = self.max_value - self.min_value
-        return max(0.0, min(1.0, (float(value) - self.min_value) / span)) if span > 0 else 0.0
-
-    def from_norm(self, norm: float) -> float:
-        """Projects bounded [0, 1] activation back to continuous score domain."""
-        return self.min_value + max(0.0, min(1.0, float(norm))) * (self.max_value - self.min_value)
-
-    def matches(self, answer: AnswerInput, tolerance: float = 0.05) -> bool:
-        if answer is None or self.target is None: return False
-        val = float(getattr(answer, "value", answer))
-        return abs(self.to_norm(val) - self.to_norm(float(self.target))) <= tolerance
 
 Question = Choice | Noul | Score
 
@@ -126,13 +64,73 @@ class DecisionResult:
     answers: Mapping[str, Answer]
     latency_ms: float = 0.0
 
+def choice_keys(q: Choice) -> Sequence[str]:
+    """Pure domain transform: extracts option keys from sequence or mapping."""
+    return tuple(q.options.keys()) if isinstance(q.options, dict) else tuple(q.options)
+
+def choice_target_index(q: Choice) -> int:
+    """Pure domain transform: resolves integer target index from option keys."""
+    if q.target is None:
+        raise ValueError(f"Choice question '{q.name}' has no target defined.")
+    keys = choice_keys(q)
+    if isinstance(q.target, int):
+        if 0 <= q.target < len(keys): return q.target
+        raise ValueError(f"Target index {q.target} is out of bounds for options of length {len(keys)} in '{q.name}'.")
+    tgt = str(q.target).strip()
+    if tgt in keys: return keys.index(tgt)
+    lower_keys = [k.lower() for k in keys]
+    if tgt.lower() in lower_keys: return lower_keys.index(tgt.lower())
+    if tgt.isdigit() and 0 <= int(tgt) < len(keys): return int(tgt)
+    raise ValueError(f"Target '{q.target}' is not in options {keys} for question '{q.name}'.")
+
+def shuffle_choice(q: Choice) -> Choice:
+    """Pure domain transform: permutes choice candidate order preserving target alignment."""
+    import random
+    keys = list(choice_keys(q))
+    indices = list(range(len(keys)))
+    random.shuffle(indices)
+    target = choice_target_index(q) if q.target is not None else None
+    new_target = indices.index(target) if (target is not None and 0 <= target < len(indices)) else None
+    opts = {keys[i]: q.options[keys[i]] for i in indices} if isinstance(q.options, dict) else [keys[i] for i in indices]
+    return Choice(name=q.name, options=opts, instruction=q.instruction, target=new_target)
+
+def score_to_norm(q: Score, value: float) -> float:
+    """Pure domain transform: projects continuous score value to bounded [0, 1] interval."""
+    span = q.max_value - q.min_value
+    return max(0.0, min(1.0, (float(value) - q.min_value) / span)) if span > 0 else 0.0
+
+def score_from_norm(q: Score, norm: float) -> float:
+    """Pure domain transform: projects bounded [0, 1] activation back to continuous score domain."""
+    return q.min_value + max(0.0, min(1.0, float(norm))) * (q.max_value - q.min_value)
+
+def matches_answer(q: Question, answer: AnswerInput, tolerance: float = 0.05) -> bool:
+    """Pure domain transform: evaluates polymorphic answer match against question target."""
+    if answer is None or q.target is None: return False
+    match q:
+        case Choice():
+            val, tgt = str(getattr(answer, "value", answer)).strip(), str(q.target).strip()
+            if val == tgt or val.lower() == tgt.lower(): return True
+            keys = choice_keys(q)
+            if tgt.isdigit() and 0 <= int(tgt) < len(keys):
+                return val == str(keys[int(tgt)]) or val.lower() == str(keys[int(tgt)]).lower()
+            return val in keys and tgt in keys and keys.index(val) == keys.index(tgt)
+        case Noul():
+            val = getattr(answer, "value", answer)
+            val_bool = val.strip().lower() in ("true", "1", "yes") if isinstance(val, str) else bool(val)
+            tgt_bool = q.target.strip().lower() in ("true", "1", "yes") if isinstance(q.target, str) else bool(q.target)
+            return val_bool == tgt_bool
+        case Score():
+            val = float(getattr(answer, "value", answer))
+            return abs(score_to_norm(q, val) - score_to_norm(q, float(q.target))) <= tolerance
+    return False
+
 def format_state(state: DecisionState) -> str:
     """Colocated pure transform: formats state string or dictionary for token encoding."""
     if isinstance(state, dict): return " | ".join(f"{k}: {v}" for k, v in state.items())
     if isinstance(state, str) and state.startswith("{") and state.endswith("}"):
         try:
-            parsed = json.loads(state)
-            if isinstance(parsed, dict): return " | ".join(f"{k}: {v}" for k, v in parsed.items())
+            if isinstance(parsed := json.loads(state), dict):
+                return " | ".join(f"{k}: {v}" for k, v in parsed.items())
         except json.JSONDecodeError:
             pass
     return str(state)

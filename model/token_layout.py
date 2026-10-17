@@ -3,17 +3,31 @@ from typing import Sequence
 import torch
 
 @dataclass(frozen=True, slots=True)
+class TokenSlot:
+    """Explicit domain DTO for a question's candidate token slot positions."""
+    indices: Sequence[int]
+
+    def __iter__(self):
+        return iter(self.indices)
+
+    def __getitem__(self, idx: int) -> int:
+        return self.indices[idx]
+
+    def __len__(self) -> int:
+        return len(self.indices)
+
+@dataclass(frozen=True, slots=True)
 class TokenLayout:
     """Explicit domain DTO for tokenized input sequence and question slot positions."""
     input_ids: Sequence[int]
     mask: Sequence[float]
-    slots: Sequence[Sequence[int]]
+    slots: Sequence[TokenSlot]
 
 @dataclass(frozen=True, slots=True)
 class PredictionLayout:
     """Explicit domain DTO for model output scores and corresponding question slot positions."""
     scores: Sequence[float]
-    slots: Sequence[Sequence[int]]
+    slots: Sequence[TokenSlot]
 
 @dataclass(frozen=True, slots=True)
 class TargetSlot:

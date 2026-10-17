@@ -1,4 +1,5 @@
-from typing import Mapping, Optional, Protocol, Sequence, runtime_checkable
+from pathlib import Path
+from typing import Mapping, Optional, Protocol, Sequence, Union, runtime_checkable
 from benchmark.policies.ledger import DiskLedgerPolicy, ILedgerPolicy
 from benchmark.policies.reporter import ConsoleReporterPolicy, IReporterPolicy
 from benchmark.policies.scorer import IScorerPolicy, ScorerPolicy
@@ -18,7 +19,6 @@ class IBenchmark(Protocol):
     ) -> None: ...
 
     def report(self, suites: Optional[Sequence[IBenchmarkSuite]] = None) -> None: ...
-    def playground(self, engines: Sequence[tuple[str, IDecisionEngine]]) -> None: ...
 
 class Benchmark(IBenchmark):
     """Core Primitive Implementation: Sovereign coordinator of benchmark suites, engines, and policies."""
@@ -59,8 +59,9 @@ class Benchmark(IBenchmark):
                     print(f"  {b_name:<24}: {b_score * 100:.1f}%")
             print(f"{'=' * 65}")
 
+            s_hash = getattr(suite, "manifest_hash", None)
             for label, engine in engines.items():
-                if skip_cached and self.ledger.get(label, suite=suite.name, expected_count=len(items)) is not None:
+                if skip_cached and self.ledger.get(label, suite=suite.name, expected_count=len(items), expected_hash=s_hash) is not None:
                     print(f"[{label}] Cached run found for '{suite.name}'. Skipping.")
                     continue
                 try:
@@ -70,7 +71,7 @@ class Benchmark(IBenchmark):
                         model_name=label,
                         suite=suite.name,
                     )
-                    self.ledger.put(report)
+                    self.ledger.put(report, manifest_hash=s_hash)
                 except Exception as e:
                     print(f"Skipping run for '{label}': {e}")
 
@@ -87,5 +88,3 @@ class Benchmark(IBenchmark):
         if len(suite_names) > 1:
             self.reporter.summary(self.ledger.all(), suites=suite_names)
 
-    def playground(self, engines: Sequence[tuple[str, IDecisionEngine]]) -> None:
-        self.reporter.playground(engines)

@@ -2,9 +2,9 @@ from typing import Optional, Sequence
 from inference.decision_engine import IDecisionEngine, IDecisionEngineLayer
 from inference.questions import (
     Choice, ChoiceResult, DecisionResult, DecisionState,
-    Noul, NoulResult, Question, Score, ScoreResult,
+    Noul, NoulResult, Question, Score, ScoreResult, score_to_norm,
 )
-from model.model_extensions import resolve_device
+from model.device import resolve_device
 
 class LayaEngine(IDecisionEngine):
     """Sovereign competitor adapter: wraps Convai Innovations' Laya decision router."""
@@ -41,17 +41,20 @@ class LayaEngine(IDecisionEngine):
                 q_dict[q.name] = {"type": "score", "instructions": instr, "criteria": [str(q.min_value), str(q.max_value)]}
 
         raw = self._agent.system_one(str(state), q_dict)
+        raw_answers = raw.get("answers", {})
         answers = {}
         for q in questions:
-            ans_raw = raw.get("answers", {}).get(q.name, {})
+            if q.name not in raw_answers:
+                continue
+            ans_raw = raw_answers[q.name]
             if isinstance(q, Choice):
-                answers[q.name] = ChoiceResult(choice=str(ans_raw.get("choice", "")), confidence=float(ans_raw.get("confidence", 1.0)), probabilities={})
+                answers[q.name] = ChoiceResult(choice=str(ans_raw.get("choice", "")), confidence=float(ans_raw.get("confidence", 1.0)), probabilities=ans_raw.get("probabilities", {}))
             elif isinstance(q, Noul):
-                p = float(ans_raw.get("noul", 0.0))
+                p = float(ans_raw.get("noul", ans_raw.get("probability", 0.0)))
                 answers[q.name] = NoulResult(is_positive=p >= 0.5, probability=p)
-            elif isinstance(q, Score):
-                s = float(ans_raw.get("score", 0.0))
-                answers[q.name] = ScoreResult(score=s, normalized=s / 100.0)
+            elif isinstance(q, Score) and "score" in ans_raw:
+                s = float(ans_raw["score"])
+                answers[q.name] = ScoreResult(score=s, normalized=score_to_norm(q, s))
 
         return DecisionResult(answers=answers)
 

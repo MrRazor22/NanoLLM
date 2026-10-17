@@ -2,6 +2,7 @@ from typing import Dict, Mapping, Protocol, Sequence, runtime_checkable
 import scipy.special as sp
 from inference.questions import (
     Answer, Choice, ChoiceResult, Noul, NoulResult, Question, Score, ScoreResult,
+    score_from_norm,
 )
 
 @runtime_checkable
@@ -41,5 +42,5 @@ class DecisionResolver(IResolver):
                     answers[name] = NoulResult(is_positive=prob >= 0.5, probability=prob)
                 case Score(name=name):
                     norm = float(sp.expit(scores[slot_indices[0]]))
-                    answers[name] = ScoreResult(score=q.from_norm(norm), normalized=norm)
+                    answers[name] = ScoreResult(score=score_from_norm(q, norm), normalized=norm)
         return answers

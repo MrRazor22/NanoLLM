@@ -1,17 +1,15 @@
 from pathlib import Path
 import time
-from typing import TYPE_CHECKING, Optional, Protocol, Sequence, Union, runtime_checkable
+from typing import Optional, Protocol, Sequence, Union, runtime_checkable
 import torch
 import torch.nn as nn
 from transformers import AutoModel, AutoTokenizer, logging
 
 logging.set_verbosity_error()
 
-if TYPE_CHECKING:
-    from data.case import DecisionCase
-
+from data.case import DecisionCase
 from inference.questions import DecisionState, Question
-from model.model_extensions import resolve_device
+from model.device import resolve_device
 from model.policies.calibrated_loss import CalibratedLoss, ILoss
 from model.policies.head import IHead, MLPHead
 from model.policies.layout import ILayout, MaskedLayout
@@ -24,7 +22,7 @@ from model.weights import WeightMeta, Weights
 class IModel(Protocol):
     """Core Primitive: Neural computation boundary for inference scoring and loss computation."""
     def predict(self, state: DecisionState, questions: Sequence[Question]) -> PredictionLayout: ...
-    def step(self, cases: Sequence["DecisionCase"], backward: bool = True, lr: Optional[float] = None) -> float: ...
+    def step(self, cases: Sequence[DecisionCase], backward: bool = True, lr: Optional[float] = None) -> float: ...
     def flush(self) -> None: ...
     def save(self, target: Union[str, Path] = "piqo", meta: Optional[WeightMeta] = None) -> Path: ...
     def load(self, source: Optional[Union[Weights, str, Path]] = None, strict: bool = True) -> None: ...
@@ -84,7 +82,7 @@ class TorchModel(IModel):
             scores = self.head.score(hidden).squeeze(0).cpu().tolist()
         return PredictionLayout(scores=scores, slots=layout.slots)
 
-    def step(self, cases: Sequence["DecisionCase"], backward: bool = True, lr: Optional[float] = None) -> float:
+    def step(self, cases: Sequence[DecisionCase], backward: bool = True, lr: Optional[float] = None) -> float:
         batch = self.layout.collate(cases, shuffle=backward)
         self.backbone.train(backward)
         self.head.train(backward)
@@ -126,10 +124,10 @@ class TorchModel(IModel):
         if bb_sd:
             res_bb = self.backbone.load_state_dict(bb_sd, strict=strict)
             if not strict and (res_bb.missing_keys or res_bb.unexpected_keys):
-                import warnings
-                warnings.warn(f"Checkpoint '{target}' backbone loaded with missing: {res_bb.missing_keys}, unexpected: {res_bb.unexpected_keys}")
+                import sys
+                sys.stderr.write(f"\n[CHECKPOINT WARNING] '{target}' backbone missing: {res_bb.missing_keys}, unexpected: {res_bb.unexpected_keys}\n")
         if h_sd:
             res_h = self.head.load_state_dict(h_sd, strict=strict)
             if not strict and (res_h.missing_keys or res_h.unexpected_keys):
-                import warnings
-                warnings.warn(f"Checkpoint '{target}' head loaded with missing: {res_h.missing_keys}, unexpected: {res_h.unexpected_keys}")
+                import sys
+                sys.stderr.write(f"\n[CHECKPOINT WARNING] '{target}' head missing: {res_h.missing_keys}, unexpected: {res_h.unexpected_keys}\n")

@@ -4,7 +4,7 @@ from inference.questions import (
     Choice, ChoiceResult, DecisionResult, DecisionState,
     Noul, NoulResult, Question, Score, ScoreResult,
 )
-from model.model_extensions import resolve_device
+from model.device import resolve_device
 
 class VerdictEngine(IDecisionEngine):
     """Sovereign competitor adapter: wraps Verdict 2.0 (heman10x/rlcd-modernbert-151m)."""
@@ -36,27 +36,22 @@ class VerdictEngine(IDecisionEngine):
         for q in questions:
             prompt_text = f"Question: {q.instruction}\n\nContext:\n{state}" if q.instruction else str(state)
             if isinstance(q, Choice):
-                if isinstance(q.options, dict):
-                    opt_map = {f"It is {desc if desc else key}": key for key, desc in q.options.items()}
-                else:
-                    opt_map = {f"It is {opt}": opt for opt in q.options}
-                candidates = list(opt_map.keys())
-                out = pipe(prompt_text, candidates)
-                res_list = out[0] if (out and isinstance(out, list) and isinstance(out[0], list)) else (out or [])
-                top = res_list[0] if res_list else {}
-                top_label = str(top.get("label", candidates[0] if candidates else ""))
-                chosen_key = opt_map.get(top_label, top_label)
-                score = float(top.get("score", 1.0))
-                answers[q.name] = ChoiceResult(choice=str(chosen_key), confidence=score, probabilities={str(chosen_key): score})
+                opt_map = {f"It is {desc or k}": k for k, desc in q.options.items()} if isinstance(q.options, dict) else {f"It is {o}": o for o in q.options}
+                res = pipe(prompt_text, list(opt_map.keys()))
+                items = res[0] if (res and isinstance(res, list) and isinstance(res[0], list)) else (res or [])
+                cand_scores = {opt_map[it["label"]]: float(it.get("score", 0.0)) for it in items if it.get("label") in opt_map}
+                if not cand_scores: continue
+                total = sum(cand_scores.values()) or 1.0
+                norm_p = {k: v / total for k, v in cand_scores.items()}
+                top_k = opt_map.get(items[0].get("label", ""))
+                answers[q.name] = ChoiceResult(choice=str(top_k), confidence=norm_p.get(top_k, 1.0), probabilities=norm_p)
             elif isinstance(q, Noul):
-                nli_map = {"It is true": True, "It is false": False}
-                out = pipe(prompt_text, list(nli_map.keys()))
-                res_list = out[0] if (out and isinstance(out, list) and isinstance(out[0], list)) else (out or [])
-                top = res_list[0] if res_list else {}
-                top_label = str(top.get("label", "It is false"))
-                is_pos = nli_map.get(top_label, False)
-                score = float(top.get("score", 0.5))
-                answers[q.name] = NoulResult(is_positive=is_pos, probability=score)
+                res = pipe(prompt_text, ["It is true", "It is false"])
+                items = res[0] if (res and isinstance(res, list) and isinstance(res[0], list)) else (res or [])
+                s_map = {it["label"]: float(it.get("score", 0.0)) for it in items if "label" in it}
+                if not s_map: continue
+                prob = s_map.get("It is true", 0.0) / ((s_map.get("It is true", 0.0) + s_map.get("It is false", 0.0)) or 1.0)
+                answers[q.name] = NoulResult(is_positive=prob >= 0.5, probability=prob)
             elif isinstance(q, Score):
                 raise NotImplementedError(f"Verdict does not support continuous regression questions ({type(q).__name__})")
         return DecisionResult(answers=answers)

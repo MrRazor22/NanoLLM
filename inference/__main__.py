@@ -11,17 +11,27 @@ warnings.filterwarnings("ignore")
 from inference.decision_engine import DecisionEngine, IDecisionEngine
 from inference.profiling_layer import ProfilingLayer
 from inference.questions import Choice, ChoiceResult, DecisionResult, Noul, NoulResult, Question, Score, ScoreResult
-from model.model_extensions import list_weights
+from model.weights import list_weights
 
 console = Console()
 app = typer.Typer(add_completion=False, help="Piqo Micro-Decision Engine CLI")
 
 def parse_cli_questions(choice: list[str], noul: list[str], score: list[str]) -> list[Question]:
-    return (
-        [Choice(c.partition(":")[0].strip(), [o.strip() for o in c.partition(":")[2].split(",") if o.strip()] or ["Yes", "No"]) for c in choice]
-        + [Noul(n.partition(":")[0].strip(), instruction=n.partition(":")[2].strip() or None) for n in noul]
-        + [Score(s.partition(":")[0].strip(), instruction=s.partition(":")[2].strip() or None) for s in score]
-    )
+    qs: list[Question] = []
+    for c in choice:
+        name, _, opts = c.partition(":")
+        opt_list = [o.strip() for o in opts.split(",") if o.strip()]
+        if not name.strip() or not opt_list: raise typer.BadParameter(f"Invalid --choice '{c}'. Format: 'name:opt1,opt2'")
+        qs.append(Choice(name.strip(), opt_list))
+    for n in noul:
+        name, sep, ins = n.partition(":")
+        if not name.strip(): raise typer.BadParameter(f"Invalid --noul '{n}'. Format: 'name' or 'name:instruction'")
+        qs.append(Noul(name.strip(), instruction=ins.strip() if sep and ins.strip() else None))
+    for s in score:
+        name, sep, ins = s.partition(":")
+        if not name.strip(): raise typer.BadParameter(f"Invalid --score '{s}'. Format: 'name' or 'name:instruction'")
+        qs.append(Score(name.strip(), instruction=ins.strip() if sep and ins.strip() else None))
+    return qs
 
 def render(res: DecisionResult, state: str) -> None:
     console.print(f"\n[bold]Context:[/] {state}")
@@ -58,7 +68,7 @@ def main(
         console.print(t); return
 
     try:
-        engine: IDecisionEngine = DecisionEngine.from_weights(model, device=device) | ProfilingLayer()
+        engine: IDecisionEngine = DecisionEngine(checkpoint=model, device=device) | ProfilingLayer()
     except FileNotFoundError as e:
         console.print(f"[bold red]Model Error:[/] {e}")
         available = [w.name for w in list_weights()]
