@@ -1,6 +1,9 @@
+import logging
 import re
 from typing import Protocol, Sequence, Set, Tuple, runtime_checkable
 from data.case import DecisionCase
+
+logger = logging.getLogger(__name__)
 
 @runtime_checkable
 class ILeakagePolicy(Protocol):
@@ -28,6 +31,7 @@ class NGramLeakagePolicy(ILeakagePolicy):
     ) -> Sequence[DecisionCase]:
         if not candidates or not holdouts:
             return list(candidates)
+        logger.info("Auditing %d candidates against %d holdouts (%d-gram)", len(candidates), len(holdouts), self.n_gram)
 
         exact_holdouts: Set[Tuple[str, ...]] = set()
         holdout_shingles: Set[Tuple[str, ...]] = set()

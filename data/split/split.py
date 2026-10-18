@@ -1,7 +1,10 @@
+import logging
 import random
 from typing import Optional, Protocol, Sequence, runtime_checkable
 from data.case import DataSplits, DecisionCase
 from data.split.stratification import IStratificationPolicy, RoundRobinStratification
+
+logger = logging.getLogger(__name__)
 
 @runtime_checkable
 class ISplitPolicy(Protocol):
@@ -27,6 +30,7 @@ class BudgetSplitPolicy(ISplitPolicy):
 
     def partition(self, cases: Sequence[DecisionCase]) -> DataSplits:
         rng = random.Random(self.seed)
+        logger.info("Partitioning %d cases into category splits", len(cases))
 
         cases_by_cat: dict[str, list[DecisionCase]] = {}
         for c in cases:

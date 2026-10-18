@@ -40,7 +40,6 @@ class Dataset(IDataset):
 
         splits = self.split_policy.partition(raw_cases)
 
-        # Enforce zero-leakage invariant by filtering candidates against holdouts
         filtered_val = self.leakage_policy.filter(splits.val, splits.test)
         filtered_train = self.leakage_policy.filter(splits.train, splits.test)
         filtered_train = self.leakage_policy.filter(filtered_train, filtered_val)

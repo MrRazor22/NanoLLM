@@ -2,7 +2,7 @@ from typing import List, Sequence
 
 from data.case import ChoiceAnswer, ChoiceOption, DecisionCase
 from data.sources.source import IDataSource
-from data.sources.huggingface_source import load_raw_jsonl
+from data.sources.source import load_raw_jsonl
 
 MEDQA_INSTRUCTION = "What is the most likely diagnosis, mechanism, or correct next step?"
 

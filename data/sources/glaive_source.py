@@ -3,7 +3,7 @@ import re
 from typing import List, Sequence
 from data.case import ChoiceAnswer, ChoiceOption, DecisionCase
 from data.sources.source import IDataSource
-from data.sources.huggingface_source import load_raw_jsonl
+from data.sources.source import load_raw_jsonl
 
 class GlaiveSource(IDataSource):
     """Real Glaive function-calling extractor: parses tool calls and yields tagged source records."""

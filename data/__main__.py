@@ -1,3 +1,4 @@
+import logging
 from collections import Counter
 from rich import box
 from rich.console import Console
@@ -10,6 +11,7 @@ app = typer.Typer(add_completion=False, help="Piqo Dataset Corpus Builder CLI")
 
 @app.command()
 def main() -> None:
+    logging.basicConfig(level=logging.INFO, format="%(message)s")
     console = Console()
     console.print("\n[bold cyan]Piqo Data Pipeline[/bold cyan] | Building corpus...\n")
     dataset = Dataset()

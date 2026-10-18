@@ -1,38 +1,8 @@
 from dataclasses import dataclass
-import json
-from pathlib import Path
 from typing import List, Optional, Sequence
-from datasets import load_dataset
 
 from data.case import ChoiceAnswer, ChoiceOption, DecisionCase
-from data.sources.source import IDataSource
-
-RAW_DIR = Path(__file__).resolve().parent.parent / "raw"
-
-def load_raw_jsonl(
-    target_name: str,
-    dataset: str,
-    split: str,
-    subset: Optional[str] = None,
-    limit: Optional[int] = None,
-) -> List[dict]:
-    """Loads dataset rows from local disk cache, fetching and persisting from HuggingFace if absent."""
-    target = RAW_DIR / f"{target_name}.jsonl"
-    if target.exists():
-        with open(target, "r", encoding="utf-8") as f:
-            rows = [json.loads(line) for line in f if line.strip()]
-            return rows[:limit] if limit is not None else rows
-
-    args = [dataset]
-    if subset:
-        args.append(subset)
-    rows = list(load_dataset(*args, split=split))
-    if limit is not None:
-        rows = rows[:limit]
-    if rows:
-        target.parent.mkdir(parents=True, exist_ok=True)
-        target.write_text("\n".join(json.dumps(r, default=str) for r in rows) + "\n", encoding="utf-8")
-    return rows
+from data.sources.source import IDataSource, RAW_DIR, load_raw_jsonl
 
 @dataclass(frozen=True, slots=True)
 class BenchmarkSpec:

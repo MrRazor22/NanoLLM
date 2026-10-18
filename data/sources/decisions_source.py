@@ -2,7 +2,7 @@ from dataclasses import replace
 from typing import Sequence
 from data.case import DecisionCase, case_from_dict
 from data.sources.source import IDataSource
-from data.sources.huggingface_source import load_raw_jsonl
+from data.sources.source import load_raw_jsonl
 
 class DecisionsSource(IDataSource):
     """Real Typed-Decisions dataset extractor: loads multi-question typed decision benchmarks."""

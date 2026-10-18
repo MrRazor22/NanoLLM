@@ -61,8 +61,9 @@
   - `D:\CodeBase\systemonemodels\openJev-verdict-2.0` (Verdict 2.0 / openJev)
 - Consult these external source trees when verifying competitor API protocols, contract parity, or benchmark input/output compatibility.
 
-## 6. Sober, High-Signal UI (Zero Decorative Noise)
-- **Calculated Clarity Over Aesthetics:** Terminal and CLI outputs exist solely to convey essential operational signal (progress, errors, verifiable metrics) with maximum readability.
+## 6. Sober, High-Signal UI (Zero Decorative Noise & Zero Idle Moments)
+- **Calculated Clarity Over Aesthetics:** Terminal and CLI outputs exist solely to convey essential operational signal (live progress, errors, verifiable metrics) with maximum readability.
+- **Strictly Zero Idle/Blank Terminal Moments:** Long-running pipeline operations (ingesting sources, partitioning splits, auditing leakage, downloading datasets) must NEVER run silently in a black box. The UI must emit concise, live, real-time status updates per phase and per source so the operator always knows exactly what step is executing.
 - **Zero Decorative UI Bloat:** Strictly zero gratuitous colors, decorative banner graphics, multi-table repetition, or animated gimmicks. UI is an operational instrument, not a toy showcase.
 - **Sufficient & Non-Overloaded Signal:** Present just enough vital information to verify operations without under-informing the operator or flooding the screen with unreadable walls of numbers.
 - **Minimal Code Footprint:** Output formatting code must be lean and direct. Never add dozens of lines of UI ceremony or display bloat.

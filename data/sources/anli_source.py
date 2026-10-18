@@ -2,7 +2,7 @@ from typing import List, Sequence
 
 from data.case import ChoiceAnswer, ChoiceOption, DecisionCase
 from data.sources.source import IDataSource
-from data.sources.huggingface_source import load_raw_jsonl
+from data.sources.source import load_raw_jsonl
 
 NLI_OPTIONS = ["Entailment", "Neutral", "Contradiction"]
 NLI_INSTRUCTION = "What is the logical relationship between the context and the statement?"
