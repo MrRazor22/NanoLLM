@@ -13,7 +13,7 @@ class GlaiveSource(IDataSource):
         self.seed = seed
         self.test_ratio = test_ratio
 
-    def read(self) -> Sequence[DecisionCase]:
+    def cases(self) -> Sequence[DecisionCase]:
         rng = random.Random(self.seed)
         rows = load_raw_jsonl(self.name, "glaiveai/glaive-function-calling-v2", split="train")
 

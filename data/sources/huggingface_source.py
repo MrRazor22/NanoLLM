@@ -69,7 +69,7 @@ class HuggingFaceSource(IDataSource):
         if self.spec.subset:
             self.name = f"{self.name}_{self.spec.subset}"
 
-    def read(self) -> Sequence[DecisionCase]:
+    def cases(self) -> Sequence[DecisionCase]:
         split_rows = {
             s: load_raw_jsonl(
                 f"{self.name}_{s}",

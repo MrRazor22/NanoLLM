@@ -59,7 +59,7 @@ class MultiChoiceReasoningSource(IDataSource):
         if self.spec.subset:
             self.name = f"{self.name}_{self.spec.subset}"
 
-    def read(self) -> Sequence[DecisionCase]:
+    def cases(self) -> Sequence[DecisionCase]:
         cases: List[DecisionCase] = []
         for split_name in self.spec.splits:
             limit = self.spec.test_limit if split_name == "test" else self.spec.train_limit

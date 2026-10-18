@@ -21,7 +21,7 @@ class ANLISource(IDataSource):
         self.train_limit = train_limit_per_round
         self.test_limit = test_limit_per_round
 
-    def read(self) -> Sequence[DecisionCase]:
+    def cases(self) -> Sequence[DecisionCase]:
         cases: List[DecisionCase] = []
         for r_name in self.rounds:
             for split_type in ("train", "test"):

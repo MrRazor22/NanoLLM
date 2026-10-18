@@ -14,7 +14,7 @@ class MedQASource(IDataSource):
         self.train_limit = train_limit
         self.test_limit = test_limit
 
-    def read(self) -> Sequence[DecisionCase]:
+    def cases(self) -> Sequence[DecisionCase]:
         cases: List[DecisionCase] = []
         for split_name in ("train", "test"):
             limit = self.test_limit if split_name == "test" else self.train_limit

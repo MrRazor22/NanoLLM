@@ -11,7 +11,7 @@ class DecisionsSource(IDataSource):
     def __init__(self, repeat: int = 5):
         self.repeat = repeat
 
-    def read(self) -> Sequence[DecisionCase]:
+    def cases(self) -> Sequence[DecisionCase]:
         train_rows = load_raw_jsonl(f"{self.name}_train", "LocalLLaMA/typed-decisions", split="train", subset="all")
         test_rows = load_raw_jsonl(f"{self.name}_test", "LocalLLaMA/typed-decisions", split="test", subset="all")
 

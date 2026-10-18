@@ -3,11 +3,11 @@ from data.case import DecisionCase
 
 @runtime_checkable
 class IDataSource(Protocol):
-    """Sovereign policy contract: extracts domain records from external data origins."""
-    def read(self) -> Sequence[DecisionCase]: ...
+    """Sovereign policy contract: yields domain records from external data origins."""
+    def cases(self) -> Sequence[DecisionCase]: ...
 
-def get_available_sources() -> Mapping[str, Callable[[], IDataSource]]:
-    """Lazy catalog of available decision sources."""
+def get_available_sources() -> Sequence[IDataSource]:
+    """Lazy catalog of all available decision sources."""
     from data.sources.anli_source import ANLISource
     from data.sources.art_source import ARTSource
     from data.sources.copa_source import COPASource
@@ -20,16 +20,18 @@ def get_available_sources() -> Mapping[str, Callable[[], IDataSource]]:
     from data.sources.sciq_source import SciQSource
     from data.sources.reclor_source import ReClorSource
 
-    return {
-        "glaive": GlaiveSource,
-        "decisions": DecisionsSource,
-        "anli": ANLISource,
-        "hellaswag": HellaSwagSource,
-        "medqa": MedQASource,
-        "art": ARTSource,
-        "copa": COPASource,
-        "sciq": SciQSource,
-        "reclor": ReClorSource,
-        **{s.category: (lambda spec=s: HuggingFaceSource(spec)) for s in STANDARD_BENCHMARKS},
-        **{s.category: (lambda spec=s: MultiChoiceReasoningSource(spec)) for s in MULTICHOICE_REASONING_BENCHMARKS},
-    }
+    return [
+        GlaiveSource(),
+        DecisionsSource(),
+        ANLISource(),
+        HellaSwagSource(),
+        MedQASource(),
+        ARTSource(),
+        COPASource(),
+        SciQSource(),
+        ReClorSource(),
+        *(HuggingFaceSource(s) for s in STANDARD_BENCHMARKS),
+        *(MultiChoiceReasoningSource(s) for s in MULTICHOICE_REASONING_BENCHMARKS),
+    ]
+
+__all__ = ["IDataSource", "get_available_sources"]
