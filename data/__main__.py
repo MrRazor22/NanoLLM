@@ -6,27 +6,25 @@ from rich.table import Table
 import typer
 
 from data.dataset import Dataset
-from data.curation.budget_split import BudgetSplitPolicy
-from data.curation.ngram_leakage import NGramLeakagePolicy
+from data.policies.leakage import NGramLeakagePolicy
+from data.split.split import BudgetSplitPolicy
 
 app = typer.Typer(add_completion=False, help="Piqo Dataset Corpus Builder CLI")
 
 @app.command()
 def main(
     seed: int = typer.Option(42, help="Random seed"),
-    train_quota: int = typer.Option(40000, help="Train quota"),
-    train_quota_per_category: Optional[int] = typer.Option(1500, help="Train quota per category"),
-    val_quota: int = typer.Option(2500, help="Val quota"),
-    test_quota: Optional[int] = typer.Option(None, help="Test quota"),
+    train_cap: int = typer.Option(1500, "--train-cap", "-t", help="Max training cases per category"),
+    val_cap: int = typer.Option(150, "--val-cap", "-v", help="Max validation cases per category"),
+    test_cap: int = typer.Option(400, "--test-cap", help="Max test holdout cases per category"),
     n_gram: int = typer.Option(10, help="N-gram leakage window"),
 ) -> None:
     console = Console()
     dataset = Dataset(
         split_policy=BudgetSplitPolicy(
-            train_quota=train_quota,
-            train_quota_per_category=train_quota_per_category,
-            val_quota=val_quota,
-            test_quota=test_quota,
+            max_train_per_category=train_cap,
+            max_val_per_category=val_cap,
+            max_test_per_category=test_cap,
             seed=seed,
         ),
         leakage_policy=NGramLeakagePolicy(n_gram=n_gram),

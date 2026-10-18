@@ -1,10 +1,10 @@
 from typing import List, Optional, Protocol, Sequence, runtime_checkable
 
 from data.case import DataSplits, DecisionCase
-from data.curation.budget_split import BudgetSplitPolicy, ISplitPolicy
-from data.curation.ngram_leakage import ILeakagePolicy, NGramLeakagePolicy
+from data.policies.leakage import ILeakagePolicy, NGramLeakagePolicy
+from data.policies.storage import DiskStoragePolicy, IStoragePolicy
+from data.split.split import BudgetSplitPolicy, ISplitPolicy
 from data.sources.source import IDataSource, get_available_sources
-from data.storage_policy import DiskStoragePolicy, IStoragePolicy
 
 @runtime_checkable
 class IDataset(Protocol):

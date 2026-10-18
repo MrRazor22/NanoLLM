@@ -28,9 +28,10 @@ from data.case import (
     score_to_norm, score_from_norm, matches_answer,
     case_to_dict, case_from_dict,
 )
-from data.storage_policy import IStoragePolicy, DiskStoragePolicy
-from data.curation.budget_split import ISplitPolicy, BudgetSplitPolicy
-from data.curation.ngram_leakage import ILeakagePolicy, NGramLeakagePolicy
+from data.policies.storage import IStoragePolicy, DiskStoragePolicy
+from data.split.split import ISplitPolicy, BudgetSplitPolicy
+from data.split.stratification import IStratificationPolicy, RoundRobinStratification
+from data.policies.leakage import ILeakagePolicy, NGramLeakagePolicy
 from data.sources.source import IDataSource, get_available_sources
 from data.sources.glaive_source import GlaiveSource
 from data.sources.decisions_source import DecisionsSource
@@ -62,7 +63,7 @@ __all__ = [
     "ISchedule", "CosineSchedule", "ConstantSchedule",
     "IResolver", "DecisionResolver",
     "IStoragePolicy", "DiskStoragePolicy",
-    "ISplitPolicy", "BudgetSplitPolicy", "ILeakagePolicy", "NGramLeakagePolicy",
+    "ISplitPolicy", "BudgetSplitPolicy", "IStratificationPolicy", "RoundRobinStratification", "ILeakagePolicy", "NGramLeakagePolicy",
     "ILedgerPolicy", "DiskLedgerPolicy",
     "IScorerPolicy", "ScorerPolicy",
     "IReporterPolicy", "ConsoleReporterPolicy",
