@@ -1,11 +1,11 @@
 import os
-from typing import Optional, Sequence
+from typing import Optional
 import httpx
-from inference.decision_engine import IDecisionEngine, IDecisionEngineLayer
-from inference.questions import (
-    Choice, ChoiceResult, DecisionResult, DecisionState,
-    Noul, NoulResult, Question, Score, ScoreResult, score_to_norm,
+from data.case import (
+    ChoiceAnswer, ChoiceOption, IOption, NoulAnswer, NoulOption,
+    ScoreAnswer, ScoreOption,
 )
+from inference.decision_engine import IDecisionEngine, IDecisionEngineLayer
 
 class JevEngine(IDecisionEngine):
     """Sovereign competitor adapter: wraps TypeSafe AI's hosted Jev API (/v1/systemone)."""
@@ -22,37 +22,24 @@ class JevEngine(IDecisionEngine):
         self.api_key = api_key or os.environ.get("JEV_API_KEY", "")
         self.endpoint = endpoint or os.environ.get("JEV_ENDPOINT", "https://api.typesafe.ai/v1/systemone")
         self.timeout = timeout
+        self.last_latency_ms: float = 0.0
 
-    def decide(self, state: DecisionState, questions: Sequence[Question]) -> DecisionResult:
+    def decide(self, state: str, option: IOption) -> IOption:
         if not self.api_key and "api.typesafe.ai" in self.endpoint:
             raise ValueError("TypeSafe Jev API key not set. Set JEV_API_KEY environment variable to evaluate hosted Jev.")
 
-        q_dict = {}
-        for q in questions:
-            if isinstance(q, Choice):
-                q_dict[q.name] = {
-                    "type": "choice",
-                    "instructions": q.instruction or "",
-                    "criteria": q.options if isinstance(q.options, dict) else {o: o for o in q.options},
-                }
-            elif isinstance(q, Noul):
-                q_dict[q.name] = {
-                    "type": "noul",
-                    "instructions": q.instruction or "",
-                    "criteria": {"false": "No", "true": "Yes"},
-                }
-            elif isinstance(q, Score):
-                q_dict[q.name] = {
-                    "type": "score",
-                    "instructions": q.instruction or "",
-                    "min": q.min_value,
-                    "max": q.max_value,
-                }
+        if isinstance(option, ChoiceOption):
+            opts = option.options if isinstance(option.options, dict) else {o: o for o in option.options}
+            q_spec = {"type": "choice", "criteria": opts}
+        elif isinstance(option, NoulOption):
+            q_spec = {"type": "noul", "criteria": {"false": "No", "true": "Yes"}}
+        else:
+            q_spec = {"type": "score", "min": option.min_value, "max": option.max_value}
 
         payload = {
             "model": self.model,
             "state": state,
-            "questions": q_dict,
+            "questions": {"decision": q_spec},
         }
 
         resp = httpx.post(
@@ -63,28 +50,25 @@ class JevEngine(IDecisionEngine):
         )
         resp.raise_for_status()
         data = resp.json()
+        self.last_latency_ms = float(data.get("latency_ms", 0.0))
 
-        answers = {}
-        results = data.get("results", {})
-        for q in questions:
-            if q.name not in results:
-                continue
-            res = results[q.name]
-            if isinstance(q, Choice):
-                choice = res.get("choice", "")
-                probs = res.get("probabilities", {})
-                conf = res.get("confidence", probs.get(choice, 1.0))
-                answers[q.name] = ChoiceResult(choice=str(choice), confidence=float(conf), probabilities=probs)
-            elif isinstance(q, Noul):
-                is_pos = res.get("decision", False)
-                p = res.get("probability", 1.0 if is_pos else 0.0)
-                answers[q.name] = NoulResult(is_positive=bool(is_pos), probability=float(p))
-            elif isinstance(q, Score) and "score" in res:
-                val = float(res["score"])
-                answers[q.name] = ScoreResult(score=val, normalized=score_to_norm(q, val))
-
-        latency = float(data.get("latency_ms", 0.0))
-        return DecisionResult(answers=answers, latency_ms=latency)
+        res = data.get("results", {}).get("decision", {})
+        if isinstance(option, ChoiceOption):
+            choice = res.get("choice", "")
+            probs = res.get("probabilities", {})
+            conf = res.get("confidence", probs.get(choice, 1.0))
+            ans = ChoiceAnswer(choice=str(choice), confidence=float(conf), probabilities=probs)
+            return ChoiceOption(options=option.options, answer=ans)
+        elif isinstance(option, NoulOption):
+            is_pos = res.get("decision", False)
+            conf = res.get("probability", 1.0 if is_pos else 0.0)
+            ans = NoulAnswer(decision=bool(is_pos), confidence=float(conf))
+            return NoulOption(answer=ans)
+        elif isinstance(option, ScoreOption):
+            val = float(res.get("score", 0.0))
+            ans = ScoreAnswer(score=val, confidence=1.0)
+            return ScoreOption(min_value=option.min_value, max_value=option.max_value, answer=ans)
+        return option
 
     def __or__(self, layer: IDecisionEngineLayer) -> IDecisionEngine:
         return layer(self)

@@ -1,9 +1,8 @@
 import random
 import re
 from typing import List, Sequence
-from data.case import DecisionCase, SourceRecord
+from data.case import ChoiceAnswer, ChoiceOption, DecisionCase
 from data.sources.source import IDataSource
-from inference.questions import Choice
 from data.sources.huggingface_source import load_raw_jsonl
 
 class GlaiveSource(IDataSource):
@@ -14,7 +13,7 @@ class GlaiveSource(IDataSource):
         self.seed = seed
         self.test_ratio = test_ratio
 
-    def read(self) -> Sequence[SourceRecord]:
+    def read(self) -> Sequence[DecisionCase]:
         rng = random.Random(self.seed)
         rows = load_raw_jsonl(self.name, "glaiveai/glaive-function-calling-v2", split="train")
 
@@ -39,7 +38,7 @@ class GlaiveSource(IDataSource):
         test_tool_set = set(all_tools[:test_tool_count])
         train_tool_set = set(all_tools[test_tool_count:])
 
-        records: List[SourceRecord] = []
+        cases: List[DecisionCase] = []
         for query, fn, sample_tools in raw_pairs:
             is_test = fn in test_tool_set
             pool = test_tool_set if is_test else train_tool_set
@@ -54,8 +53,13 @@ class GlaiveSource(IDataSource):
 
             case = DecisionCase(
                 state=query,
-                questions=[Choice(name="tool", options=candidates, instruction="Select the tool to invoke:", target=fn)],
+                option=ChoiceOption(
+                    options=candidates,
+                    answer=ChoiceAnswer(choice=fn, confidence=1.0, probabilities={fn: 1.0}),
+                ),
                 category="function_calling",
+                split="test" if is_test else "train",
+                source=self.name,
             )
-            records.append(SourceRecord(sample=case, tag="test" if is_test else "train"))
-        return records
+            cases.append(case)
+        return cases

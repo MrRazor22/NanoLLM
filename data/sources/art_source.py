@@ -1,8 +1,7 @@
 from typing import List, Sequence
 
-from data.case import DecisionCase, SourceRecord
+from data.case import ChoiceAnswer, ChoiceOption, DecisionCase
 from data.sources.source import IDataSource
-from inference.questions import Choice
 from data.sources.huggingface_source import load_raw_jsonl
 
 ART_INSTRUCTION = "Which hypothesis best explains what happened between the observations?"
@@ -15,10 +14,10 @@ class ARTSource(IDataSource):
         self.train_limit = train_limit
         self.test_limit = test_limit
 
-    def read(self) -> Sequence[SourceRecord]:
-        records: List[SourceRecord] = []
-        for split_name, tag in [("train", "train"), ("validation", "test")]:
-            limit = self.test_limit if split_name == "validation" else self.train_limit
+    def read(self) -> Sequence[DecisionCase]:
+        cases: List[DecisionCase] = []
+        for split_name, is_test in [("train", False), ("validation", True)]:
+            limit = self.test_limit if is_test else self.train_limit
             rows = load_raw_jsonl(f"art_{split_name}", "allenai/art", split=split_name, limit=limit)
             for r in rows:
                 obs1 = str(r.get("observation_1", "")).strip()
@@ -45,18 +44,16 @@ class ARTSource(IDataSource):
 
                 case = DecisionCase(
                     state=state,
-                    questions=[
-                        Choice(
-                            name="explanation",
-                            options=options,
-                            instruction=ART_INSTRUCTION,
-                            target=target_str,
-                        )
-                    ],
+                    option=ChoiceOption(
+                        options=options,
+                        answer=ChoiceAnswer(choice=target_str, confidence=1.0, probabilities={target_str: 1.0}),
+                    ),
                     category="abductive_reasoning",
+                    split="test" if is_test else "train",
+                    source=self.name,
                 )
-                records.append(SourceRecord(sample=case, tag=tag))
+                cases.append(case)
 
-        return records
+        return cases
 
 __all__ = ["ARTSource", "ART_INSTRUCTION"]

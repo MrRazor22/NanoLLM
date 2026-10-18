@@ -71,8 +71,9 @@ def main(
     )
 
     dataset = Dataset()
-    train_cases = dataset.load("train")
-    val_cases = dataset.load("val")
+    splits = dataset.load()
+    train_cases = splits.train
+    val_cases = splits.val
 
     init_desc = f"Checkpoint ({init_ckpt})" if init_ckpt else "Scratch (Raw Backbone + Xavier Head)"
     console.print(f"\n[bold cyan]Piqo Model Trainer[/bold cyan] | Target: [bold green]model/weights/{out_target}[/bold green]\n")
@@ -95,7 +96,7 @@ def main(
             res.append(("Final Val Loss", f"{stats[-1].val_loss:.4f}"))
 
     if eval_test:
-        test_cases = dataset.load("test")
+        test_cases = splits.test
         console.print(f"\n[dim]Evaluating internal holdout test split ({len(test_cases):,} cases)...[/dim]")
         t_eval = time.perf_counter()
         test_loss = trainer.evaluate(test_cases)

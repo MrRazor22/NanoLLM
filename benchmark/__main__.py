@@ -11,8 +11,7 @@ from benchmark.benchmark import Benchmark
 from benchmark.registry import AVAILABLE_ENGINES, BENCHMARK_SUITES
 from benchmark.suites.suite import IBenchmarkSuite
 from inference.decision_engine import IDecisionEngine
-from inference.profiling_layer import ProfilingLayer
-from inference.questions import Choice
+from data.case import ChoiceOption
 
 app = typer.Typer(add_completion=False, help="Piqo Sovereign Benchmark CLI")
 
@@ -74,15 +73,16 @@ def run_playground(engines: Sequence[tuple[str, IDecisionEngine]]) -> None:
         opts = [o.strip() for o in raw_choices.split(",") if o.strip()]
         if not opts:
             continue
-        qs = [Choice("decision", opts)]
+        opt = ChoiceOption(options=opts)
         print(f"\nState: {ctx}\n" + "-" * 55)
         for m_name, eng in engines:
             try:
-                res = eng.decide(ctx, qs)
-                ans = res.answers.get("decision")
-                val = getattr(ans, "choice", getattr(ans, "value", str(ans)))
+                res_opt = eng.decide(ctx, opt)
+                ans = res_opt.answer
+                val = getattr(ans, "choice", "-")
                 conf = getattr(ans, "confidence", 1.0)
-                print(f"[{m_name:<10}] Choice: {val:<20} | Conf: {conf*100:.1f}% | Lat: {res.latency_ms:.1f}ms")
+                lat = getattr(eng, "last_latency_ms", 0.0)
+                print(f"[{m_name:<10}] Choice: {val:<20} | Conf: {conf*100:.1f}% | Lat: {lat:.1f}ms")
             except Exception as e:
                 print(f"[{m_name:<10}] Error: {e}")
         print("-" * 55)

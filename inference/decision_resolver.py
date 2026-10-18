@@ -1,19 +1,19 @@
-from typing import Dict, Mapping, Protocol, Sequence, runtime_checkable
+from typing import Protocol, Sequence, runtime_checkable
 import scipy.special as sp
-from inference.questions import (
-    Answer, Choice, ChoiceResult, Noul, NoulResult, Question, Score, ScoreResult,
-    score_from_norm,
+from data.case import (
+    ChoiceAnswer, ChoiceOption, IOption, NoulAnswer, NoulOption,
+    ScoreAnswer, ScoreOption, score_from_norm,
 )
 
 @runtime_checkable
 class IResolver(Protocol):
-    """Injected Opinion Sub-Primitive: Decodes raw float scores into typed domain Answers."""
+    """Injected Opinion Sub-Primitive: Decodes raw float scores into typed domain Option with Answer."""
     def resolve(
         self,
-        questions: Sequence[Question],
+        option: IOption,
         slots: Sequence[Sequence[int]],
         scores: Sequence[float],
-    ) -> Mapping[str, Answer]:
+    ) -> IOption:
         ...
 
 class DecisionResolver(IResolver):
@@ -21,26 +21,27 @@ class DecisionResolver(IResolver):
 
     def resolve(
         self,
-        questions: Sequence[Question],
+        option: IOption,
         slots: Sequence[Sequence[int]],
         scores: Sequence[float],
-    ) -> Mapping[str, Answer]:
-        answers: Dict[str, Answer] = {}
-        for q, slot_indices in zip(questions, slots):
-            match q:
-                case Choice(name=name, options=opts):
-                    keys = list(opts.keys()) if isinstance(opts, dict) else list(opts)
-                    probs = sp.softmax([scores[i] for i in slot_indices])
-                    best = int(probs.argmax())
-                    answers[name] = ChoiceResult(
-                        choice=keys[best],
-                        confidence=float(probs[best]),
-                        probabilities={k: float(p) for k, p in zip(keys, probs)},
-                    )
-                case Noul(name=name):
-                    prob = float(sp.expit(scores[slot_indices[0]]))
-                    answers[name] = NoulResult(is_positive=prob >= 0.5, probability=prob)
-                case Score(name=name):
-                    norm = float(sp.expit(scores[slot_indices[0]]))
-                    answers[name] = ScoreResult(score=score_from_norm(q, norm), normalized=norm)
-        return answers
+    ) -> IOption:
+        slot_indices = slots[0]
+        match option:
+            case ChoiceOption(options=opts):
+                keys = list(opts.keys()) if isinstance(opts, dict) else list(opts)
+                probs = sp.softmax([scores[i] for i in slot_indices])
+                best = int(probs.argmax())
+                ans = ChoiceAnswer(
+                    choice=keys[best],
+                    confidence=float(probs[best]),
+                    probabilities={k: float(p) for k, p in zip(keys, probs)},
+                )
+                return ChoiceOption(options=opts, answer=ans)
+            case NoulOption():
+                prob = float(sp.expit(scores[slot_indices[0]]))
+                ans = NoulAnswer(decision=prob >= 0.5, confidence=prob if prob >= 0.5 else 1.0 - prob)
+                return NoulOption(answer=ans)
+            case ScoreOption(min_value=min_v, max_value=max_v):
+                norm = float(sp.expit(scores[slot_indices[0]]))
+                ans = ScoreAnswer(score=score_from_norm(option, norm), confidence=1.0)
+                return ScoreOption(min_value=min_v, max_value=max_v, answer=ans)

@@ -1,8 +1,7 @@
 from typing import List, Sequence
 
-from data.case import DecisionCase, SourceRecord
+from data.case import ChoiceAnswer, ChoiceOption, DecisionCase
 from data.sources.source import IDataSource
-from inference.questions import Choice
 from data.sources.huggingface_source import load_raw_jsonl
 
 class COPASource(IDataSource):
@@ -13,10 +12,10 @@ class COPASource(IDataSource):
         self.train_limit = train_limit
         self.test_limit = test_limit
 
-    def read(self) -> Sequence[SourceRecord]:
-        records: List[SourceRecord] = []
-        for split_name, tag in [("train", "train"), ("validation", "test")]:
-            limit = self.test_limit if split_name in ("validation", "test") else self.train_limit
+    def read(self) -> Sequence[DecisionCase]:
+        cases: List[DecisionCase] = []
+        for split_name, is_test in [("train", False), ("validation", True)]:
+            limit = self.test_limit if is_test else self.train_limit
             rows = load_raw_jsonl(f"copa_{split_name}", "aps/super_glue", split=split_name, subset="copa", limit=limit)
             for r in rows:
                 premise = str(r.get("premise", "")).strip()
@@ -42,18 +41,16 @@ class COPASource(IDataSource):
 
                 case = DecisionCase(
                     state=premise,
-                    questions=[
-                        Choice(
-                            name="causal_link",
-                            options=options,
-                            instruction=instruction,
-                            target=target_str,
-                        )
-                    ],
+                    option=ChoiceOption(
+                        options=options,
+                        answer=ChoiceAnswer(choice=target_str, confidence=1.0, probabilities={target_str: 1.0}),
+                    ),
                     category="causal_reasoning",
+                    split="test" if is_test else "train",
+                    source=self.name,
                 )
-                records.append(SourceRecord(sample=case, tag=tag))
+                cases.append(case)
 
-        return records
+        return cases
 
 __all__ = ["COPASource"]

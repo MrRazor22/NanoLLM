@@ -32,26 +32,22 @@ def main(
         leakage_policy=NGramLeakagePolicy(n_gram=n_gram),
     )
     console.print(f"\n[bold cyan]Piqo Data Pipeline[/bold cyan]\n")
+    console.print("[dim]Ingesting sources, partitioning splits & auditing zero-leakage invariant...[/dim]\n")
+    splits = dataset.prepare()
 
-    src_table = Table(title="Registered Sources", box=box.HORIZONTALS, title_style="bold magenta")
-    src_table.add_column("Source Name", style="cyan")
+    all_cases = list(splits.train) + list(splits.val) + list(splits.test)
+    source_counts = Counter((c.source or "unknown", c.category or "general") for c in all_cases)
+
+    src_table = Table(title="Corpus Sources", box=box.HORIZONTALS, title_style="bold magenta")
+    src_table.add_column("Source", style="cyan")
     src_table.add_column("Category", style="yellow")
-    src_table.add_column("Read Count", justify="right", style="green")
+    src_table.add_column("Count", justify="right", style="green")
 
-    source_counts = []
-    total_src = len(dataset.sources)
-    for i, src in enumerate(dataset.sources, 1):
-        console.print(f"[{i:02d}/{total_src:02d}] Ingesting {src.name}...", end="\r")
-        recs = src.read()
-        cat = recs[0].sample.category if recs else "unknown"
-        source_counts.append((src.name, cat, len(recs)))
-        src_table.add_row(src.name, cat, f"{len(recs):,}")
+    for (src_name, cat), count in sorted(source_counts.items()):
+        src_table.add_row(src_name, cat, f"{count:,}")
 
     console.print(src_table)
-    console.print(f"Total Ingested Records: [bold green]{sum(c[2] for c in source_counts):,}[/bold green]\n")
-
-    console.print("[dim]Partitioning splits & auditing zero-leakage invariant...[/dim]\n")
-    splits = dataset.prepare()
+    console.print(f"Total Prepared Records: [bold green]{len(all_cases):,}[/bold green]\n")
 
     summary_table = Table(title="Corpus Summary & Leakage Scorecard", box=box.HORIZONTALS, title_style="bold white")
     summary_table.add_column("Metric / Split", style="cyan")
@@ -60,9 +56,8 @@ def main(
     summary_table.add_row("Train Split", f"{len(splits.train):,}", "-")
     summary_table.add_row("Validation Split", f"{len(splits.val):,}", "-")
     summary_table.add_row("Test Split", f"{len(splits.test):,}", "-")
-    summary_table.add_row("Pruned Overlaps", f"{dataset.leak_audit.get('total_unique', 0):,}", "-")
-    summary_table.add_row("Test Leaks", f"{dataset.leak_audit.get('test_leaks', 0)}", "[bold green]0[/bold green]")
-    summary_table.add_row("Val Leaks", f"{dataset.leak_audit.get('val_leaks', 0)}", "[bold green]0[/bold green]")
+    summary_table.add_row("Pruned Train Leaks", f"{dataset.leak_audit.get('pruned_train', 0):,}", "-")
+    summary_table.add_row("Pruned Val Leaks", f"{dataset.leak_audit.get('pruned_val', 0):,}", "-")
     console.print(summary_table)
 
     dist_table = Table(title="Train Category Distribution", box=box.HORIZONTALS, title_style="bold white")

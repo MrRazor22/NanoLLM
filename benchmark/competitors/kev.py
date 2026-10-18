@@ -1,10 +1,10 @@
-from typing import Optional, Sequence
+from typing import Optional
 import httpx
-from inference.decision_engine import IDecisionEngine, IDecisionEngineLayer
-from inference.questions import (
-    Choice, ChoiceResult, DecisionResult, DecisionState,
-    Noul, NoulResult, Question, Score, ScoreResult, score_to_norm,
+from data.case import (
+    ChoiceAnswer, ChoiceOption, IOption, NoulAnswer, NoulOption,
+    ScoreAnswer, ScoreOption,
 )
+from inference.decision_engine import IDecisionEngine, IDecisionEngineLayer
 
 class KevEngine(IDecisionEngine):
     """Sovereign competitor adapter: wraps Jared Palmer's Kev decision server (/v1/systemone)."""
@@ -22,30 +22,22 @@ class KevEngine(IDecisionEngine):
         self.api_key = api_key or os.environ.get("LM_STUDIO_API_KEY", "lm-studio")
         self.endpoint = endpoint or os.environ.get("KEV_ENDPOINT", "")
         self.timeout = timeout
+        self.last_latency_ms: float = 0.0
         self.candidate_endpoints = [self.endpoint] if self.endpoint else [
             "http://127.0.0.1:1234/v1/systemone",
             "http://127.0.0.1:8008/v1/systemone",
         ]
 
-    def decide(self, state: DecisionState, questions: Sequence[Question]) -> DecisionResult:
-        q_dict = {}
-        for q in questions:
-            if isinstance(q, Choice):
-                q_dict[q.name] = {
-                    "type": "choice",
-                    "instructions": q.instruction or "",
-                    "criteria": q.options if isinstance(q.options, dict) else {o: o for o in q.options},
-                }
-            elif isinstance(q, Noul):
-                q_dict[q.name] = {"type": "noul", "instructions": q.instruction or ""}
-            elif isinstance(q, Score):
-                q_dict[q.name] = {
-                    "type": "score",
-                    "instructions": q.instruction or "",
-                    "criteria": [str(q.min_value), str(q.max_value)],
-                }
+    def decide(self, state: str, option: IOption) -> IOption:
+        if isinstance(option, ChoiceOption):
+            opts = option.options if isinstance(option.options, dict) else {o: o for o in option.options}
+            q_spec = {"type": "choice", "criteria": opts}
+        elif isinstance(option, NoulOption):
+            q_spec = {"type": "noul"}
+        else:
+            q_spec = {"type": "score", "criteria": [str(option.min_value), str(option.max_value)]}
 
-        payload = {"model": self.model, "state": str(state), "questions": q_dict}
+        payload = {"model": self.model, "state": str(state), "questions": {"decision": q_spec}}
         raw, last_err = None, None
         headers = {"Authorization": f"Bearer {self.api_key}"} if self.api_key else {}
         for ep in self.candidate_endpoints:
@@ -65,30 +57,30 @@ class KevEngine(IDecisionEngine):
                 "Ensure LM Studio local server (port 1234) or 'llama serve' (port 8008) is running."
             )
 
-        answers = {}
         choices = raw.get("choices", raw.get("answers", {}))
         nouls = raw.get("nouls", {})
         scores = raw.get("scores", {})
 
-        for q in questions:
-            if isinstance(q, Choice) and q.name in choices:
-                c_data = choices[q.name]
-                choice_str = str(c_data.get("choice", ""))
-                conf = float(c_data.get("confidence", 1.0))
-                answers[q.name] = ChoiceResult(choice=choice_str, confidence=conf, probabilities=c_data.get("probabilities", {choice_str: conf}))
-            elif isinstance(q, Noul) and (q.name in nouls or q.name in choices):
-                n_data = nouls.get(q.name, choices.get(q.name, {}))
-                val = n_data.get("noul", n_data.get("decision"))
-                if val is not None:
-                    p = float(n_data.get("probability", 1.0 if val else 0.0))
-                    answers[q.name] = NoulResult(is_positive=bool(val), probability=p)
-            elif isinstance(q, Score) and (q.name in scores or q.name in choices):
-                s_data = scores.get(q.name, choices.get(q.name, {}))
-                if "score" in s_data:
-                    score_val = float(s_data["score"])
-                    answers[q.name] = ScoreResult(score=score_val, normalized=score_to_norm(q, score_val))
+        if isinstance(option, ChoiceOption) and "decision" in choices:
+            c_data = choices["decision"]
+            choice_str = str(c_data.get("choice", ""))
+            conf = float(c_data.get("confidence", 1.0))
+            ans = ChoiceAnswer(choice=choice_str, confidence=conf, probabilities=c_data.get("probabilities", {choice_str: conf}))
+            return ChoiceOption(options=option.options, answer=ans)
+        elif isinstance(option, NoulOption) and ("decision" in nouls or "decision" in choices):
+            n_data = nouls.get("decision", choices.get("decision", {}))
+            val = n_data.get("noul", n_data.get("decision"))
+            p = float(n_data.get("probability", 1.0 if val else 0.0))
+            ans = NoulAnswer(decision=bool(val), confidence=p)
+            return NoulOption(answer=ans)
+        elif isinstance(option, ScoreOption) and ("decision" in scores or "decision" in choices):
+            s_data = scores.get("decision", choices.get("decision", {}))
+            if "score" in s_data:
+                score_val = float(s_data["score"])
+                ans = ScoreAnswer(score=score_val, confidence=1.0)
+                return ScoreOption(min_value=option.min_value, max_value=option.max_value, answer=ans)
 
-        return DecisionResult(answers=answers)
+        return option
 
     def __or__(self, layer: IDecisionEngineLayer) -> IDecisionEngine:
         return layer(self)

@@ -1,8 +1,7 @@
 from typing import List, Sequence
 
-from data.case import DecisionCase, SourceRecord
+from data.case import ChoiceAnswer, ChoiceOption, DecisionCase
 from data.sources.source import IDataSource
-from inference.questions import Choice
 from data.sources.huggingface_source import load_raw_jsonl
 
 SCIQ_INSTRUCTION = "Which option correctly answers the question?"
@@ -15,10 +14,10 @@ class SciQSource(IDataSource):
         self.train_limit = train_limit
         self.test_limit = test_limit
 
-    def read(self) -> Sequence[SourceRecord]:
-        records: List[SourceRecord] = []
-        for split_name, tag in [("train", "train"), ("validation", "test")]:
-            limit = self.test_limit if split_name in ("validation", "test") else self.train_limit
+    def read(self) -> Sequence[DecisionCase]:
+        cases: List[DecisionCase] = []
+        for split_name, is_test in [("train", False), ("validation", True)]:
+            limit = self.test_limit if is_test else self.train_limit
             rows = load_raw_jsonl(f"sciq_{split_name}", "allenai/sciq", split=split_name, limit=limit)
             for r in rows:
                 question = str(r.get("question", "")).strip()
@@ -36,18 +35,16 @@ class SciQSource(IDataSource):
 
                 case = DecisionCase(
                     state=question,
-                    questions=[
-                        Choice(
-                            name="answer",
-                            options=options,
-                            instruction=SCIQ_INSTRUCTION,
-                            target=correct,
-                        )
-                    ],
+                    option=ChoiceOption(
+                        options=options,
+                        answer=ChoiceAnswer(choice=correct, confidence=1.0, probabilities={correct: 1.0}),
+                    ),
                     category="scientific_reasoning",
+                    split="test" if is_test else "train",
+                    source=self.name,
                 )
-                records.append(SourceRecord(sample=case, tag=tag))
+                cases.append(case)
 
-        return records
+        return cases
 
 __all__ = ["SciQSource", "SCIQ_INSTRUCTION"]

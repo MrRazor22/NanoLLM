@@ -1,8 +1,7 @@
 from typing import List, Sequence
 
-from data.case import DecisionCase, SourceRecord
+from data.case import ChoiceAnswer, ChoiceOption, DecisionCase
 from data.sources.source import IDataSource
-from inference.questions import Choice
 from data.sources.huggingface_source import load_raw_jsonl
 
 MEDQA_INSTRUCTION = "What is the most likely diagnosis, mechanism, or correct next step?"
@@ -15,12 +14,12 @@ class MedQASource(IDataSource):
         self.train_limit = train_limit
         self.test_limit = test_limit
 
-    def read(self) -> Sequence[SourceRecord]:
-        records: List[SourceRecord] = []
+    def read(self) -> Sequence[DecisionCase]:
+        cases: List[DecisionCase] = []
         for split_name in ("train", "test"):
             limit = self.test_limit if split_name == "test" else self.train_limit
             rows = load_raw_jsonl(f"medqa_{split_name}", "GBaker/MedQA-USMLE-4-options", split=split_name, limit=limit)
-            tag = "test" if split_name == "test" else "train"
+            is_test = split_name == "test"
             for r in rows:
                 state = str(r.get("question", "")).strip()
                 opts_dict = r.get("options", {})
@@ -35,18 +34,16 @@ class MedQASource(IDataSource):
 
                 case = DecisionCase(
                     state=state,
-                    questions=[
-                        Choice(
-                            name="diagnosis",
-                            options=options_list,
-                            instruction=MEDQA_INSTRUCTION,
-                            target=answer_str,
-                        )
-                    ],
+                    option=ChoiceOption(
+                        options=options_list,
+                        answer=ChoiceAnswer(choice=answer_str, confidence=1.0, probabilities={answer_str: 1.0}),
+                    ),
                     category="differential_elimination",
+                    split="test" if is_test else "train",
+                    source=self.name,
                 )
-                records.append(SourceRecord(sample=case, tag=tag))
+                cases.append(case)
 
-        return records
+        return cases
 
 __all__ = ["MedQASource", "MEDQA_INSTRUCTION"]

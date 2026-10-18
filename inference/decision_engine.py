@@ -1,7 +1,7 @@
 from pathlib import Path
-from typing import Optional, Protocol, Sequence, Union, runtime_checkable
+from typing import Optional, Protocol, Union, runtime_checkable
 
-from inference.questions import DecisionResult, DecisionState, Question
+from data.case import IOption
 from inference.decision_resolver import DecisionResolver, IResolver
 from model.torch_model import IModel
 
@@ -13,7 +13,7 @@ class IDecisionEngineLayer(Protocol):
 @runtime_checkable
 class IDecisionEngine(Protocol):
     """Core Primitive: Sovereign operational boundary for domain decision resolution."""
-    def decide(self, state: DecisionState, questions: Sequence[Question]) -> DecisionResult: ...
+    def decide(self, state: str, option: IOption) -> IOption: ...
     def __or__(self, layer: IDecisionEngineLayer) -> "IDecisionEngine": ...
 
 class DecisionEngine(IDecisionEngine):
@@ -35,12 +35,9 @@ class DecisionEngine(IDecisionEngine):
                 model.load(target_ckpt)
         self.model, self.resolver = model, resolver or DecisionResolver()
 
-    def decide(self, state: DecisionState, questions: Sequence[Question]) -> DecisionResult:
-        pred = self.model.predict(state, questions)
-        return DecisionResult(answers=self.resolver.resolve(questions, pred.slots, pred.scores))
+    def decide(self, state: str, option: IOption) -> IOption:
+        pred = self.model.predict(state, option)
+        return self.resolver.resolve(option, pred.slots, pred.scores)
 
     def __or__(self, layer: IDecisionEngineLayer) -> "IDecisionEngine":
         return layer(self)
-
-
-

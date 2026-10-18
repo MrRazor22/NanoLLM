@@ -1,24 +1,22 @@
 import re
 from typing import Protocol, Sequence, Set, Tuple, Union, runtime_checkable
-from data.case import DecisionCase, case_gold
-from inference.questions import DecisionState
+from data.case import DecisionCase
 
 @runtime_checkable
 class ILeakagePolicy(Protocol):
-    """Sovereign policy contract: audits candidate training cases against holdout evaluation suites."""
-    def find_leaks(
+    """Sovereign policy contract: filters candidate cases against holdout evaluation suites."""
+    def filter(
         self,
         candidates: Sequence[DecisionCase],
         holdouts: Sequence[DecisionCase],
     ) -> Sequence[DecisionCase]: ...
 
-def tokenize_state(st: Union[DecisionState, str, dict]) -> Tuple[str, ...]:
-    """Pure domain transform: decomposes state text/mapping into lowercase lexical tokens."""
-    txt = " ".join(f"{k} {v}" for k, v in st.items()) if isinstance(st, dict) else str(st or "")
-    return tuple(re.findall(r"\w+", txt.lower()))
+def tokenize_state(st: str) -> Tuple[str, ...]:
+    """Pure domain transform: decomposes state text into lowercase lexical tokens."""
+    return tuple(re.findall(r"\w+", st.lower()))
 
 class NGramLeakagePolicy(ILeakagePolicy):
-    """Input-state and entity-level leakage policy: exact prompt duplicates, n-gram shingling, token Jaccard similarity, and isolated entity holdouts."""
+    """Filters out candidate cases that overlap holdouts via exact duplicate, n-gram shingle, Jaccard, or label."""
 
     def __init__(
         self,
@@ -34,13 +32,13 @@ class NGramLeakagePolicy(ILeakagePolicy):
         self.disjoint_categories = tuple(disjoint_categories)
         self.exempt_categories = tuple(exempt_categories)
 
-    def find_leaks(
+    def filter(
         self,
         candidates: Sequence[DecisionCase],
         holdouts: Sequence[DecisionCase],
     ) -> Sequence[DecisionCase]:
         if not candidates or not holdouts:
-            return []
+            return list(candidates)
 
         exact_holdouts: Set[Tuple[str, ...]] = set()
         holdout_shingles: Set[Tuple[str, ...]] = set()
@@ -59,50 +57,48 @@ class NGramLeakagePolicy(ILeakagePolicy):
                 exact_holdouts.add(toks)
                 if len(toks) >= self.n_gram:
                     holdout_shingles.update(tuple(toks[i : i + self.n_gram]) for i in range(len(toks) - self.n_gram + 1))
-                elif len(toks) >= self.min_short_tokens:
-                    short_holdout_by_first.setdefault(toks[0], []).append(f" {' '.join(toks)} ")
-                holdout_texts.append(" ".join(toks))
+                else:
+                    holdout_texts.append(" " + " ".join(toks) + " ")
+                    if len(toks) <= 8 and toks[0] not in short_holdout_by_first:
+                        short_holdout_by_first.setdefault(toks[0], []).append(" " + " ".join(toks) + " ")
 
+            if len(toks) < 30:
                 tok_set = set(toks)
                 holdouts_by_cat.setdefault(cat, []).append((tok_set, len(tok_set)))
 
-            if cat in disjoint_set and (h_gold := case_gold(h)):
-                for tgt in h_gold.values():
+            if cat in disjoint_set and h.option.answer is not None:
+                tgt = getattr(h.option.answer, "choice", getattr(h.option.answer, "decision", getattr(h.option.answer, "score", None)))
+                if tgt is not None:
                     holdout_targets_by_cat.setdefault(cat, set()).add(str(tgt))
 
         holdout_blob = (" " + " \n ".join(holdout_texts) + " ") if holdout_texts else ""
 
-        leaked: list[DecisionCase] = []
+        clean: list[DecisionCase] = []
         for c in candidates:
             cat = c.category or "general"
             if cat in exempt_set:
+                clean.append(c)
                 continue
 
-            if cat in disjoint_set and (c_gold := case_gold(c)) and cat in holdout_targets_by_cat:
-                if any(str(tgt) in holdout_targets_by_cat[cat] for tgt in c_gold.values()):
-                    leaked.append(c)
+            if cat in disjoint_set and c.option.answer is not None and cat in holdout_targets_by_cat:
+                c_tgt = getattr(c.option.answer, "choice", getattr(c.option.answer, "decision", getattr(c.option.answer, "score", None)))
+                if c_tgt is not None and str(c_tgt) in holdout_targets_by_cat[cat]:
                     continue
 
             toks = tokenize_state(c.state)
-            if not toks:
-                continue
-
             if toks in exact_holdouts:
-                leaked.append(c)
                 continue
 
-            cand_str = f" {' '.join(toks)} "
             if len(toks) >= self.n_gram:
-                cand_shingles = {tuple(toks[i : i + self.n_gram]) for i in range(len(toks) - self.n_gram + 1)}
-                if cand_shingles & holdout_shingles:
-                    leaked.append(c)
+                if any(tuple(toks[i : i + self.n_gram]) in holdout_shingles for i in range(len(toks) - self.n_gram + 1)):
                     continue
+
+            cand_str = " " + " ".join(toks) + " "
+            if len(toks) <= 8:
                 cand_set = set(toks)
                 if any(p in cand_str for tok in cand_set if tok in short_holdout_by_first for p in short_holdout_by_first[tok]):
-                    leaked.append(c)
                     continue
             elif len(toks) >= self.min_short_tokens and cand_str in holdout_blob:
-                leaked.append(c)
                 continue
 
             if len(toks) < 30 and cat in holdouts_by_cat:
@@ -112,10 +108,11 @@ class NGramLeakagePolicy(ILeakagePolicy):
                 for h_set, h_len in holdouts_by_cat[cat]:
                     common = len(cand_set & h_set)
                     if common / (cand_len + h_len - common) >= self.jaccard_threshold:
-                        leaked.append(c)
                         found_fuzzy = True
                         break
                 if found_fuzzy:
                     continue
 
-        return leaked
+            clean.append(c)
+
+        return clean

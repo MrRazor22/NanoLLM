@@ -1,8 +1,7 @@
 from dataclasses import dataclass
 from typing import List, Optional, Sequence
-from data.case import DecisionCase, SourceRecord
+from data.case import ChoiceAnswer, ChoiceOption, DecisionCase
 from data.sources.source import IDataSource
-from inference.questions import Choice
 from data.sources.huggingface_source import load_raw_jsonl
 
 @dataclass(frozen=True, slots=True)
@@ -60,8 +59,8 @@ class MultiChoiceReasoningSource(IDataSource):
         if self.spec.subset:
             self.name = f"{self.name}_{self.spec.subset}"
 
-    def read(self) -> Sequence[SourceRecord]:
-        records: List[SourceRecord] = []
+    def read(self) -> Sequence[DecisionCase]:
+        cases: List[DecisionCase] = []
         for split_name in self.spec.splits:
             limit = self.spec.test_limit if split_name == "test" else self.spec.train_limit
             rows = load_raw_jsonl(
@@ -71,7 +70,7 @@ class MultiChoiceReasoningSource(IDataSource):
                 subset=self.spec.subset,
                 limit=limit,
             )
-            tag = "test" if split_name == "test" else "train"
+            is_test = split_name == "test"
             for r in rows:
                 state = r.get(self.spec.question_field, "").strip()
                 choices_raw = r.get(self.spec.choices_field, {})
@@ -96,18 +95,17 @@ class MultiChoiceReasoningSource(IDataSource):
                 if target_idx is None or target_idx >= len(texts):
                     continue
 
+                tgt_str = texts[target_idx]
                 case = DecisionCase(
                     state=state,
-                    questions=[
-                        Choice(
-                            name="choice",
-                            options=texts,
-                            instruction=self.spec.instruction,
-                            target=texts[target_idx],
-                        )
-                    ],
+                    option=ChoiceOption(
+                        options=texts,
+                        answer=ChoiceAnswer(choice=tgt_str, confidence=1.0, probabilities={tgt_str: 1.0}),
+                    ),
                     category=self.spec.category,
+                    split="test" if is_test else "train",
+                    source=self.name,
                 )
-                records.append(SourceRecord(sample=case, tag=tag))
+                cases.append(case)
 
-        return records
+        return cases

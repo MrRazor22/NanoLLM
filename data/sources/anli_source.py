@@ -1,8 +1,7 @@
 from typing import List, Sequence
 
-from data.case import DecisionCase, SourceRecord
+from data.case import ChoiceAnswer, ChoiceOption, DecisionCase
 from data.sources.source import IDataSource
-from inference.questions import Choice
 from data.sources.huggingface_source import load_raw_jsonl
 
 NLI_OPTIONS = ["Entailment", "Neutral", "Contradiction"]
@@ -22,13 +21,14 @@ class ANLISource(IDataSource):
         self.train_limit = train_limit_per_round
         self.test_limit = test_limit_per_round
 
-    def read(self) -> Sequence[SourceRecord]:
-        records: List[SourceRecord] = []
+    def read(self) -> Sequence[DecisionCase]:
+        cases: List[DecisionCase] = []
         for r_name in self.rounds:
-            for split_type, tag in [("train", "train"), ("test", "test")]:
+            for split_type in ("train", "test"):
                 limit = self.test_limit if split_type == "test" else self.train_limit
                 hf_split = f"{split_type}_{r_name}"
                 rows = load_raw_jsonl(f"anli_{hf_split}", "facebook/anli", split=hf_split, limit=limit)
+                is_test = split_type == "test"
                 for r in rows:
                     premise = str(r.get("premise", "")).strip()
                     hypothesis = str(r.get("hypothesis", "")).strip()
@@ -37,19 +37,17 @@ class ANLISource(IDataSource):
                     if not premise or not hypothesis or label not in (0, 1, 2):
                         continue
 
-                    state = f"Context: {premise}\n\nStatement: {hypothesis}"
+                    lbl_str = NLI_OPTIONS[int(label)]
                     case = DecisionCase(
                         state=state,
-                        questions=[
-                            Choice(
-                                name="relation",
-                                options=list(NLI_OPTIONS),
-                                instruction=NLI_INSTRUCTION,
-                                target=NLI_OPTIONS[int(label)],
-                            )
-                        ],
+                        option=ChoiceOption(
+                            options=list(NLI_OPTIONS),
+                            answer=ChoiceAnswer(choice=lbl_str, confidence=1.0, probabilities={lbl_str: 1.0}),
+                        ),
                         category="adversarial_reasoning",
+                        split="test" if is_test else "train",
+                        source=self.name,
                     )
-                    records.append(SourceRecord(sample=case, tag=tag))
+                    cases.append(case)
 
-        return records
+        return cases

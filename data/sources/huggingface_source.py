@@ -4,9 +4,8 @@ from pathlib import Path
 from typing import List, Optional, Sequence
 from datasets import load_dataset
 
-from data.case import DecisionCase, SourceRecord
+from data.case import ChoiceAnswer, ChoiceOption, DecisionCase
 from data.sources.source import IDataSource
-from inference.questions import Choice
 
 RAW_DIR = Path(__file__).resolve().parent.parent / "raw"
 
@@ -70,7 +69,7 @@ class HuggingFaceSource(IDataSource):
         if self.spec.subset:
             self.name = f"{self.name}_{self.spec.subset}"
 
-    def read(self) -> Sequence[SourceRecord]:
+    def read(self) -> Sequence[DecisionCase]:
         split_rows = {
             s: load_raw_jsonl(
                 f"{self.name}_{s}",
@@ -93,9 +92,9 @@ class HuggingFaceSource(IDataSource):
             }
             all_options = sorted(list(labels))
 
-        records: List[SourceRecord] = []
+        cases: List[DecisionCase] = []
         for split_name, rows in split_rows.items():
-            tag = "test" if split_name == "test" else "train"
+            is_test = split_name == "test"
             for r in rows:
                 text = str(r.get(self.spec.text_field) or r.get("prompt") or r.get("body") or "").strip()
                 if not text or self.spec.label_field not in r or r[self.spec.label_field] is None:
@@ -112,9 +111,14 @@ class HuggingFaceSource(IDataSource):
 
                 case = DecisionCase(
                     state=text[:2000],
-                    questions=[Choice(name=self.spec.question, options=options, instruction=self.spec.instruction, target=label_str)],
+                    option=ChoiceOption(
+                        options=options,
+                        answer=ChoiceAnswer(choice=label_str, confidence=1.0, probabilities={label_str: 1.0}),
+                    ),
                     category=self.spec.category,
+                    split="test" if is_test else "train",
+                    source=self.name,
                 )
-                records.append(SourceRecord(sample=case, tag=tag))
+                cases.append(case)
 
-        return records
+        return cases

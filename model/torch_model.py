@@ -7,8 +7,7 @@ from transformers import AutoModel, AutoTokenizer, logging
 
 logging.set_verbosity_error()
 
-from data.case import DecisionCase
-from inference.questions import DecisionState, Question
+from data.case import DecisionCase, IOption
 from model.device import resolve_device
 from model.policies.calibrated_loss import CalibratedLoss, ILoss
 from model.policies.head import IHead, MLPHead
@@ -21,7 +20,7 @@ from model.weights import WeightMeta, Weights
 @runtime_checkable
 class IModel(Protocol):
     """Core Primitive: Neural computation boundary for inference scoring and loss computation."""
-    def predict(self, state: DecisionState, questions: Sequence[Question]) -> PredictionLayout: ...
+    def predict(self, state: str, option: IOption) -> PredictionLayout: ...
     def step(self, cases: Sequence[DecisionCase], backward: bool = True, lr: Optional[float] = None) -> float: ...
     def flush(self) -> None: ...
     def save(self, target: Union[str, Path] = "piqo", meta: Optional[WeightMeta] = None) -> Path: ...
@@ -71,8 +70,8 @@ class TorchModel(IModel):
         if compile and hasattr(torch, "compile"):
             self.backbone = torch.compile(self.backbone)
 
-    def predict(self, state: DecisionState, questions: Sequence[Question]) -> PredictionLayout:
-        layout = self.layout.encode(state, questions)
+    def predict(self, state: str, option: IOption) -> PredictionLayout:
+        layout = self.layout.encode(state, option)
         self.backbone.eval()
         self.head.eval()
         ids = torch.as_tensor(layout.input_ids, dtype=torch.long, device=self.device).unsqueeze(0)

@@ -14,24 +14,24 @@ from model.token_layout import TokenLayout, PredictionLayout, TokenSlot, Batch, 
 from inference.decision_engine import IDecisionEngine, DecisionEngine
 from inference.decision_resolver import IResolver, DecisionResolver
 from inference.profiling_layer import ProfilingLayer
-from inference.questions import (
-    DecisionState, Choice, Noul, Score, Question,
-    IAnswer, ChoiceResult, NoulResult, ScoreResult, Answer, DecisionResult,
-    format_state, choice_keys, choice_target_index, shuffle_choice,
-    score_to_norm, score_from_norm, matches_answer,
-)
 from training.epoch_trainer import ITrainer, EpochTrainer
 from training.policies.schedule import ISchedule, CosineSchedule, ConstantSchedule
 from training.telemetry.checkpointing_layer import CheckpointingLayer
 from training.telemetry.metrics_layer import MetricsLayer
 from training.stats import StepStats
 from data.dataset import IDataset, Dataset
-from data.case import DataSplits, SourceRecord, DecisionCase, case_to_dict, case_from_dict, case_gold
+from data.case import (
+    DataSplits, DecisionCase,
+    IAnswer, ChoiceAnswer, NoulAnswer, ScoreAnswer,
+    IOption, ChoiceOption, NoulOption, ScoreOption,
+    format_state, choice_keys, choice_target_index, shuffle_choice,
+    score_to_norm, score_from_norm, matches_answer,
+    case_to_dict, case_from_dict,
+)
 from data.storage_policy import IStoragePolicy, DiskStoragePolicy
 from data.curation.budget_split import ISplitPolicy, BudgetSplitPolicy
 from data.curation.ngram_leakage import ILeakagePolicy, NGramLeakagePolicy
-from data.sources.source import IDataSource
-from data.registry import AVAILABLE_SOURCES
+from data.sources.source import IDataSource, get_available_sources
 from data.sources.glaive_source import GlaiveSource
 from data.sources.decisions_source import DecisionsSource
 from data.sources.huggingface_source import HuggingFaceSource, BenchmarkSpec, RAW_DIR
@@ -66,15 +66,15 @@ __all__ = [
     "ILedgerPolicy", "DiskLedgerPolicy",
     "IScorerPolicy", "ScorerPolicy",
     "IReporterPolicy", "ConsoleReporterPolicy",
-    "AVAILABLE_ENGINES", "BENCHMARK_SUITES", "AVAILABLE_SOURCES",
+    "AVAILABLE_ENGINES", "BENCHMARK_SUITES", "get_available_sources",
     "IDataSource", "GlaiveSource", "DecisionsSource", "HuggingFaceSource", "BenchmarkSpec",
     # Layers (Lambda: P -> P)
     "ProfilingLayer", "CheckpointingLayer", "MetricsLayer",
     # Domain DTOs & Models
     "Weights",
-    "DecisionState", "Choice", "Noul", "Score", "Question",
-    "IAnswer", "ChoiceResult", "NoulResult", "ScoreResult", "Answer", "DecisionResult",
-    "TokenLayout", "PredictionLayout", "DecisionCase", "DataSplits", "SourceRecord",
+    "IOption", "ChoiceOption", "NoulOption", "ScoreOption",
+    "IAnswer", "ChoiceAnswer", "NoulAnswer", "ScoreAnswer",
+    "TokenLayout", "PredictionLayout", "DecisionCase", "DataSplits",
     "Batch", "StepStats", "TokenSlot", "TargetSlot", "SampleTargets",
     "BenchmarkReport",
     # Transforms & Paths
@@ -87,8 +87,9 @@ __all__ = [
     "matches_answer",
     "case_to_dict",
     "case_from_dict",
-    "case_gold",
     "list_weights",
-    "DEFAULT_WEIGHTS_DIR", "RAW_DIR",
+    "has_weights",
     "resolve_device",
+    "resolve_vram_gb",
+    "RAW_DIR",
 ]
