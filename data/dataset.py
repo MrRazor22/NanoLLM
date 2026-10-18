@@ -8,9 +8,8 @@ from data.sources.source import IDataSource, get_available_sources
 
 @runtime_checkable
 class IDataset(Protocol):
-    """Sovereign primitive contract: manages dataset source preparation, leakage audit, and split access."""
-    def prepare(self) -> DataSplits: ...
-    def load(self) -> DataSplits: ...
+    """Sovereign primitive contract: delivers partitioned dataset splits."""
+    def splits(self, refresh: bool = False) -> DataSplits: ...
 
 class Dataset(IDataset):
     """Sovereign Core Primitive: manages source registration, split preparation, zero leakage, and in-memory access."""
@@ -29,7 +28,17 @@ class Dataset(IDataset):
         self.leak_audit: dict[str, int] = {}
         self._splits: Optional[DataSplits] = None
 
-    def prepare(self) -> DataSplits:
+    def splits(self, refresh: bool = False) -> DataSplits:
+        if not refresh and self._splits is not None:
+            return self._splits
+
+        if not refresh:
+            try:
+                self._splits = self.storage.load()
+                return self._splits
+            except FileNotFoundError:
+                pass
+
         if not self.sources:
             raise ValueError("No data sources registered for dataset preparation.")
 
@@ -58,12 +67,5 @@ class Dataset(IDataset):
         self._splits = splits
         self.storage.save(splits)
         return splits
-
-    def load(self) -> DataSplits:
-        """Loads partitioned DataSplits from memory cache or persistent storage."""
-        if self._splits is not None:
-            return self._splits
-        self._splits = self.storage.load()
-        return self._splits
 
 __all__ = ["IDataset", "Dataset"]

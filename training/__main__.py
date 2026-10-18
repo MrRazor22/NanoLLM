@@ -71,7 +71,7 @@ def main(
     )
 
     dataset = Dataset()
-    splits = dataset.load()
+    splits = dataset.splits()
     train_cases = splits.train
     val_cases = splits.val
 

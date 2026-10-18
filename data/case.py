@@ -47,9 +47,9 @@ class ScoreOption(IOption):
 class DecisionCase:
     state: str
     option: IOption
-    category: str = "general"
+    category: str
+    source: str
     split: str | None = None
-    source: str = ""
 
 @dataclass(frozen=True, slots=True)
 class DataSplits:
@@ -135,9 +135,13 @@ def case_to_dict(case: DecisionCase) -> dict:
 
 def case_from_dict(d: dict) -> DecisionCase:
     state = str(d.get("state", ""))
-    cat = d.get("category") or d.get("workflow", "general")
+    cat = d.get("category") or d.get("workflow")
+    if not cat:
+        raise ValueError(f"DecisionCase record missing mandatory 'category': {d}")
+    source = d.get("source")
+    if not source:
+        raise ValueError(f"DecisionCase record missing mandatory 'source': {d}")
     split = d.get("split")
-    source = d.get("source", "")
 
     opt_raw = d.get("option")
     if opt_raw is None:

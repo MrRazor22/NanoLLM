@@ -31,7 +31,7 @@ def main(
     )
     console.print(f"\n[bold cyan]Piqo Data Pipeline[/bold cyan]\n")
     console.print("[dim]Ingesting sources, partitioning splits & auditing zero-leakage invariant...[/dim]\n")
-    splits = dataset.prepare()
+    splits = dataset.splits(refresh=True)
 
     all_cases = list(splits.train) + list(splits.val) + list(splits.test)
     source_counts = Counter((c.source or "unknown", c.category or "general") for c in all_cases)
