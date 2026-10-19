@@ -2,8 +2,7 @@ import logging
 from typing import List, Optional, Protocol, Sequence, runtime_checkable
 
 from data.case import DataSplits, DecisionCase
-from data.policies.leakage import ILeakagePolicy, NGramLeakagePolicy
-from data.policies.storage import DiskStoragePolicy, IStoragePolicy
+from data.storage import DiskStoragePolicy, IStoragePolicy
 from data.split.split import BudgetSplitPolicy, ISplitPolicy
 from data.sources.source import IDataSource, get_available_sources
 
@@ -16,30 +15,26 @@ class IDataset(Protocol):
     def load(self) -> DataSplits: ...
 
 class Dataset(IDataset):
-    """Sovereign Core Primitive: manages source registration, split preparation, zero leakage, and in-memory access."""
+    """Sovereign Core Primitive: manages source registration, split preparation, and in-memory access."""
 
     def __init__(
         self,
         split_policy: Optional[ISplitPolicy] = None,
-        leakage_policy: Optional[ILeakagePolicy] = None,
         storage_policy: Optional[IStoragePolicy] = None,
         sources: Optional[Sequence[IDataSource]] = None,
     ):
         self.split_policy = split_policy or BudgetSplitPolicy()
-        self.leakage_policy = leakage_policy or NGramLeakagePolicy()
         self.storage = storage_policy or DiskStoragePolicy()
         self.sources: Sequence[IDataSource] = sources if sources is not None else get_available_sources()
         self._splits: Optional[DataSplits] = None
 
     def build(self) -> DataSplits:
-        """Forces fresh ingestion from all sources, partitions splits, enforces zero-leakage, and persists corpus."""
         if not self.sources:
             raise ValueError("No data sources registered for dataset preparation.")
 
         raw_cases: List[DecisionCase] = []
         for src in self.sources:
-            cases = src.cases()
-            raw_cases.extend(cases)
+            raw_cases.extend(src.cases())
         logger.info("Ingested %d raw cases across %d sources", len(raw_cases), len(self.sources))
         splits = self.split_policy.partition(raw_cases)
         self._splits = splits
@@ -47,7 +42,6 @@ class Dataset(IDataset):
         return splits
 
     def load(self) -> DataSplits:
-        """Delivers cached or stored splits, automatically building from sources if not yet persisted."""
         if self._splits is not None:
             return self._splits
         try:

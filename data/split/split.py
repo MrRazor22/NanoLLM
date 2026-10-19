@@ -1,10 +1,11 @@
 from dataclasses import replace
+import itertools
 import logging
 import random
 from typing import Optional, Protocol, Sequence, runtime_checkable
 from data.case import DataSplits, DecisionCase
-from data.policies.leakage import ILeakagePolicy, NGramLeakagePolicy
-from data.split.stratification import IStratificationPolicy, RoundRobinStratification
+from data.split.policies.leakage import ILeakagePolicy, JaccardLeakagePolicy
+from data.split.policies.stratification import IStratificationPolicy, RoundRobinStratification
 
 logger = logging.getLogger(__name__)
 
@@ -14,71 +15,51 @@ class ISplitPolicy(Protocol):
     def partition(self, cases: Sequence[DecisionCase]) -> DataSplits: ...
 
 class BudgetSplitPolicy(ISplitPolicy):
-    """Partitions source cases with symmetric per-category caps, balanced class stratification, and leakage-decontamination refill."""
+    """Partitions cases per-category with balanced stratification and lazy leakage decontamination."""
 
     def __init__(
         self,
-        max_train_per_category: int = 1500,
-        max_val_per_category: int = 150,
-        max_test_per_category: int = 400,
+        max_train: int = 1500,
+        max_val: int = 150,
+        max_test: int = 400,
         stratifier: Optional[IStratificationPolicy] = None,
-        leakage_policy: Optional[ILeakagePolicy] = None,
+        leakage: Optional[ILeakagePolicy] = None,
         seed: int = 42,
     ):
-        self.max_train_per_category = max_train_per_category
-        self.max_val_per_category = max_val_per_category
-        self.max_test_per_category = max_test_per_category
+        self.max_train = max_train
+        self.max_val = max_val
+        self.max_test = max_test
         self.stratifier = stratifier or RoundRobinStratification()
-        self.leakage_policy = leakage_policy or NGramLeakagePolicy()
+        self.leakage = leakage or JaccardLeakagePolicy()
         self.seed = seed
 
     def partition(self, cases: Sequence[DecisionCase]) -> DataSplits:
         rng = random.Random(self.seed)
-
-        cases_by_cat: dict[str, list[DecisionCase]] = {}
+        by_cat: dict[str, list[DecisionCase]] = {}
         for c in cases:
-            if not c.category:
-                raise ValueError(f"DecisionCase missing mandatory category tag from source '{c.source}'.")
-            cases_by_cat.setdefault(c.category, []).append(c)
+            by_cat.setdefault(c.category, []).append(c)
 
         train_all: list[DecisionCase] = []
         val_all: list[DecisionCase] = []
         test_all: list[DecisionCase] = []
 
-        for cat, items in cases_by_cat.items():
+        for cat, items in by_cat.items():
             tests = [c for c in items if c.split == "test"]
-            train_pool = [c for c in items if c.split != "test"]
+            cat_test = self.stratifier.balance(tests, self.max_test, rng) if tests else []
 
-            cat_test: list[DecisionCase] = []
-            if tests:
-                cat_test = [replace(c, split="test") for c in self.stratifier.balance(tests, self.max_test_per_category, rng)]
-                test_all.extend(cat_test)
+            # Stream balanced candidates, filter leaks lazily, and take target quota
+            pool = [c for c in items if c.split != "test"]
+            balanced_stream = self.stratifier.stream(pool, rng)
+            clean_stream = self.leakage.filter(balanced_stream, cat_test)
 
-            # 1. Stratify the ENTIRE training pool upfront to establish fair class balance
-            stratified_pool = self.stratifier.balance(train_pool, len(train_pool), rng)
+            target_quota = self.max_val + self.max_train
+            selected = list(itertools.islice(clean_stream, target_quota))
 
-            # 2. Leakage filter across the stratified stream, refilling until target quota is satisfied
-            target_quota = self.max_val_per_category + self.max_train_per_category
-            clean_selected: list[DecisionCase] = []
-            pool_offset = 0
+            test_all.extend(replace(c, split="test") for c in cat_test)
+            val_all.extend(replace(c, split="val") for c in selected[:self.max_val])
+            train_all.extend(replace(c, split="train") for c in selected[self.max_val:])
 
-            while len(clean_selected) < target_quota and pool_offset < len(stratified_pool):
-                needed = target_quota - len(clean_selected)
-                batch = stratified_pool[pool_offset : pool_offset + needed]
-                pool_offset += len(batch)
-                
-                clean_batch = list(self.leakage_policy.filter(batch, cat_test))
-                clean_selected.extend(clean_batch)
-
-            # 3. Final split into val and train
-            val_slice = clean_selected[:self.max_val_per_category]
-            train_slice = clean_selected[self.max_val_per_category:]
-
-            val_all.extend(replace(c, split="val") for c in val_slice)
-            train_all.extend(replace(c, split="train") for c in train_slice)
-
-        splits = DataSplits(train=train_all, val=val_all, test=test_all)
-        logger.info("Budget partition: %d train, %d val, %d test across %d categories", len(train_all), len(val_all), len(test_all), len(cases_by_cat))
-        return splits
+        logger.info("Budget partition: %d train, %d val, %d test across %d categories", len(train_all), len(val_all), len(test_all), len(by_cat))
+        return DataSplits(train=train_all, val=val_all, test=test_all)
 
 __all__ = ["ISplitPolicy", "BudgetSplitPolicy"]
