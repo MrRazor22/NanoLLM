@@ -14,15 +14,15 @@ class ILeakagePolicy(Protocol):
         holdouts: Sequence[DecisionCase],
     ) -> Sequence[DecisionCase]: ...
 
-def tokenize_state(st: str) -> Tuple[str, ...]:
-    """Pure domain transform: decomposes state text into lowercase lexical tokens."""
-    return tuple(re.findall(r"\w+", st.lower()))
+def tokenize_words(st: str) -> set[str]:
+    """Pure domain transform: decomposes state text into a set of lowercase lexical tokens."""
+    return set(re.findall(r"\w+", st.lower()))
 
 class NGramLeakagePolicy(ILeakagePolicy):
-    """Filters candidate cases that duplicate or share n-gram shingles with holdout cases."""
+    """Filters candidate cases that duplicate or share high lexical similarity with holdout cases within the same category."""
 
-    def __init__(self, n_gram: int = 10):
-        self.n_gram = n_gram
+    def __init__(self, jaccard_threshold: float = 0.80):
+        self.jaccard_threshold = jaccard_threshold
 
     def filter(
         self,
@@ -32,24 +32,42 @@ class NGramLeakagePolicy(ILeakagePolicy):
         if not candidates or not holdouts:
             return list(candidates)
 
-        exact_holdouts: Set[Tuple[str, ...]] = set()
-        holdout_shingles: Set[Tuple[str, ...]] = set()
-
+        holdouts_by_cat: dict[str, list[set[str]]] = {}
         for h in holdouts:
-            toks = tokenize_state(h.state)
+            toks = tokenize_words(h.state)
             if toks:
-                exact_holdouts.add(toks)
-                if len(toks) >= self.n_gram:
-                    holdout_shingles.update(toks[i : i + self.n_gram] for i in range(len(toks) - self.n_gram + 1))
+                holdouts_by_cat.setdefault(h.category, []).append(toks)
 
         clean: list[DecisionCase] = []
         for c in candidates:
-            toks = tokenize_state(c.state)
-            if toks in exact_holdouts or (len(toks) >= self.n_gram and any(toks[i : i + self.n_gram] in holdout_shingles for i in range(len(toks) - self.n_gram + 1))):
+            c_toks = tokenize_words(c.state)
+            if not c_toks:
                 continue
+
+            h_list = holdouts_by_cat.get(c.category)
+            if h_list:
+                is_leak = False
+                for h_toks in h_list:
+                    if c_toks == h_toks:
+                        is_leak = True
+                        break
+                    inter = len(c_toks & h_toks)
+                    if inter / len(c_toks | h_toks) >= self.jaccard_threshold:
+                        is_leak = True
+                        break
+                if is_leak:
+                    continue
+
             clean.append(c)
 
-        logger.info("Audited %d candidates vs %d holdouts (%d-gram) -> kept %d, pruned %d", len(candidates), len(holdouts), self.n_gram, len(clean), len(candidates) - len(clean))
+        logger.info(
+            "Audited %d candidates vs %d holdouts (Jaccard >= %.0f%%) -> kept %d, pruned %d",
+            len(candidates),
+            len(holdouts),
+            self.jaccard_threshold * 100,
+            len(clean),
+            len(candidates) - len(clean),
+        )
         return clean
 
 __all__ = ["ILeakagePolicy", "NGramLeakagePolicy"]

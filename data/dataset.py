@@ -42,12 +42,6 @@ class Dataset(IDataset):
             raw_cases.extend(cases)
         logger.info("Ingested %d raw cases across %d sources", len(raw_cases), len(self.sources))
         splits = self.split_policy.partition(raw_cases)
-
-        filtered_val = self.leakage_policy.filter(splits.val, splits.test)
-        filtered_train = self.leakage_policy.filter(splits.train, splits.test)
-        filtered_train = self.leakage_policy.filter(filtered_train, filtered_val)
-
-        splits = DataSplits(train=filtered_train, val=filtered_val, test=splits.test)
         self._splits = splits
         self.storage.save(splits)
         return splits
