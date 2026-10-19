@@ -1,7 +1,7 @@
 from pathlib import Path
 from typing import Mapping, Sequence
-from data.case import DecisionCase, case_from_dict
-from benchmark.suites.suite import IBenchmarkSuite, load_verified_manifest
+from data.case import DecisionCase
+from benchmark.suites.suite import IBenchmarkSuite, load_verified_manifest, adapt_manifest_case
 
 BENCHMARK_MANIFESTS_DIR = Path(__file__).resolve().parent / "manifests"
 
@@ -35,5 +35,5 @@ class KevTransferSuite(IBenchmarkSuite):
             row = json.loads(line)
             if not row.get("category"):
                 row["category"] = row.get("_meta", {}).get("source", "transfer")
-            cases.append(case_from_dict(row, source=self.name))
+            cases.append(adapt_manifest_case(row, source=self.name))
         return cases

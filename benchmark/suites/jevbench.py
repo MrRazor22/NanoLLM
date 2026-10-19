@@ -1,7 +1,7 @@
 from pathlib import Path
 from typing import Mapping, Sequence
-from data.case import DecisionCase, case_from_dict
-from benchmark.suites.suite import IBenchmarkSuite, load_verified_manifest
+from data.case import DecisionCase
+from benchmark.suites.suite import IBenchmarkSuite, load_verified_manifest, adapt_manifest_case
 
 BENCHMARK_MANIFESTS_DIR = Path(__file__).resolve().parent / "manifests"
 
@@ -28,4 +28,4 @@ class JevBenchSuite(IBenchmarkSuite):
     def load_cases(self) -> Sequence[DecisionCase]:
         import json
         content = load_verified_manifest(BENCHMARK_MANIFESTS_DIR / "jevbench_231.jsonl", "d2677f4d6f1e2063657183a36f4dbd92c0383136c050084701e2ee3d6ccc49a6")
-        return [case_from_dict(json.loads(line), source=self.name) for line in content.decode("utf-8").splitlines() if line.strip()]
+        return [adapt_manifest_case(json.loads(line), source=self.name) for line in content.decode("utf-8").splitlines() if line.strip()]

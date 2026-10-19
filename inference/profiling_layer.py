@@ -1,6 +1,6 @@
 import time
 from typing import Optional
-from data.case import IOption
+from inference.options import IOption
 from inference.decision_engine import IDecisionEngine, IDecisionEngineLayer
 
 def synchronize_device() -> None:

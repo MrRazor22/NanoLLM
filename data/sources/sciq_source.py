@@ -1,6 +1,6 @@
 from typing import List, Sequence
 
-from data.case import ChoiceAnswer, ChoiceOption, DecisionCase
+from data.case import DecisionCase
 from data.sources.source import IDataSource
 from data.sources.source import load_raw_jsonl
 
@@ -29,21 +29,22 @@ class SciQSource(IDataSource):
                 if not question or not correct or not d1 or not d2 or not d3:
                     continue
 
-                options = [correct, d1, d2, d3]
+                options = (correct, d1, d2, d3)
                 if len(set(options)) < 4:
                     continue
 
-                case = DecisionCase(
-                    state=question,
-                    option=ChoiceOption(
-                        options=options,
-                        answer=ChoiceAnswer(choice=correct, confidence=1.0, probabilities={correct: 1.0}),
-                    ),
-                    category="scientific_reasoning",
-                    split="test" if is_test else "train",
-                    source=self.name,
+                probs = {c: (1.0 if c == correct else 0.0) for c in options}
+
+                cases.append(
+                    DecisionCase(
+                        state=question,
+                        candidates=options,
+                        probabilities=probs,
+                        category="scientific_reasoning",
+                        split="test" if is_test else "train",
+                        source=self.name,
+                    )
                 )
-                cases.append(case)
 
         return cases
 

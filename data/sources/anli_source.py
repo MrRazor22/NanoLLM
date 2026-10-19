@@ -1,10 +1,10 @@
 from typing import List, Sequence
 
-from data.case import ChoiceAnswer, ChoiceOption, DecisionCase
+from data.case import DecisionCase
 from data.sources.source import IDataSource
 from data.sources.source import load_raw_jsonl
 
-NLI_OPTIONS = ["Entailment", "Neutral", "Contradiction"]
+NLI_OPTIONS = ("Entailment", "Neutral", "Contradiction")
 NLI_INSTRUCTION = "What is the logical relationship between the context and the statement?"
 
 class ANLISource(IDataSource):
@@ -39,16 +39,16 @@ class ANLISource(IDataSource):
 
                     lbl_str = NLI_OPTIONS[int(label)]
                     state = f"Premise: {premise}\nHypothesis: {hypothesis}"
-                    case = DecisionCase(
-                        state=state,
-                        option=ChoiceOption(
-                            options=list(NLI_OPTIONS),
-                            answer=ChoiceAnswer(choice=lbl_str, confidence=1.0, probabilities={lbl_str: 1.0}),
-                        ),
-                        category="adversarial_reasoning",
-                        split="test" if is_test else "train",
-                        source=self.name,
+                    probs = {c: (1.0 if c == lbl_str else 0.0) for c in NLI_OPTIONS}
+                    cases.append(
+                        DecisionCase(
+                            state=state,
+                            candidates=NLI_OPTIONS,
+                            probabilities=probs,
+                            category="adversarial_reasoning",
+                            split="test" if is_test else "train",
+                            source=self.name,
+                        )
                     )
-                    cases.append(case)
 
         return cases

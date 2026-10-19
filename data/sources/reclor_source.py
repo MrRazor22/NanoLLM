@@ -1,6 +1,6 @@
 from typing import List, Sequence
 
-from data.case import ChoiceAnswer, ChoiceOption, DecisionCase
+from data.case import DecisionCase
 from data.sources.source import IDataSource
 from data.sources.source import load_raw_jsonl
 
@@ -35,18 +35,20 @@ class ReClorSource(IDataSource):
                     continue
 
                 state = f"Context: {context}\nQuestion: {question}" if question else context
-                tgt_str = answers[idx]
-                case = DecisionCase(
-                    state=state,
-                    option=ChoiceOption(
-                        options=answers,
-                        answer=ChoiceAnswer(choice=tgt_str, confidence=1.0, probabilities={tgt_str: 1.0}),
-                    ),
-                    category="logical_reasoning",
-                    split="test" if is_test else "train",
-                    source=self.name,
+                cands_tuple = tuple(answers)
+                tgt_str = cands_tuple[idx]
+                probs = {c: (1.0 if c == tgt_str else 0.0) for c in cands_tuple}
+
+                cases.append(
+                    DecisionCase(
+                        state=state,
+                        candidates=cands_tuple,
+                        probabilities=probs,
+                        category="logical_reasoning",
+                        split="test" if is_test else "train",
+                        source=self.name,
+                    )
                 )
-                cases.append(case)
 
         return cases
 

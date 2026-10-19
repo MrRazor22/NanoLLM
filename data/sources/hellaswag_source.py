@@ -1,6 +1,6 @@
 from typing import List, Sequence
 
-from data.case import ChoiceAnswer, ChoiceOption, DecisionCase
+from data.case import DecisionCase
 from data.sources.source import IDataSource
 from data.sources.source import load_raw_jsonl
 
@@ -35,20 +35,20 @@ class HellaSwagSource(IDataSource):
                 if target_idx < 0 or target_idx >= len(endings):
                     continue
 
-                cleaned_endings = [e.lstrip(", ").strip() for e in endings]
+                cleaned_endings = tuple(e.lstrip(", ").strip() for e in endings)
                 target_str = cleaned_endings[target_idx]
+                probs = {c: (1.0 if c == target_str else 0.0) for c in cleaned_endings}
 
-                case = DecisionCase(
-                    state=state,
-                    option=ChoiceOption(
-                        options=cleaned_endings,
-                        answer=ChoiceAnswer(choice=target_str, confidence=1.0, probabilities={target_str: 1.0}),
-                    ),
-                    category="adversarial_grounding",
-                    split="test" if is_test else "train",
-                    source=self.name,
+                cases.append(
+                    DecisionCase(
+                        state=state,
+                        candidates=cleaned_endings,
+                        probabilities=probs,
+                        category="adversarial_grounding",
+                        split="test" if is_test else "train",
+                        source=self.name,
+                    )
                 )
-                cases.append(case)
 
         return cases
 

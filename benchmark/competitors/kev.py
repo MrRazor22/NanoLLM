@@ -1,6 +1,6 @@
 from typing import Optional
 import httpx
-from data.case import (
+from inference.options import (
     ChoiceAnswer, ChoiceOption, IOption, NoulAnswer, NoulOption,
     ScoreAnswer, ScoreOption,
 )

@@ -1,7 +1,7 @@
 import random
 import re
 from typing import List, Sequence
-from data.case import ChoiceAnswer, ChoiceOption, DecisionCase
+from data.case import DecisionCase
 from data.sources.source import IDataSource
 from data.sources.source import load_raw_jsonl
 
@@ -51,15 +51,17 @@ class GlaiveSource(IDataSource):
                     for d in rng.sample(distractor_names, sample_k):
                         candidates[d] = tool_registry[d]
 
+            cands_tuple = tuple(cands_list)
+            target_str = cands_list[label_idx]
+            probs = {c: (1.0 if c == target_str else 0.0) for c in cands_tuple}
+
             case = DecisionCase(
                 state=query,
-                option=ChoiceOption(
-                    options=candidates,
-                    answer=ChoiceAnswer(choice=fn, confidence=1.0, probabilities={fn: 1.0}),
-                ),
+                candidates=cands_tuple,
+                probabilities=probs,
                 category="function_calling",
-                split="test" if is_test else "train",
                 source=self.name,
+                split="test" if is_test else "train",
             )
             cases.append(case)
         return cases

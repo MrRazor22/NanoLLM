@@ -1,7 +1,7 @@
 from dataclasses import dataclass
 from typing import List, Optional, Sequence
 
-from data.case import ChoiceAnswer, ChoiceOption, DecisionCase
+from data.case import DecisionCase
 from data.sources.source import IDataSource, RAW_DIR, load_raw_jsonl
 
 @dataclass(frozen=True, slots=True)
@@ -79,15 +79,16 @@ class HuggingFaceSource(IDataSource):
                 if label_str not in options:
                     options = sorted(list(set(options + [label_str])))
 
+                cands_tuple = tuple(options)
+                probs = {c: (1.0 if c == label_str else 0.0) for c in cands_tuple}
+
                 case = DecisionCase(
                     state=text[:2000],
-                    option=ChoiceOption(
-                        options=options,
-                        answer=ChoiceAnswer(choice=label_str, confidence=1.0, probabilities={label_str: 1.0}),
-                    ),
+                    candidates=cands_tuple,
+                    probabilities=probs,
                     category=self.spec.category,
-                    split="test" if is_test else "train",
                     source=self.name,
+                    split="test" if is_test else "train",
                 )
                 cases.append(case)
 

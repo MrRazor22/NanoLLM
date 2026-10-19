@@ -1,7 +1,7 @@
 from pathlib import Path
 from typing import Mapping, Sequence
-from data.case import DecisionCase, case_from_dict
-from benchmark.suites.suite import IBenchmarkSuite, load_verified_manifest
+from data.case import DecisionCase
+from benchmark.suites.suite import IBenchmarkSuite, load_verified_manifest, adapt_manifest_case
 
 BENCHMARK_MANIFESTS_DIR = Path(__file__).resolve().parent / "manifests"
 
@@ -30,4 +30,4 @@ class LayaTypedDecisionsSuite(IBenchmarkSuite):
         path = BENCHMARK_MANIFESTS_DIR / "typed_decisions_test.parquet"
         url = "https://huggingface.co/datasets/LocalLLaMA/typed-decisions/resolve/main/all/test-00000-of-00001.parquet"
         load_verified_manifest(path, "4f294f218ea1da27f3efef936359389c62ea4d3973a41457732990f1d31b647c", url)
-        return [case_from_dict(r, source=self.name) for r in pq.read_table(path).to_pylist()]
+        return [adapt_manifest_case(r, source=self.name) for r in pq.read_table(path).to_pylist()]

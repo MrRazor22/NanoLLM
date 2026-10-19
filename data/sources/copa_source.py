@@ -1,6 +1,6 @@
 from typing import List, Sequence
 
-from data.case import ChoiceAnswer, ChoiceOption, DecisionCase
+from data.case import DecisionCase
 from data.sources.source import IDataSource
 from data.sources.source import load_raw_jsonl
 
@@ -21,7 +21,6 @@ class COPASource(IDataSource):
                 premise = str(r.get("premise", "")).strip()
                 choice1 = str(r.get("choice1", "")).strip()
                 choice2 = str(r.get("choice2", "")).strip()
-                q_type = str(r.get("question", "cause")).strip().lower()
                 label_raw = r.get("label")
 
                 if not premise or not choice1 or not choice2 or label_raw is None:
@@ -32,24 +31,23 @@ class COPASource(IDataSource):
                 except ValueError:
                     continue
 
-                options = [choice1, choice2]
+                options = (choice1, choice2)
                 if target_idx < 0 or target_idx >= len(options):
                     continue
 
-                instruction = "What was the cause of the premise?" if q_type == "cause" else "What was the effect of the premise?"
                 target_str = options[target_idx]
+                probs = {c: (1.0 if c == target_str else 0.0) for c in options}
 
-                case = DecisionCase(
-                    state=premise,
-                    option=ChoiceOption(
-                        options=options,
-                        answer=ChoiceAnswer(choice=target_str, confidence=1.0, probabilities={target_str: 1.0}),
-                    ),
-                    category="causal_reasoning",
-                    split="test" if is_test else "train",
-                    source=self.name,
+                cases.append(
+                    DecisionCase(
+                        state=premise,
+                        candidates=options,
+                        probabilities=probs,
+                        category="causal_reasoning",
+                        split="test" if is_test else "train",
+                        source=self.name,
+                    )
                 )
-                cases.append(case)
 
         return cases
 

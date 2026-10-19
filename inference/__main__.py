@@ -8,7 +8,7 @@ import typer
 os.environ["TOKENIZERS_PARALLELISM"] = "false"
 warnings.filterwarnings("ignore")
 
-from data.case import ChoiceAnswer, ChoiceOption, IOption, NoulAnswer, NoulOption, ScoreAnswer, ScoreOption
+from inference.options import ChoiceAnswer, ChoiceOption, IOption, NoulAnswer, NoulOption, ScoreAnswer, ScoreOption
 from inference.decision_engine import DecisionEngine, IDecisionEngine
 from inference.profiling_layer import ProfilingLayer
 from model.weights import list_weights

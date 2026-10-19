@@ -1,49 +1,31 @@
-import itertools
+from collections import defaultdict
 import random
 from typing import Iterator, Protocol, Sequence, runtime_checkable
-from data.case import ChoiceAnswer, DecisionCase, NoulAnswer
 
-def label_key(case: DecisionCase) -> str:
-    ans = case.option.answer
-    if ans is None:
-        return ""
-    if isinstance(ans, ChoiceAnswer):
-        return str(ans.choice)
-    if isinstance(ans, NoulAnswer):
-        return str(ans.decision)
-    return str(ans.score)
+from data.case import DecisionCase, case_choice
 
 @runtime_checkable
 class IStratificationPolicy(Protocol):
-    """Sub-Primitive Contract: Balances cases evenly across label classes."""
-    def stream(self, cases: Sequence[DecisionCase], rng: random.Random) -> Iterator[DecisionCase]: ...
-    def balance(self, cases: Sequence[DecisionCase], quota: int, rng: random.Random) -> list[DecisionCase]: ...
+    """Sub-Primitive Contract: Yields balanced cases evenly across label classes."""
+    def balance(self, cases: Sequence[DecisionCase], rng: random.Random) -> Iterator[DecisionCase]: ...
 
 class RoundRobinStratification(IStratificationPolicy):
-    """Fair round-robin class stratification ensuring balanced label representations."""
+    """Fair round-robin class stratification ensuring balanced representation."""
 
-    def stream(self, cases: Sequence[DecisionCase], rng: random.Random) -> Iterator[DecisionCase]:
+    def balance(self, cases: Sequence[DecisionCase], rng: random.Random) -> Iterator[DecisionCase]:
         if not cases:
             return
 
-        by_label: dict[str, list[DecisionCase]] = {}
+        buckets = defaultdict(list)
         for c in cases:
-            by_label.setdefault(label_key(c), []).append(c)
+            buckets[case_choice(c)].append(c)
 
-        for g in by_label.values():
-            rng.shuffle(g)
+        for b in buckets.values():
+            rng.shuffle(b)
 
-        groups = [g for g in by_label.values() if g]
-        while groups:
-            for g in list(groups):
-                if g:
-                    yield g.pop()
-                else:
-                    groups.remove(g)
-
-    def balance(self, cases: Sequence[DecisionCase], quota: int, rng: random.Random) -> list[DecisionCase]:
-        if not cases or quota <= 0:
-            return []
-        return list(itertools.islice(self.stream(cases, rng), quota))
+        while any(buckets.values()):
+            for b in buckets.values():
+                if b:
+                    yield b.pop()
 
 __all__ = ["IStratificationPolicy", "RoundRobinStratification"]

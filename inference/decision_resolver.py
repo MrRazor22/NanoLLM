@@ -1,8 +1,9 @@
 from typing import Protocol, Sequence, runtime_checkable
 import scipy.special as sp
-from data.case import (
+
+from inference.options import (
     ChoiceAnswer, ChoiceOption, IOption, NoulAnswer, NoulOption,
-    ScoreAnswer, ScoreOption, score_from_norm,
+    ScoreAnswer, ScoreOption,
 )
 
 @runtime_checkable
@@ -38,10 +39,15 @@ class DecisionResolver(IResolver):
                 )
                 return ChoiceOption(options=opts, answer=ans)
             case NoulOption():
-                prob = float(sp.expit(scores[slot_indices[0]]))
-                ans = NoulAnswer(decision=prob >= 0.5, confidence=prob if prob >= 0.5 else 1.0 - prob)
+                if len(slot_indices) >= 2:
+                    probs = sp.softmax([scores[i] for i in slot_indices])
+                    p_true = float(probs[1])
+                else:
+                    p_true = float(sp.expit(scores[slot_indices[0]]))
+                ans = NoulAnswer(decision=p_true >= 0.5, confidence=p_true if p_true >= 0.5 else 1.0 - p_true)
                 return NoulOption(answer=ans)
-            case ScoreOption(min_value=min_v, max_value=max_v):
-                norm = float(sp.expit(scores[slot_indices[0]]))
-                ans = ScoreAnswer(score=score_from_norm(option, norm), confidence=1.0)
-                return ScoreOption(min_value=min_v, max_value=max_v, answer=ans)
+            case ScoreOption(criteria=crit):
+                probs = sp.softmax([scores[i] for i in slot_indices])
+                expected = float(sum(i * p for i, p in enumerate(probs)))
+                ans = ScoreAnswer(score=expected, confidence=float(max(probs)), probabilities=list(probs))
+                return ScoreOption(criteria=crit, answer=ans)

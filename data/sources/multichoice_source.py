@@ -1,6 +1,6 @@
 from dataclasses import dataclass
 from typing import List, Optional, Sequence
-from data.case import ChoiceAnswer, ChoiceOption, DecisionCase
+from data.case import DecisionCase
 from data.sources.source import IDataSource
 from data.sources.source import load_raw_jsonl
 
@@ -96,12 +96,12 @@ class MultiChoiceReasoningSource(IDataSource):
                     continue
 
                 tgt_str = texts[target_idx]
+                cands_tuple = tuple(texts)
+                probs = {c: (1.0 if c == tgt_str else 0.0) for c in cands_tuple}
                 case = DecisionCase(
                     state=state,
-                    option=ChoiceOption(
-                        options=texts,
-                        answer=ChoiceAnswer(choice=tgt_str, confidence=1.0, probabilities={tgt_str: 1.0}),
-                    ),
+                    candidates=cands_tuple,
+                    probabilities=probs,
                     category=self.spec.category,
                     split="test" if is_test else "train",
                     source=self.name,

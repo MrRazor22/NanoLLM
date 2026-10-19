@@ -20,12 +20,16 @@ from training.telemetry.checkpointing_layer import CheckpointingLayer
 from training.telemetry.metrics_layer import MetricsLayer
 from training.stats import StepStats
 from data.dataset import IDataset, Dataset
-from data.case import (
-    DataSplits, DecisionCase,
+from inference.options import (
     IAnswer, ChoiceAnswer, NoulAnswer, ScoreAnswer,
     IOption, ChoiceOption, NoulOption, ScoreOption,
-    format_state, choice_keys, choice_target_index, shuffle_choice,
-    score_to_norm, score_from_norm, matches_answer,
+    choice_keys, choice_target_index, shuffle_choice,
+    score_keys, score_target_index, matches_answer,
+)
+from model.policies.layout import format_state
+from data.case import (
+    DataSplits, DecisionCase,
+    case_choice, case_confidence, case_target_index,
     case_to_dict, case_from_dict,
 )
 from data.storage import IStoragePolicy, DiskStoragePolicy
@@ -83,9 +87,12 @@ __all__ = [
     "choice_keys",
     "choice_target_index",
     "shuffle_choice",
-    "score_to_norm",
-    "score_from_norm",
+    "score_keys",
+    "score_target_index",
     "matches_answer",
+    "case_choice",
+    "case_confidence",
+    "case_target_index",
     "case_to_dict",
     "case_from_dict",
     "list_weights",

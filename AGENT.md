@@ -11,6 +11,15 @@
   5. **Benchmark:** [`benchmark/`](file:///d:/CodeBase/Piqo/benchmark) — [`IBenchmark`](file:///d:/CodeBase/Piqo/benchmark/benchmark.py), [`Benchmark`](file:///d:/CodeBase/Piqo/benchmark/benchmark.py), [`IScorerPolicy`](file:///d:/CodeBase/Piqo/benchmark/policies/scorer.py), [`ILedgerPolicy`](file:///d:/CodeBase/Piqo/benchmark/policies/ledger.py), [`IReporterPolicy`](file:///d:/CodeBase/Piqo/benchmark/policies/reporter.py)
 - **Zero Meta-Buckets & Zero Nesting:** Root commands the sovereign domains directly as siblings with 1:1 disk topology.
 - **Zero Billboard Comments & Decorative Noise:** NEVER write ASCII banner lines, decorative dividers, or billboard section headers (`# --------...`, `// ======...`). Comments must be rare, subtle, and strictly concise explanations of non-obvious logic.
+- **System One Unified Candidate Decision Doctrine:**
+  - **Single Universal Model Primitive:** Model boundary evaluates only $\text{Context} \to \text{Candidates} \to \mathbf{p} \in \Delta^{K-1}$. The neural backbone has zero awareness of question types.
+  - **Pure Data Primitive:** `DecisionCase` in `data/case.py` contains strictly `(state, candidates, probabilities, category, source)`. Zero option or answer types exist in the data layer. `case_choice()` and `case_confidence()` are pure derived projections.
+  - **Fail-Fast Invariant (Zero Silent Fallbacks):** Never write defensive fallback branches, magical `0` defaults, or sneaky swallowing of missing candidates. If a derived choice is not present in `candidates`, throw immediately (`ValueError`). If a state or category is missing, abort. Defensive fallbacks corrupt training data and mask upstream pipeline bugs.
+  - **High-Level Ergonomic Layer:** `ChoiceOption`, `NoulOption`, and `ScoreOption` live strictly at the user-facing inference boundary (`inference/options.py`).
+    - `ChoiceOption`: Unordered option selection $\to$ argmax and probability distribution.
+    - `NoulOption`: Binary statement evaluation $\to$ candidates `["false: does not hold", "true: holds"]` $\to$ scalar probability $P(\text{true})$.
+    - `ScoreOption`: Discrete rubric criteria $\to$ candidates derived from semantic levels $\to$ continuous expected level $\sum_{i=0}^{K-1} i \cdot p_i$.
+  - **Consolidated Corpus:** Training and evaluation splits live in a single consolidated schema inside `data/corpus/` (`train.jsonl`, `val.jsonl`, `test.jsonl`). No type-fragmented subdirectories. Raw downloads remain strictly isolated in `data/raw/`.
 
 ## 2. Operational Workflows & Commands (Zero-Flag Self-Wiring Defaults)
 - **Interactive Terminal Playground:**

@@ -11,7 +11,7 @@ from benchmark.benchmark import Benchmark
 from benchmark.registry import AVAILABLE_ENGINES, BENCHMARK_SUITES
 from benchmark.suites.suite import IBenchmarkSuite
 from inference.decision_engine import IDecisionEngine
-from data.case import ChoiceOption
+from inference.options import ChoiceOption
 
 app = typer.Typer(add_completion=False, help="Piqo Sovereign Benchmark CLI")
 

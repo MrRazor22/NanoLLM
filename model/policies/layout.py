@@ -1,11 +1,19 @@
 from typing import Optional, Protocol, Sequence, runtime_checkable
+import random
 import torch
 
-from data.case import (
-    ChoiceOption, DecisionCase, IOption, NoulOption, ScoreOption,
-    choice_target_index, format_state, score_to_norm, shuffle_choice,
-)
+import json
+from data.case import DecisionCase, case_target_index
 from model.token_layout import Batch, SampleTargets, TargetSlot, TokenLayout, TokenSlot
+
+def format_state(state: str) -> str:
+    if state.startswith("{") and state.endswith("}"):
+        try:
+            if isinstance(parsed := json.loads(state), dict):
+                return " | ".join(f"{k}: {v}" for k, v in parsed.items())
+        except json.JSONDecodeError:
+            pass
+    return state
 
 @runtime_checkable
 class ITokenizer(Protocol):
@@ -18,12 +26,12 @@ class ITokenizer(Protocol):
 
 @runtime_checkable
 class ILayout(Protocol):
-    """Opinion Sub-Primitive: Formats and tokenizes decision states and cases into model layouts."""
-    def encode(self, state: str, option: IOption) -> TokenLayout: ...
+    """Opinion Sub-Primitive: Formats and tokenizes decision states and candidate lists into model layouts."""
+    def encode(self, state: str, candidates: Sequence[str]) -> TokenLayout: ...
     def collate(self, cases: Sequence[DecisionCase], shuffle: bool = False) -> Batch: ...
 
 class MaskedLayout(ILayout):
-    """Standard masked token layout policy encoding decision option and candidate slots."""
+    """Standard masked token layout policy encoding candidate options directly into marker slots."""
 
     def __init__(self, tokenizer: Optional[ITokenizer] = None, max_state_tokens: int = 8192):
         if tokenizer is None:
@@ -32,30 +40,19 @@ class MaskedLayout(ILayout):
         self.tokenizer = tokenizer
         self.max_state_tokens = max_state_tokens
 
-    def encode(self, state: str, option: IOption) -> TokenLayout:
+    def encode(self, state: str, candidates: Sequence[str]) -> TokenLayout:
         cls_id = self.tokenizer.cls_token_id
         sep_id = self.tokenizer.sep_token_id
         mask_id = self.tokenizer.mask_token_id
 
         ids = [cls_id, sep_id]
-        slots = []
+        pos = []
 
-        q_type = "choice" if isinstance(option, ChoiceOption) else ("score" if isinstance(option, ScoreOption) else "noul")
-        prompt = f" {q_type} decision:"
-        ids.extend(self.tokenizer.encode(prompt, add_special_tokens=False))
-
-        if isinstance(option, ChoiceOption):
-            pos = []
-            opt_items = option.options.items() if isinstance(option.options, dict) else [(o, None) for o in option.options]
-            for k, v in opt_items:
-                ids.append(mask_id)
-                pos.append(len(ids) - 1)
-                opt_text = f" {k}: {v}" if v else f" {k}"
-                ids.extend(self.tokenizer.encode(opt_text, add_special_tokens=False))
-            slots.append(TokenSlot(pos))
-        else:
+        for cand in candidates:
             ids.append(mask_id)
-            slots.append(TokenSlot([len(ids) - 1]))
+            pos.append(len(ids) - 1)
+            ids.extend(self.tokenizer.encode(f" {cand}", add_special_tokens=False))
+        slots = [TokenSlot(pos)]
 
         ids.append(sep_id)
         state_tokens = self.tokenizer.encode(format_state(state), add_special_tokens=False)
@@ -72,20 +69,19 @@ class MaskedLayout(ILayout):
         all_targets: list[SampleTargets] = []
 
         for c in cases:
-            opt = shuffle_choice(c.option) if shuffle and isinstance(c.option, ChoiceOption) else c.option
-            layout = self.encode(c.state, opt)
+            cands = list(c.candidates)
+            target_label = case_target_index(c)
+            if shuffle and len(cands) > 1:
+                perm = list(range(len(cands)))
+                random.shuffle(perm)
+                cands = [cands[p] for p in perm]
+                target_label = perm.index(target_label) if target_label < len(perm) else 0
+
+            layout = self.encode(c.state, cands)
             padded_layouts.append(layout)
 
-            slots = []
             pos = layout.slots[0]
-            if isinstance(opt, ChoiceOption):
-                slots.append(TargetSlot("choice", pos, choice_target_index(opt)))
-            elif isinstance(opt, ScoreOption):
-                target_val = score_to_norm(opt, opt.answer.score) if opt.answer is not None else 0.0
-                slots.append(TargetSlot("score", pos, target_val))
-            elif isinstance(opt, NoulOption):
-                is_pos = opt.answer.decision if opt.answer is not None else False
-                slots.append(TargetSlot("noul", pos, 1.0 if is_pos else 0.0))
+            slots = [TargetSlot("candidate", pos, target_label)]
             all_targets.append(SampleTargets(slots))
 
         max_len = max((len(l.input_ids) for l in padded_layouts), default=0)

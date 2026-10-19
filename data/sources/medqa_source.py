@@ -1,6 +1,6 @@
 from typing import List, Sequence
 
-from data.case import ChoiceAnswer, ChoiceOption, DecisionCase
+from data.case import DecisionCase
 from data.sources.source import IDataSource
 from data.sources.source import load_raw_jsonl
 
@@ -28,21 +28,22 @@ class MedQASource(IDataSource):
                 if not state or not opts_dict or not answer_str:
                     continue
 
-                options_list = list(opts_dict.values())
-                if len(options_list) < 2 or answer_str not in options_list:
+                options_tuple = tuple(opts_dict.values())
+                if len(options_tuple) < 2 or answer_str not in options_tuple:
                     continue
 
-                case = DecisionCase(
-                    state=state,
-                    option=ChoiceOption(
-                        options=options_list,
-                        answer=ChoiceAnswer(choice=answer_str, confidence=1.0, probabilities={answer_str: 1.0}),
-                    ),
-                    category="differential_elimination",
-                    split="test" if is_test else "train",
-                    source=self.name,
+                probs = {c: (1.0 if c == answer_str else 0.0) for c in options_tuple}
+
+                cases.append(
+                    DecisionCase(
+                        state=state,
+                        candidates=options_tuple,
+                        probabilities=probs,
+                        category="differential_elimination",
+                        split="test" if is_test else "train",
+                        source=self.name,
+                    )
                 )
-                cases.append(case)
 
         return cases
 
