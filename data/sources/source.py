@@ -19,7 +19,7 @@ class MultiSource(IDataSource):
         cases: List[DecisionCase] = []
         for src in self.sources:
             src_cases = src.cases()
-            logger.info("Ingested %s: %d cases", getattr(src, "name", type(src).__name__), len(src_cases))
+            logger.info("Ingested %s: %d cases", type(src).__name__, len(src_cases))
             cases.extend(src_cases)
         logger.info("Consolidated %d decision cases across %d sources", len(cases), len(self.sources))
         return cases

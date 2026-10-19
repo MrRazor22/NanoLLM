@@ -6,12 +6,11 @@ from data.sources.hf_cache import HFCache, IRawCachePolicy
 
 class COPASource(IDataSource):
     """Choice of Plausible Alternatives (COPA) Source: causal directionality and root cause deduction."""
-    name = "superglue_copa"
 
     def __init__(
         self,
-        train_limit: int = 500,
-        test_limit: int = 200,
+        train_limit: Optional[int] = None,
+        test_limit: Optional[int] = None,
         cache: Optional[IRawCachePolicy] = None,
     ):
         self.train_limit = train_limit
@@ -53,7 +52,7 @@ class COPASource(IDataSource):
                         probabilities=probs,
                         category="causal_reasoning",
                         split="test" if is_test else "train",
-                        source=self.name,
+                        source="superglue_copa",
                     )
                 )
 

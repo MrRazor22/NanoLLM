@@ -4,16 +4,13 @@ from data.case import DecisionCase
 from data.sources.source import IDataSource
 from data.sources.hf_cache import HFCache, IRawCachePolicy
 
-MEDQA_INSTRUCTION = "What is the most likely diagnosis, mechanism, or correct next step?"
-
 class MedQASource(IDataSource):
     """Differential Elimination Source: extracts multi-variable clinical elimination decisions."""
-    name = "gbaker_medqa"
 
     def __init__(
         self,
-        train_limit: int = 2000,
-        test_limit: int = 300,
+        train_limit: Optional[int] = None,
+        test_limit: Optional[int] = None,
         cache: Optional[IRawCachePolicy] = None,
     ):
         self.train_limit = train_limit
@@ -47,10 +44,10 @@ class MedQASource(IDataSource):
                         probabilities=probs,
                         category="differential_elimination",
                         split="test" if is_test else "train",
-                        source=self.name,
+                        source="gbaker_medqa",
                     )
                 )
 
         return cases
 
-__all__ = ["MedQASource", "MEDQA_INSTRUCTION"]
+__all__ = ["MedQASource"]

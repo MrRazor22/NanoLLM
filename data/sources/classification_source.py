@@ -41,11 +41,9 @@ class ClassificationSource(IDataSource):
         self.train_limit = train_limit
         self.test_limit = test_limit
         self.cache = cache or HFCache()
-        self.name = self.spec.dataset.replace("/", "_")
-        if self.spec.subset:
-            self.name = f"{self.name}_{self.spec.subset}"
 
     def cases(self) -> Sequence[DecisionCase]:
+        source_tag = f"{self.spec.dataset.replace('/', '_')}_{self.spec.subset}" if self.spec.subset else self.spec.dataset.replace("/", "_")
         split_rows = {
             s: self.cache.load(
                 self.spec.dataset,
@@ -92,7 +90,7 @@ class ClassificationSource(IDataSource):
                     candidates=cands_tuple,
                     probabilities=probs,
                     category=self.spec.category,
-                    source=self.name,
+                    source=source_tag,
                     split="test" if is_test else "train",
                 )
                 cases.append(case)

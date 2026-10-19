@@ -19,18 +19,18 @@ def default_corpus_source() -> IDataSource:
     from data.sources.anli_source import ANLISource
     from data.sources.art_source import ARTSource
     from data.sources.copa_source import COPASource
-    from data.sources.decisions_source import DecisionsSource
+    from data.sources.typed_decisions_source import TypedDecisionsSource
     from data.sources.glaive_source import GlaiveSource
     from data.sources.hellaswag_source import HellaSwagSource
     from data.sources.classification_source import ClassificationSource, STANDARD_CLASSIFICATIONS
     from data.sources.medqa_source import MedQASource
-    from data.sources.multichoice_source import MultiChoiceReasoningSource, MULTICHOICE_REASONING_BENCHMARKS
+    from data.sources.multichoice_source import MultiChoiceSource, STANDARD_MULTICHOICE
     from data.sources.sciq_source import SciQSource
     from data.sources.reclor_source import ReClorSource
 
     return MultiSource([
         GlaiveSource(),
-        DecisionsSource(),
+        TypedDecisionsSource(),
         ANLISource(),
         HellaSwagSource(),
         MedQASource(),
@@ -39,7 +39,7 @@ def default_corpus_source() -> IDataSource:
         SciQSource(),
         ReClorSource(),
         *(ClassificationSource(s) for s in STANDARD_CLASSIFICATIONS),
-        *(MultiChoiceReasoningSource(s) for s in MULTICHOICE_REASONING_BENCHMARKS),
+        *(MultiChoiceSource(s) for s in STANDARD_MULTICHOICE),
     ])
 
 class Dataset(IDataset):

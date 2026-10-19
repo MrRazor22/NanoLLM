@@ -4,16 +4,13 @@ from data.case import DecisionCase
 from data.sources.source import IDataSource
 from data.sources.hf_cache import HFCache, IRawCachePolicy
 
-ART_INSTRUCTION = "Which hypothesis best explains what happened between the observations?"
-
 class ARTSource(IDataSource):
     """Abductive Reasoning in Natural Language (aNLI / ART) Source: deduces latent unstated hypotheses."""
-    name = "allenai_art"
 
     def __init__(
         self,
-        train_limit: int = 2000,
-        test_limit: int = 300,
+        train_limit: Optional[int] = None,
+        test_limit: Optional[int] = None,
         cache: Optional[IRawCachePolicy] = None,
     ):
         self.train_limit = train_limit
@@ -56,10 +53,10 @@ class ARTSource(IDataSource):
                         probabilities=probs,
                         category="abductive_reasoning",
                         split="test" if is_test else "train",
-                        source=self.name,
+                        source="allenai_art",
                     )
                 )
 
         return cases
 
-__all__ = ["ARTSource", "ART_INSTRUCTION"]
+__all__ = ["ARTSource"]

@@ -8,62 +8,40 @@ from data.sources.hf_cache import HFCache, IRawCachePolicy
 class MultiChoiceSpec:
     """Core Domain DTO: Declarative specification for multi-choice reasoning datasets."""
     dataset: str
+    category: str
     subset: Optional[str] = None
     question_field: str = "question"
     choices_field: str = "choices"
     answer_field: str = "answerKey"
-    category: str = "reasoning"
-    instruction: str = "Select the best conclusion:"
     splits: Sequence[str] = ("train", "test")
-    train_limit: Optional[int] = None
-    test_limit: Optional[int] = 300
 
-MULTICHOICE_REASONING_BENCHMARKS: Sequence[MultiChoiceSpec] = (
-    MultiChoiceSpec(
-        dataset="allenai/ai2_arc",
-        subset="ARC-Challenge",
-        question_field="question",
-        category="deductive_reasoning",
-        instruction="Which option best answers the question?",
-    ),
-    MultiChoiceSpec(
-        dataset="allenai/openbookqa",
-        subset="main",
-        question_field="question_stem",
-        category="causal_reasoning",
-        instruction="Which conclusion logically follows?",
-        train_limit=1500,
-    ),
-    MultiChoiceSpec(
-        dataset="tau/commonsense_qa",
-        question_field="question",
-        category="commonsense_reasoning",
-        instruction="Which option best answers the question?",
-        train_limit=2000,
-    ),
-    MultiChoiceSpec(
-        dataset="allenai/qasc",
-        question_field="question",
-        category="multihop_reasoning",
-        instruction="Which option best completes the reasoning chain?",
-        train_limit=2000,
-    ),
+STANDARD_MULTICHOICE: Sequence[MultiChoiceSpec] = (
+    MultiChoiceSpec("allenai/ai2_arc", "deductive_reasoning", subset="ARC-Challenge"),
+    MultiChoiceSpec("allenai/openbookqa", "causal_reasoning", subset="main", question_field="question_stem"),
+    MultiChoiceSpec("tau/commonsense_qa", "commonsense_reasoning"),
+    MultiChoiceSpec("allenai/qasc", "multihop_reasoning"),
 )
 
-class MultiChoiceReasoningSource(IDataSource):
-    """Universal source adapter for multi-choice reasoning benchmarks (ARC, OpenBookQA)."""
+class MultiChoiceSource(IDataSource):
+    """Universal source adapter for multi-choice decision benchmarks (ARC, OpenBookQA)."""
 
-    def __init__(self, spec: Optional[MultiChoiceSpec] = None, cache: Optional[IRawCachePolicy] = None):
-        self.spec = spec or MULTICHOICE_REASONING_BENCHMARKS[0]
+    def __init__(
+        self,
+        spec: Optional[MultiChoiceSpec] = None,
+        train_limit: Optional[int] = None,
+        test_limit: Optional[int] = None,
+        cache: Optional[IRawCachePolicy] = None,
+    ):
+        self.spec = spec or STANDARD_MULTICHOICE[0]
+        self.train_limit = train_limit
+        self.test_limit = test_limit
         self.cache = cache or HFCache()
-        self.name = self.spec.dataset.replace("/", "_")
-        if self.spec.subset:
-            self.name = f"{self.name}_{self.spec.subset}"
 
     def cases(self) -> Sequence[DecisionCase]:
+        source_tag = f"{self.spec.dataset.replace('/', '_')}_{self.spec.subset}" if self.spec.subset else self.spec.dataset.replace("/", "_")
         cases: List[DecisionCase] = []
         for split_name in self.spec.splits:
-            limit = self.spec.test_limit if split_name == "test" else self.spec.train_limit
+            limit = self.test_limit if split_name == "test" else self.train_limit
             rows = self.cache.load(
                 self.spec.dataset,
                 split=split_name,
@@ -72,16 +50,16 @@ class MultiChoiceReasoningSource(IDataSource):
             )
             is_test = split_name == "test"
             for r in rows:
-                state = r.get(self.spec.question_field, "").strip()
-                choices_raw = r.get(self.spec.choices_field, {})
-                ans_key = str(r.get(self.spec.answer_field, "")).strip()
+                state = str(r.get(self.spec.question_field) or "").strip()
+                choices_raw = r.get(self.spec.choices_field) or {}
+                ans_key = str(r.get(self.spec.answer_field) or "").strip()
 
-                if not state or not choices_raw or not ans_key:
+                if not state or not isinstance(choices_raw, dict) or not ans_key:
                     continue
 
-                texts = choices_raw.get("text", [])
-                labels = choices_raw.get("label", [])
-                if not texts or len(texts) < 2:
+                texts = [str(t).strip() for t in choices_raw.get("text", []) if str(t).strip()]
+                labels = [str(lbl).strip() for lbl in choices_raw.get("label", [])]
+                if len(texts) < 2:
                     continue
 
                 target_idx: Optional[int] = None
@@ -104,8 +82,10 @@ class MultiChoiceReasoningSource(IDataSource):
                     probabilities=probs,
                     category=self.spec.category,
                     split="test" if is_test else "train",
-                    source=self.name,
+                    source=source_tag,
                 )
                 cases.append(case)
 
         return cases
+
+__all__ = ["MultiChoiceSpec", "MultiChoiceSource"]

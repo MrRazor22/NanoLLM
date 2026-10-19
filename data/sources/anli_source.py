@@ -5,17 +5,15 @@ from data.sources.source import IDataSource
 from data.sources.hf_cache import HFCache, IRawCachePolicy
 
 NLI_OPTIONS = ("Entailment", "Neutral", "Contradiction")
-NLI_INSTRUCTION = "What is the logical relationship between the context and the statement?"
 
 class ANLISource(IDataSource):
     """Adversarial NLI (ANLI) dataset source: extracts human-crafted counterfactuals and refutations."""
-    name = "facebook_anli"
 
     def __init__(
         self,
-        rounds: Sequence[str] = ("r1", "r2"),
-        train_limit_per_round: int = 1500,
-        test_limit_per_round: int = 200,
+        rounds: Sequence[str] = ("r1", "r2", "r3"),
+        train_limit_per_round: Optional[int] = None,
+        test_limit_per_round: Optional[int] = None,
         cache: Optional[IRawCachePolicy] = None,
     ):
         self.rounds = list(rounds)
@@ -49,8 +47,10 @@ class ANLISource(IDataSource):
                             probabilities=probs,
                             category="adversarial_reasoning",
                             split="test" if is_test else "train",
-                            source=self.name,
+                            source="facebook_anli",
                         )
                     )
 
         return cases
+
+__all__ = ["ANLISource", "NLI_OPTIONS"]

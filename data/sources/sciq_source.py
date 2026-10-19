@@ -1,30 +1,23 @@
-import random
 from typing import List, Optional, Sequence
 
 from data.case import DecisionCase
 from data.sources.source import IDataSource
 from data.sources.hf_cache import HFCache, IRawCachePolicy
 
-SCIQ_INSTRUCTION = "Which option correctly answers the question?"
-
 class SciQSource(IDataSource):
     """Scientific Mechanism & Distractor Elimination Source: scientific reasoning with negative distractors."""
-    name = "allenai_sciq"
 
     def __init__(
         self,
-        train_limit: int = 1500,
-        test_limit: int = 200,
-        seed: int = 42,
+        train_limit: Optional[int] = None,
+        test_limit: Optional[int] = None,
         cache: Optional[IRawCachePolicy] = None,
     ):
         self.train_limit = train_limit
         self.test_limit = test_limit
-        self.seed = seed
         self.cache = cache or HFCache()
 
     def cases(self) -> Sequence[DecisionCase]:
-        rng = random.Random(self.seed)
         cases: List[DecisionCase] = []
         for split_name, is_test in [("train", False), ("validation", True)]:
             limit = self.test_limit if is_test else self.train_limit
@@ -43,8 +36,7 @@ class SciQSource(IDataSource):
                 if len(set(opts)) < 4:
                     continue
 
-                rng.shuffle(opts)
-                options = tuple(opts)
+                options = tuple(sorted(opts))
                 probs = {c: (1.0 if c == correct else 0.0) for c in options}
 
                 cases.append(
@@ -54,10 +46,10 @@ class SciQSource(IDataSource):
                         probabilities=probs,
                         category="scientific_reasoning",
                         split="test" if is_test else "train",
-                        source=self.name,
+                        source="allenai_sciq",
                     )
                 )
 
         return cases
 
-__all__ = ["SciQSource", "SCIQ_INSTRUCTION"]
+__all__ = ["SciQSource"]

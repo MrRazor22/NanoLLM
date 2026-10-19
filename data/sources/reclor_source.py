@@ -6,12 +6,11 @@ from data.sources.hf_cache import HFCache, IRawCachePolicy
 
 class ReClorSource(IDataSource):
     """ReClor Logical Reasoning Source: LSAT multi-constraint argument analysis and fallacy elimination."""
-    name = "reclor"
 
     def __init__(
         self,
-        train_limit: int = 2000,
-        test_limit: int = 400,
+        train_limit: Optional[int] = None,
+        test_limit: Optional[int] = None,
         cache: Optional[IRawCachePolicy] = None,
     ):
         self.train_limit = train_limit
@@ -52,7 +51,7 @@ class ReClorSource(IDataSource):
                         probabilities=probs,
                         category="logical_reasoning",
                         split="test" if is_test else "train",
-                        source=self.name,
+                        source="reclor",
                     )
                 )
 

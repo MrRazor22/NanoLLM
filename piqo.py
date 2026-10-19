@@ -35,8 +35,9 @@ from data.split.policies.leakage import ILeakagePolicy, JaccardLeakagePolicy
 from data.sources.source import IDataSource, MultiSource
 from data.sources.hf_cache import IRawCachePolicy, HFCache, DEFAULT_RAW_DIR
 from data.sources.glaive_source import GlaiveSource
-from data.sources.decisions_source import DecisionsSource
+from data.sources.typed_decisions_source import TypedDecisionsSource
 from data.sources.classification_source import ClassificationSource, TextClassificationSpec
+from data.sources.multichoice_source import MultiChoiceSource, MultiChoiceSpec
 from benchmark.policies.scorer import BenchmarkReport, IScorerPolicy, ScorerPolicy
 from benchmark.policies.ledger import ILedgerPolicy, DiskLedgerPolicy
 from benchmark.policies.reporter import IReporterPolicy, ConsoleReporterPolicy
@@ -70,7 +71,7 @@ __all__ = [
     "IReporterPolicy", "ConsoleReporterPolicy",
     "AVAILABLE_ENGINES", "BENCHMARK_SUITES",
     "IRawCachePolicy", "HFCache",
-    "IDataSource", "MultiSource", "GlaiveSource", "DecisionsSource", "ClassificationSource", "TextClassificationSpec",
+    "IDataSource", "MultiSource", "GlaiveSource", "TypedDecisionsSource", "ClassificationSource", "TextClassificationSpec", "MultiChoiceSource", "MultiChoiceSpec",
     # Layers (Lambda: P -> P)
     "ProfilingLayer", "CheckpointingLayer", "MetricsLayer",
     # Domain DTOs & Models

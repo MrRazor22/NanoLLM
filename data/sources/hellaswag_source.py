@@ -4,16 +4,13 @@ from data.case import DecisionCase
 from data.sources.source import IDataSource
 from data.sources.hf_cache import HFCache, IRawCachePolicy
 
-HELLASWAG_INSTRUCTION = "Which ending logically completes the scenario?"
-
 class HellaSwagSource(IDataSource):
     """Adversarially Filtered Grounding Source: extracts HellaSwag continuation decisions."""
-    name = "rowan_hellaswag"
 
     def __init__(
         self,
-        train_limit: int = 2000,
-        test_limit: int = 300,
+        train_limit: Optional[int] = None,
+        test_limit: Optional[int] = None,
         cache: Optional[IRawCachePolicy] = None,
     ):
         self.train_limit = train_limit
@@ -52,10 +49,10 @@ class HellaSwagSource(IDataSource):
                         probabilities=probs,
                         category="adversarial_grounding",
                         split="test" if is_test else "train",
-                        source=self.name,
+                        source="rowan_hellaswag",
                     )
                 )
 
         return cases
 
-__all__ = ["HellaSwagSource", "HELLASWAG_INSTRUCTION"]
+__all__ = ["HellaSwagSource"]
