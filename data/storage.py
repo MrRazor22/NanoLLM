@@ -2,7 +2,7 @@ import logging
 import orjson
 from pathlib import Path
 from typing import Optional, Protocol, Union, runtime_checkable
-from data.case import DataSplits, case_from_dict, case_to_dict
+from data.case import DataSplits, DecisionCase
 
 logger = logging.getLogger(__name__)
 
@@ -24,7 +24,7 @@ class DiskStoragePolicy(IStoragePolicy):
         self.corpus_dir.mkdir(parents=True, exist_ok=True)
         for tag, items in (("train", splits.train), ("val", splits.val), ("test", splits.test)):
             target = self.corpus_dir / f"{tag}.jsonl"
-            payload = b"\n".join(orjson.dumps(case_to_dict(s), default=str) for s in items)
+            payload = b"\n".join(orjson.dumps(s.to_dict(), default=str) for s in items)
             target.write_bytes(payload + (b"\n" if payload else b""))
         logger.info("Persisted corpus to %s (train: %d, val: %d, test: %d)", self.corpus_dir, len(splits.train), len(splits.val), len(splits.test))
 
@@ -40,7 +40,7 @@ class DiskStoragePolicy(IStoragePolicy):
             if not target.exists():
                 splits_dict[tag] = ()
             else:
-                splits_dict[tag] = [case_from_dict(orjson.loads(line)) for line in target.read_bytes().splitlines() if line.strip()]
+                splits_dict[tag] = [DecisionCase.from_dict(orjson.loads(line)) for line in target.read_bytes().splitlines() if line.strip()]
 
         return DataSplits(train=splits_dict["train"], val=splits_dict["val"], test=splits_dict["test"])
 

@@ -10,39 +10,37 @@ class DecisionCase:
     source: str
     split: str | None = None
 
+    def choice(self) -> str:
+        return max(self.probabilities, key=self.probabilities.__getitem__)
+
+    def target_index(self) -> int:
+        return self.candidates.index(self.choice())
+
+    def to_dict(self) -> dict:
+        res = {
+            "state": self.state,
+            "candidates": list(self.candidates),
+            "probabilities": dict(self.probabilities),
+            "category": self.category,
+            "source": self.source,
+        }
+        if self.split is not None:
+            res["split"] = self.split
+        return res
+
+    @classmethod
+    def from_dict(cls, d: dict) -> "DecisionCase":
+        return cls(
+            state=str(d["state"]),
+            candidates=tuple(d["candidates"]),
+            probabilities={str(k): float(v) for k, v in d["probabilities"].items()},
+            category=str(d["category"]),
+            source=str(d["source"]),
+            split=d.get("split"),
+        )
+
 @dataclass(frozen=True, slots=True)
 class DataSplits:
     train: Sequence[DecisionCase] = ()
     val: Sequence[DecisionCase] = ()
     test: Sequence[DecisionCase] = ()
-
-def case_choice(case: DecisionCase) -> str:
-    return max(case.probabilities, key=case.probabilities.__getitem__)
-
-def case_confidence(case: DecisionCase) -> float:
-    return float(max(case.probabilities.values()))
-
-def case_target_index(case: DecisionCase) -> int:
-    return case.candidates.index(case_choice(case))
-
-def case_to_dict(case: DecisionCase) -> dict:
-    res = {
-        "state": case.state,
-        "candidates": list(case.candidates),
-        "probabilities": dict(case.probabilities),
-        "category": case.category,
-        "source": case.source,
-    }
-    if case.split is not None:
-        res["split"] = case.split
-    return res
-
-def case_from_dict(d: dict) -> DecisionCase:
-    return DecisionCase(
-        state=str(d["state"]),
-        candidates=tuple(d["candidates"]),
-        probabilities={str(k): float(v) for k, v in d["probabilities"].items()},
-        category=str(d["category"]),
-        source=str(d["source"]),
-        split=d.get("split"),
-    )

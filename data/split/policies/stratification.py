@@ -2,7 +2,7 @@ from collections import defaultdict
 import random
 from typing import Iterator, Protocol, Sequence, runtime_checkable
 
-from data.case import DecisionCase, case_choice
+from data.case import DecisionCase
 
 @runtime_checkable
 class IStratificationPolicy(Protocol):
@@ -18,7 +18,7 @@ class RoundRobinStratification(IStratificationPolicy):
 
         buckets = defaultdict(list)
         for c in cases:
-            buckets[case_choice(c)].append(c)
+            buckets[c.choice()].append(c)
 
         for b in buckets.values():
             rng.shuffle(b)

@@ -3,7 +3,7 @@ import statistics
 import time
 from typing import Dict, Mapping, Protocol, Sequence, runtime_checkable
 
-from data.case import DecisionCase, case_target_index
+from data.case import DecisionCase
 from inference.decision_engine import IDecisionEngine
 from inference.options import (
     ChoiceOption, IOption, NoulOption, ScoreOption,
@@ -69,7 +69,7 @@ class ScorerPolicy(IScorerPolicy):
                 dt_ms = getattr(engine, "last_latency_ms", 0.0) or (time.perf_counter() - t_call) * 1000.0
                 latencies.append(dt_ms)
                 cat_total[cat] = cat_total.get(cat, 0) + 1
-                gold_idx = case_target_index(item)
+                gold_idx = item.target_index()
                 pred_idx = int(max(range(len(probs)), key=lambda i: probs[i]))
                 is_hit = (pred_idx == gold_idx)
                 hits.append(1.0 if is_hit else 0.0)

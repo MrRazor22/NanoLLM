@@ -27,11 +27,7 @@ from inference.options import (
     score_keys, score_target_index, matches_answer,
 )
 from model.policies.layout import format_state
-from data.case import (
-    DataSplits, DecisionCase,
-    case_choice, case_confidence, case_target_index,
-    case_to_dict, case_from_dict,
-)
+from data.case import DataSplits, DecisionCase
 from data.storage import IStoragePolicy, DiskStoragePolicy
 from data.split.split import ISplitPolicy, BudgetSplitPolicy
 from data.split.policies.stratification import IStratificationPolicy, RoundRobinStratification
@@ -90,11 +86,6 @@ __all__ = [
     "score_keys",
     "score_target_index",
     "matches_answer",
-    "case_choice",
-    "case_confidence",
-    "case_target_index",
-    "case_to_dict",
-    "case_from_dict",
     "list_weights",
     "has_weights",
     "resolve_device",

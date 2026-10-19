@@ -3,7 +3,7 @@ import random
 import torch
 
 import json
-from data.case import DecisionCase, case_target_index
+from data.case import DecisionCase
 from model.token_layout import Batch, SampleTargets, TargetSlot, TokenLayout, TokenSlot
 
 def format_state(state: str) -> str:
@@ -70,7 +70,7 @@ class MaskedLayout(ILayout):
 
         for c in cases:
             cands = list(c.candidates)
-            target_label = case_target_index(c)
+            target_label = c.target_index()
             if shuffle and len(cands) > 1:
                 perm = list(range(len(cands)))
                 random.shuffle(perm)
