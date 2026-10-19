@@ -1,3 +1,4 @@
+from dataclasses import replace
 import logging
 import random
 from typing import Optional, Protocol, Sequence, runtime_checkable
@@ -30,7 +31,6 @@ class BudgetSplitPolicy(ISplitPolicy):
 
     def partition(self, cases: Sequence[DecisionCase]) -> DataSplits:
         rng = random.Random(self.seed)
-        logger.info("Partitioning %d cases into category splits", len(cases))
 
         cases_by_cat: dict[str, list[DecisionCase]] = {}
         for c in cases:
@@ -43,27 +43,23 @@ class BudgetSplitPolicy(ISplitPolicy):
         test_all: list[DecisionCase] = []
 
         for cat, items in cases_by_cat.items():
-            pre_test = [c for c in items if c.split == "test"]
-            pre_val = [c for c in items if c.split == "val"]
-            pool = [c for c in items if c.split not in ("test", "val")]
+            tests = [c for c in items if c.split == "test"]
+            trains = [c for c in items if c.split != "test"]
 
-            if pre_test:
-                test_all.extend(self.stratifier.balance(pre_test, self.max_test_per_category, rng))
-            elif pool and self.max_test_per_category > 0:
-                selected_test = self.stratifier.balance(pool, min(len(pool), self.max_test_per_category), rng)
-                test_all.extend(selected_test)
-                pool = [c for c in pool if id(c) not in {id(t) for t in selected_test}]
+            if tests:
+                test_all.extend(replace(c, split="test") for c in self.stratifier.balance(tests, self.max_test_per_category, rng))
 
-            if pre_val:
-                val_all.extend(self.stratifier.balance(pre_val, self.max_val_per_category, rng))
-            elif pool and self.max_val_per_category > 0:
-                selected_val = self.stratifier.balance(pool, min(len(pool), self.max_val_per_category), rng)
-                val_all.extend(selected_val)
-                pool = [c for c in pool if id(c) not in {id(v) for v in selected_val}]
+            if trains:
+                quota = self.max_val_per_category + self.max_train_per_category
+                selected = self.stratifier.balance(trains, min(len(trains), quota), rng)
+                val_slice = selected[:self.max_val_per_category]
+                train_slice = selected[self.max_val_per_category:]
 
-            if pool and self.max_train_per_category > 0:
-                train_all.extend(self.stratifier.balance(pool, min(len(pool), self.max_train_per_category), rng))
+                val_all.extend(replace(c, split="val") for c in val_slice)
+                train_all.extend(replace(c, split="train") for c in train_slice)
 
-        return DataSplits(train=train_all, val=val_all, test=test_all)
+        splits = DataSplits(train=train_all, val=val_all, test=test_all)
+        logger.info("Budget partition: %d train, %d val, %d test across %d categories", len(train_all), len(val_all), len(test_all), len(cases_by_cat))
+        return splits
 
 __all__ = ["ISplitPolicy", "BudgetSplitPolicy"]

@@ -38,6 +38,7 @@ class ANLISource(IDataSource):
                         continue
 
                     lbl_str = NLI_OPTIONS[int(label)]
+                    state = f"Premise: {premise}\nHypothesis: {hypothesis}"
                     case = DecisionCase(
                         state=state,
                         option=ChoiceOption(

@@ -1,11 +1,8 @@
 import json
-import logging
 from pathlib import Path
 from typing import Callable, List, Mapping, Optional, Protocol, Sequence, runtime_checkable
 from datasets import load_dataset
 from data.case import DecisionCase
-
-logger = logging.getLogger("piqo.sources")
 
 RAW_DIR = Path(__file__).resolve().parent.parent / "raw"
 
@@ -19,12 +16,9 @@ def load_raw_jsonl(
     """Loads dataset rows from local disk cache, fetching and persisting from HuggingFace if absent."""
     target = RAW_DIR / f"{target_name}.jsonl"
     if target.exists():
-        logger.info("Loading cached %s (%s)", target_name, target.name)
         with open(target, "r", encoding="utf-8") as f:
             rows = [json.loads(line) for line in f if line.strip()]
             return rows[:limit] if limit is not None else rows
-
-    logger.info("Fetching %s (%s, split=%s) from HuggingFace...", target_name, dataset, split)
     args = [dataset]
     if subset:
         args.append(subset)

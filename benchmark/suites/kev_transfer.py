@@ -28,4 +28,12 @@ class KevTransferSuite(IBenchmarkSuite):
         import json
         url = "https://raw.githubusercontent.com/jaredpalmer/kev/main/evals/v4/transfer-v4/test.jsonl"
         content = load_verified_manifest(BENCHMARK_MANIFESTS_DIR / "kev_transfer_v4.jsonl", "c30a91274f9b483aac9e4f02ada5dea953b3f1a2829456e0bc07806c4e73b517", url)
-        return [case_from_dict(json.loads(line)) for line in content.decode("utf-8").splitlines() if line.strip()]
+        cases: list[DecisionCase] = []
+        for line in content.decode("utf-8").splitlines():
+            if not line.strip():
+                continue
+            row = json.loads(line)
+            if not row.get("category"):
+                row["category"] = row.get("_meta", {}).get("source", "transfer")
+            cases.append(case_from_dict(row, source=self.name))
+        return cases

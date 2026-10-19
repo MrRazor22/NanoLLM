@@ -1,3 +1,4 @@
+import logging
 from typing import List, Optional, Protocol, Sequence, runtime_checkable
 
 from data.case import DataSplits, DecisionCase
@@ -5,6 +6,8 @@ from data.policies.leakage import ILeakagePolicy, NGramLeakagePolicy
 from data.policies.storage import DiskStoragePolicy, IStoragePolicy
 from data.split.split import BudgetSplitPolicy, ISplitPolicy
 from data.sources.source import IDataSource, get_available_sources
+
+logger = logging.getLogger(__name__)
 
 @runtime_checkable
 class IDataset(Protocol):
@@ -26,7 +29,6 @@ class Dataset(IDataset):
         self.leakage_policy = leakage_policy or NGramLeakagePolicy()
         self.storage = storage_policy or DiskStoragePolicy()
         self.sources: Sequence[IDataSource] = sources if sources is not None else get_available_sources()
-        self.leak_audit: dict[str, int] = {}
         self._splits: Optional[DataSplits] = None
 
     def build(self) -> DataSplits:
@@ -36,25 +38,16 @@ class Dataset(IDataset):
 
         raw_cases: List[DecisionCase] = []
         for src in self.sources:
-            raw_cases.extend(src.cases())
-
+            cases = src.cases()
+            raw_cases.extend(cases)
+        logger.info("Ingested %d raw cases across %d sources", len(raw_cases), len(self.sources))
         splits = self.split_policy.partition(raw_cases)
 
         filtered_val = self.leakage_policy.filter(splits.val, splits.test)
         filtered_train = self.leakage_policy.filter(splits.train, splits.test)
         filtered_train = self.leakage_policy.filter(filtered_train, filtered_val)
 
-        pruned_train = len(splits.train) - len(filtered_train)
-        pruned_val = len(splits.val) - len(filtered_val)
-
         splits = DataSplits(train=filtered_train, val=filtered_val, test=splits.test)
-
-        self.leak_audit = {
-            "total_unique": pruned_train + pruned_val,
-            "pruned_train": pruned_train,
-            "pruned_val": pruned_val,
-        }
-
         self._splits = splits
         self.storage.save(splits)
         return splits

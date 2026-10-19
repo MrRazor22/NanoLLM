@@ -6,7 +6,7 @@ from data.case import DataSplits, case_from_dict, case_to_dict
 
 logger = logging.getLogger(__name__)
 
-DEFAULT_CORPUS_DIR = Path(__file__).resolve().parent / "corpus"
+DEFAULT_CORPUS_DIR = Path(__file__).resolve().parent.parent / "corpus"
 
 @runtime_checkable
 class IStoragePolicy(Protocol):
@@ -22,11 +22,11 @@ class DiskStoragePolicy(IStoragePolicy):
 
     def save(self, splits: DataSplits) -> None:
         self.corpus_dir.mkdir(parents=True, exist_ok=True)
-        logger.info("Persisting splits to %s", self.corpus_dir)
         for tag, items in (("train", splits.train), ("val", splits.val), ("test", splits.test)):
             target = self.corpus_dir / f"{tag}.jsonl"
             payload = b"\n".join(orjson.dumps(case_to_dict(s), default=str) for s in items)
             target.write_bytes(payload + (b"\n" if payload else b""))
+        logger.info("Persisted corpus to %s (train: %d, val: %d, test: %d)", self.corpus_dir, len(splits.train), len(splits.val), len(splits.test))
 
     def load(self) -> DataSplits:
         if not self.corpus_dir.exists():

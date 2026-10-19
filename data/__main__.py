@@ -1,37 +1,39 @@
 import logging
+import time
 from collections import Counter
-from rich import box
-from rich.console import Console
-from rich.table import Table
+import datasets
+import huggingface_hub
 import typer
 
 from data.dataset import Dataset
+
+datasets.logging.set_verbosity_error()
+huggingface_hub.logging.set_verbosity_error()
 
 app = typer.Typer(add_completion=False, help="Piqo Dataset Corpus Builder CLI")
 
 @app.command()
 def main() -> None:
-    logging.basicConfig(level=logging.INFO, format="%(message)s")
-    console = Console()
-    console.print("\n[bold cyan]Piqo Data Pipeline[/bold cyan] | Building corpus...\n")
-    dataset = Dataset()
-    splits = dataset.build()
+    logging.basicConfig(level=logging.INFO, format="[%(name)s] %(message)s")
+    t0 = time.perf_counter()
 
-    total = len(splits.train) + len(splits.val) + len(splits.test)
-    pruned = dataset.leak_audit.get("pruned_train", 0) + dataset.leak_audit.get("pruned_val", 0)
+    splits = Dataset().build()
 
-    table = Table(title="Corpus Scorecard", box=box.HORIZONTALS, title_style="bold white")
-    table.add_column("Split / Metric", style="cyan")
-    table.add_column("Cases", justify="right", style="bold green")
-    table.add_column("Share", justify="right", style="dim")
+    print(f"\n[data] Built corpus in {time.perf_counter()-t0:.2f}s:")
+    print(f"  train: {len(splits.train):,} | val: {len(splits.val):,} | test: {len(splits.test):,}")
 
-    table.add_row("Train", f"{len(splits.train):,}", f"{len(splits.train)/max(1, total)*100:.1f}%")
-    table.add_row("Validation", f"{len(splits.val):,}", f"{len(splits.val)/max(1, total)*100:.1f}%")
-    table.add_row("Test (Holdout)", f"{len(splits.test):,}", f"{len(splits.test)/max(1, total)*100:.1f}%")
-    table.add_row("Pruned Leaks", f"{pruned:,}", "Invariant Clean")
-    table.add_row("Total Records", f"{total:,}", "100.0%")
-    console.print(table)
-    console.print("")
+    tr_by_cat = Counter(c.category for c in splits.train)
+    va_by_cat = Counter(c.category for c in splits.val)
+    te_by_cat = Counter(c.category for c in splits.test)
+    all_cats = sorted(set(tr_by_cat) | set(va_by_cat) | set(te_by_cat))
+
+    print("\n--- Corpus Category Composition ---", flush=True)
+    for cat in all_cats:
+        tr = tr_by_cat.get(cat, 0)
+        va = va_by_cat.get(cat, 0)
+        te = te_by_cat.get(cat, 0)
+        print(f"  {cat:<28} total: {tr + va + te:>5,} | train: {tr:>5,} | val: {va:>4,} | test: {te:>4,}", flush=True)
+    print(f"Total: {len(splits.train):,} train, {len(splits.val):,} val, {len(splits.test):,} test ({len(all_cats)} categories)\n", flush=True)
 
 if __name__ == "__main__":
     app()

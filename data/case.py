@@ -133,13 +133,13 @@ def case_to_dict(case: DecisionCase) -> dict:
         res["source"] = case.source
     return res
 
-def case_from_dict(d: dict) -> DecisionCase:
+def case_from_dict(d: dict, source: Optional[str] = None) -> DecisionCase:
     state = str(d.get("state", ""))
     cat = d.get("category") or d.get("workflow")
     if not cat:
         raise ValueError(f"DecisionCase record missing mandatory 'category': {d}")
-    source = d.get("source")
-    if not source:
+    src = source or d.get("source")
+    if not src:
         raise ValueError(f"DecisionCase record missing mandatory 'source': {d}")
     split = d.get("split")
 
@@ -183,4 +183,4 @@ def case_from_dict(d: dict) -> DecisionCase:
         ans = ChoiceAnswer(choice=str(ans_val), confidence=1.0, probabilities={str(ans_val): 1.0}) if ans_val is not None else None
         option = ChoiceOption(options=opts, answer=ans)
 
-    return DecisionCase(state=state, option=option, category=cat, split=split, source=source)
+    return DecisionCase(state=state, option=option, category=cat, split=split, source=src)

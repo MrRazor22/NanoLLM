@@ -31,7 +31,6 @@ class NGramLeakagePolicy(ILeakagePolicy):
     ) -> Sequence[DecisionCase]:
         if not candidates or not holdouts:
             return list(candidates)
-        logger.info("Auditing %d candidates against %d holdouts (%d-gram)", len(candidates), len(holdouts), self.n_gram)
 
         exact_holdouts: Set[Tuple[str, ...]] = set()
         holdout_shingles: Set[Tuple[str, ...]] = set()
@@ -46,12 +45,11 @@ class NGramLeakagePolicy(ILeakagePolicy):
         clean: list[DecisionCase] = []
         for c in candidates:
             toks = tokenize_state(c.state)
-            if toks in exact_holdouts:
-                continue
-            if len(toks) >= self.n_gram and any(toks[i : i + self.n_gram] in holdout_shingles for i in range(len(toks) - self.n_gram + 1)):
+            if toks in exact_holdouts or (len(toks) >= self.n_gram and any(toks[i : i + self.n_gram] in holdout_shingles for i in range(len(toks) - self.n_gram + 1))):
                 continue
             clean.append(c)
 
+        logger.info("Audited %d candidates vs %d holdouts (%d-gram) -> kept %d, pruned %d", len(candidates), len(holdouts), self.n_gram, len(clean), len(candidates) - len(clean))
         return clean
 
 __all__ = ["ILeakagePolicy", "NGramLeakagePolicy"]
