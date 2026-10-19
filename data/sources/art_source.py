@@ -1,8 +1,8 @@
-from typing import List, Sequence
+from typing import List, Optional, Sequence
 
 from data.case import DecisionCase
 from data.sources.source import IDataSource
-from data.sources.source import load_raw_jsonl
+from data.sources.hf_cache import HFCache, IRawCachePolicy
 
 ART_INSTRUCTION = "Which hypothesis best explains what happened between the observations?"
 
@@ -10,15 +10,21 @@ class ARTSource(IDataSource):
     """Abductive Reasoning in Natural Language (aNLI / ART) Source: deduces latent unstated hypotheses."""
     name = "allenai_art"
 
-    def __init__(self, train_limit: int = 2000, test_limit: int = 300):
+    def __init__(
+        self,
+        train_limit: int = 2000,
+        test_limit: int = 300,
+        cache: Optional[IRawCachePolicy] = None,
+    ):
         self.train_limit = train_limit
         self.test_limit = test_limit
+        self.cache = cache or HFCache()
 
     def cases(self) -> Sequence[DecisionCase]:
         cases: List[DecisionCase] = []
         for split_name, is_test in [("train", False), ("validation", True)]:
             limit = self.test_limit if is_test else self.train_limit
-            rows = load_raw_jsonl(f"art_{split_name}", "allenai/art", split=split_name, limit=limit)
+            rows = self.cache.load("allenai/art", split=split_name, limit=limit)
             for r in rows:
                 obs1 = str(r.get("observation_1", "")).strip()
                 obs2 = str(r.get("observation_2", "")).strip()

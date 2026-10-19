@@ -1,8 +1,8 @@
-from typing import List, Sequence
+from typing import List, Optional, Sequence
 
 from data.case import DecisionCase
 from data.sources.source import IDataSource
-from data.sources.source import load_raw_jsonl
+from data.sources.hf_cache import HFCache, IRawCachePolicy
 
 NLI_OPTIONS = ("Entailment", "Neutral", "Contradiction")
 NLI_INSTRUCTION = "What is the logical relationship between the context and the statement?"
@@ -16,10 +16,12 @@ class ANLISource(IDataSource):
         rounds: Sequence[str] = ("r1", "r2"),
         train_limit_per_round: int = 1500,
         test_limit_per_round: int = 200,
+        cache: Optional[IRawCachePolicy] = None,
     ):
         self.rounds = list(rounds)
         self.train_limit = train_limit_per_round
         self.test_limit = test_limit_per_round
+        self.cache = cache or HFCache()
 
     def cases(self) -> Sequence[DecisionCase]:
         cases: List[DecisionCase] = []
@@ -27,7 +29,7 @@ class ANLISource(IDataSource):
             for split_type in ("train", "test"):
                 limit = self.test_limit if split_type == "test" else self.train_limit
                 hf_split = f"{split_type}_{r_name}"
-                rows = load_raw_jsonl(f"anli_{hf_split}", "facebook/anli", split=hf_split, limit=limit)
+                rows = self.cache.load("facebook/anli", split=hf_split, limit=limit)
                 is_test = split_type == "test"
                 for r in rows:
                     premise = str(r.get("premise", "")).strip()

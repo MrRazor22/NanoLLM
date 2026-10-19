@@ -1,20 +1,16 @@
 import logging
 import time
 from collections import Counter
-import datasets
-import huggingface_hub
 import typer
 
 from data.dataset import Dataset
-
-datasets.logging.set_verbosity_error()
-huggingface_hub.logging.set_verbosity_error()
 
 app = typer.Typer(add_completion=False, help="Piqo Dataset Corpus Builder CLI")
 
 @app.command()
 def main() -> None:
-    logging.basicConfig(level=logging.INFO, format="[%(name)s] %(message)s")
+    logging.basicConfig(format="[%(name)s] %(message)s")
+    logging.getLogger("data").setLevel(logging.INFO)
     t0 = time.perf_counter()
 
     splits = Dataset().build()

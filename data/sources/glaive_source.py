@@ -1,23 +1,24 @@
 import random
 import re
-from typing import List, Sequence
+from typing import List, Optional, Sequence
 from data.case import DecisionCase
 from data.sources.source import IDataSource
-from data.sources.source import load_raw_jsonl
+from data.sources.hf_cache import HFCache, IRawCachePolicy
 
 class GlaiveSource(IDataSource):
     """Real Glaive function-calling extractor: parses tool calls and yields tagged source records."""
     name = "glaive_tools"
 
-    def __init__(self, seed: int = 42, test_ratio: float = 0.1):
+    def __init__(self, seed: int = 42, test_ratio: float = 0.1, cache: Optional[IRawCachePolicy] = None):
         self.seed = seed
         self.test_ratio = test_ratio
+        self.cache = cache or HFCache()
 
     def cases(self) -> Sequence[DecisionCase]:
         rng = random.Random(self.seed)
-        rows = load_raw_jsonl(self.name, "glaiveai/glaive-function-calling-v2", split="train")
+        rows = self.cache.load("glaiveai/glaive-function-calling-v2", split="train")
 
-        raw_pairs, tool_registry = [], {}
+        cases: List[DecisionCase] = []
         for row in rows:
             system, chat = row.get("system", ""), row.get("chat", "")
             fn_match = re.search(r'<functioncall>\s*\{\s*"name":\s*"([^"]+)"', chat)
@@ -26,37 +27,17 @@ class GlaiveSource(IDataSource):
                 continue
             fn_name, user_query = fn_match.group(1), user_match.group(1).strip()
             tools = dict(re.findall(r'\{\s*"name":\s*"([^"]+)",\s*"description":\s*"([^"]+)"', system))
-            if fn_name not in tools:
+            if fn_name not in tools or len(tools) < 2:
                 continue
-            tool_registry.update(tools)
-            raw_pairs.append((user_query, fn_name, tools))
 
-        # Partition tools into strictly disjoint train and test subsets (Zero-Shot Tool Holdout)
-        all_tools = sorted(list(tool_registry.keys()))
-        rng.shuffle(all_tools)
-        test_tool_count = max(1, int(len(all_tools) * self.test_ratio)) if all_tools else 0
-        test_tool_set = set(all_tools[:test_tool_count])
-        train_tool_set = set(all_tools[test_tool_count:])
-
-        cases: List[DecisionCase] = []
-        for query, fn, sample_tools in raw_pairs:
-            is_test = fn in test_tool_set
-            pool = test_tool_set if is_test else train_tool_set
-            candidates = {k: v for k, v in sample_tools.items() if k in pool}
-            candidates[fn] = tool_registry[fn]
-            if len(candidates) < 5 and len(pool) >= 5:
-                distractor_names = [n for n in pool if n != fn and n not in candidates]
-                sample_k = min(len(distractor_names), 5 - len(candidates))
-                if sample_k > 0:
-                    for d in rng.sample(distractor_names, sample_k):
-                        candidates[d] = tool_registry[d]
-
+            cands_list = list(tools.keys())
+            rng.shuffle(cands_list)
             cands_tuple = tuple(cands_list)
-            target_str = cands_list[label_idx]
-            probs = {c: (1.0 if c == target_str else 0.0) for c in cands_tuple}
+            probs = {c: (1.0 if c == fn_name else 0.0) for c in cands_tuple}
+            is_test = rng.random() < self.test_ratio
 
             case = DecisionCase(
-                state=query,
+                state=user_query,
                 candidates=cands_tuple,
                 probabilities=probs,
                 category="function_calling",

@@ -19,7 +19,7 @@ from training.policies.schedule import ISchedule, CosineSchedule, ConstantSchedu
 from training.telemetry.checkpointing_layer import CheckpointingLayer
 from training.telemetry.metrics_layer import MetricsLayer
 from training.stats import StepStats
-from data.dataset import IDataset, Dataset
+from data.dataset import IDataset, Dataset, default_corpus_source
 from inference.options import (
     IAnswer, ChoiceAnswer, NoulAnswer, ScoreAnswer,
     IOption, ChoiceOption, NoulOption, ScoreOption,
@@ -32,10 +32,11 @@ from data.storage import IStoragePolicy, DiskStoragePolicy
 from data.split.split import ISplitPolicy, BudgetSplitPolicy
 from data.split.policies.stratification import IStratificationPolicy, RoundRobinStratification
 from data.split.policies.leakage import ILeakagePolicy, JaccardLeakagePolicy
-from data.sources.source import IDataSource, get_available_sources
+from data.sources.source import IDataSource, MultiSource
+from data.sources.hf_cache import IRawCachePolicy, HFCache, DEFAULT_RAW_DIR
 from data.sources.glaive_source import GlaiveSource
 from data.sources.decisions_source import DecisionsSource
-from data.sources.huggingface_source import HuggingFaceSource, BenchmarkSpec, RAW_DIR
+from data.sources.huggingface_source import HuggingFaceSource, BenchmarkSpec
 from benchmark.policies.scorer import BenchmarkReport, IScorerPolicy, ScorerPolicy
 from benchmark.policies.ledger import ILedgerPolicy, DiskLedgerPolicy
 from benchmark.policies.reporter import IReporterPolicy, ConsoleReporterPolicy
@@ -52,7 +53,7 @@ __all__ = [
     "IModel", "TorchModel",
     "IDecisionEngine", "DecisionEngine",
     "ITrainer", "EpochTrainer",
-    "IDataset", "Dataset",
+    "IDataset", "Dataset", "default_corpus_source",
     "IBenchmark", "Benchmark", "GlinerDecideEngine", "JevEngine", "KevEngine", "LayaEngine", "VerdictEngine",
     # Policies & Injected Sub-Primitives
     "IHead", "MLPHead",
@@ -67,8 +68,9 @@ __all__ = [
     "ILedgerPolicy", "DiskLedgerPolicy",
     "IScorerPolicy", "ScorerPolicy",
     "IReporterPolicy", "ConsoleReporterPolicy",
-    "AVAILABLE_ENGINES", "BENCHMARK_SUITES", "get_available_sources",
-    "IDataSource", "GlaiveSource", "DecisionsSource", "HuggingFaceSource", "BenchmarkSpec",
+    "AVAILABLE_ENGINES", "BENCHMARK_SUITES",
+    "IRawCachePolicy", "HFCache",
+    "IDataSource", "MultiSource", "GlaiveSource", "DecisionsSource", "HuggingFaceSource", "BenchmarkSpec",
     # Layers (Lambda: P -> P)
     "ProfilingLayer", "CheckpointingLayer", "MetricsLayer",
     # Domain DTOs & Models
@@ -90,5 +92,5 @@ __all__ = [
     "has_weights",
     "resolve_device",
     "resolve_vram_gb",
-    "RAW_DIR",
+    "DEFAULT_RAW_DIR",
 ]

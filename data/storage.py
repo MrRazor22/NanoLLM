@@ -6,7 +6,7 @@ from data.case import DataSplits, DecisionCase
 
 logger = logging.getLogger(__name__)
 
-DEFAULT_CORPUS_DIR = Path(__file__).resolve().parent.parent / "corpus"
+DEFAULT_CORPUS_DIR = Path(__file__).resolve().parent / "corpus"
 
 @runtime_checkable
 class IStoragePolicy(Protocol):

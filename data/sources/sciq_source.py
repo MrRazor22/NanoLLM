@@ -1,8 +1,9 @@
-from typing import List, Sequence
+import random
+from typing import List, Optional, Sequence
 
 from data.case import DecisionCase
 from data.sources.source import IDataSource
-from data.sources.source import load_raw_jsonl
+from data.sources.hf_cache import HFCache, IRawCachePolicy
 
 SCIQ_INSTRUCTION = "Which option correctly answers the question?"
 
@@ -10,15 +11,24 @@ class SciQSource(IDataSource):
     """Scientific Mechanism & Distractor Elimination Source: scientific reasoning with negative distractors."""
     name = "allenai_sciq"
 
-    def __init__(self, train_limit: int = 1500, test_limit: int = 200):
+    def __init__(
+        self,
+        train_limit: int = 1500,
+        test_limit: int = 200,
+        seed: int = 42,
+        cache: Optional[IRawCachePolicy] = None,
+    ):
         self.train_limit = train_limit
         self.test_limit = test_limit
+        self.seed = seed
+        self.cache = cache or HFCache()
 
     def cases(self) -> Sequence[DecisionCase]:
+        rng = random.Random(self.seed)
         cases: List[DecisionCase] = []
         for split_name, is_test in [("train", False), ("validation", True)]:
             limit = self.test_limit if is_test else self.train_limit
-            rows = load_raw_jsonl(f"sciq_{split_name}", "allenai/sciq", split=split_name, limit=limit)
+            rows = self.cache.load("allenai/sciq", split=split_name, limit=limit)
             for r in rows:
                 question = str(r.get("question", "")).strip()
                 correct = str(r.get("correct_answer", "")).strip()
@@ -29,10 +39,12 @@ class SciQSource(IDataSource):
                 if not question or not correct or not d1 or not d2 or not d3:
                     continue
 
-                options = (correct, d1, d2, d3)
-                if len(set(options)) < 4:
+                opts = [correct, d1, d2, d3]
+                if len(set(opts)) < 4:
                     continue
 
+                rng.shuffle(opts)
+                options = tuple(opts)
                 probs = {c: (1.0 if c == correct else 0.0) for c in options}
 
                 cases.append(

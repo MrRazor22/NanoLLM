@@ -1,22 +1,25 @@
 from dataclasses import replace
 import json
-from typing import Sequence
+from typing import Optional, Sequence
 from data.case import DecisionCase
 from data.sources.source import IDataSource
-from data.sources.source import load_raw_jsonl
+from data.sources.hf_cache import HFCache, IRawCachePolicy
 
 class DecisionsSource(IDataSource):
     """Real Typed-Decisions dataset extractor: loads multi-question typed decision benchmarks."""
     name = "typed_decisions"
 
-    def __init__(self, repeat: int = 5):
+    def __init__(self, repeat: int = 1, cache: Optional[IRawCachePolicy] = None):
         self.repeat = repeat
+        self.cache = cache or HFCache()
 
     def cases(self) -> Sequence[DecisionCase]:
-        train_rows = load_raw_jsonl(f"{self.name}_train", "LocalLLaMA/typed-decisions", split="train", subset="all")
-        test_rows = load_raw_jsonl(f"{self.name}_test", "LocalLLaMA/typed-decisions", split="test", subset="all")
+        train_rows = self.cache.load("LocalLLaMA/typed-decisions", split="train", subset="all")
+        test_rows = self.cache.load("LocalLLaMA/typed-decisions", split="test", subset="all")
 
-        train_cases = [replace(self._row_to_case(r), split="train") for r in train_rows] * self.repeat
+        train_cases = [replace(self._row_to_case(r), split="train") for r in train_rows]
+        if self.repeat > 1:
+            train_cases = train_cases * self.repeat
         test_cases = [replace(self._row_to_case(r), split="test") for r in test_rows]
         return train_cases + test_cases
 

@@ -4,7 +4,7 @@ from typing import List, Optional, Protocol, Sequence, runtime_checkable
 from data.case import DataSplits, DecisionCase
 from data.storage import DiskStoragePolicy, IStoragePolicy
 from data.split.split import BudgetSplitPolicy, ISplitPolicy
-from data.sources.source import IDataSource, get_available_sources
+from data.sources.source import IDataSource, MultiSource
 
 logger = logging.getLogger(__name__)
 
@@ -14,28 +14,52 @@ class IDataset(Protocol):
     def build(self) -> DataSplits: ...
     def load(self) -> DataSplits: ...
 
+def default_corpus_source() -> IDataSource:
+    """Assembles the default multi-benchmark training source."""
+    from data.sources.anli_source import ANLISource
+    from data.sources.art_source import ARTSource
+    from data.sources.copa_source import COPASource
+    from data.sources.decisions_source import DecisionsSource
+    from data.sources.glaive_source import GlaiveSource
+    from data.sources.hellaswag_source import HellaSwagSource
+    from data.sources.huggingface_source import HuggingFaceSource, STANDARD_BENCHMARKS
+    from data.sources.medqa_source import MedQASource
+    from data.sources.multichoice_source import MultiChoiceReasoningSource, MULTICHOICE_REASONING_BENCHMARKS
+    from data.sources.sciq_source import SciQSource
+    from data.sources.reclor_source import ReClorSource
+
+    return MultiSource([
+        GlaiveSource(),
+        DecisionsSource(),
+        ANLISource(),
+        HellaSwagSource(),
+        MedQASource(),
+        ARTSource(),
+        COPASource(),
+        SciQSource(),
+        ReClorSource(),
+        *(HuggingFaceSource(s) for s in STANDARD_BENCHMARKS),
+        *(MultiChoiceReasoningSource(s) for s in MULTICHOICE_REASONING_BENCHMARKS),
+    ])
+
 class Dataset(IDataset):
-    """Sovereign Core Primitive: manages source registration, split preparation, and in-memory access."""
+    """Sovereign Core Primitive: manages split preparation and persistence of decision cases."""
 
     def __init__(
         self,
+        source: Optional[IDataSource] = None,
         split_policy: Optional[ISplitPolicy] = None,
         storage_policy: Optional[IStoragePolicy] = None,
-        sources: Optional[Sequence[IDataSource]] = None,
     ):
+        self.source = source or default_corpus_source()
         self.split_policy = split_policy or BudgetSplitPolicy()
         self.storage = storage_policy or DiskStoragePolicy()
-        self.sources: Sequence[IDataSource] = sources if sources is not None else get_available_sources()
         self._splits: Optional[DataSplits] = None
 
     def build(self) -> DataSplits:
-        if not self.sources:
-            raise ValueError("No data sources registered for dataset preparation.")
-
-        raw_cases: List[DecisionCase] = []
-        for src in self.sources:
-            raw_cases.extend(src.cases())
-        logger.info("Ingested %d raw cases across %d sources", len(raw_cases), len(self.sources))
+        raw_cases = self.source.cases()
+        if not raw_cases:
+            raise ValueError("No decision cases available for dataset preparation.")
         splits = self.split_policy.partition(raw_cases)
         self._splits = splits
         self.storage.save(splits)
@@ -50,4 +74,4 @@ class Dataset(IDataset):
         except FileNotFoundError:
             return self.build()
 
-__all__ = ["IDataset", "Dataset"]
+__all__ = ["IDataset", "Dataset", "default_corpus_source"]

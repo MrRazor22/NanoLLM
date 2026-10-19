@@ -1,8 +1,8 @@
-from typing import List, Sequence
+from typing import List, Optional, Sequence
 
 from data.case import DecisionCase
 from data.sources.source import IDataSource
-from data.sources.source import load_raw_jsonl
+from data.sources.hf_cache import HFCache, IRawCachePolicy
 
 MEDQA_INSTRUCTION = "What is the most likely diagnosis, mechanism, or correct next step?"
 
@@ -10,15 +10,21 @@ class MedQASource(IDataSource):
     """Differential Elimination Source: extracts multi-variable clinical elimination decisions."""
     name = "gbaker_medqa"
 
-    def __init__(self, train_limit: int = 2000, test_limit: int = 300):
+    def __init__(
+        self,
+        train_limit: int = 2000,
+        test_limit: int = 300,
+        cache: Optional[IRawCachePolicy] = None,
+    ):
         self.train_limit = train_limit
         self.test_limit = test_limit
+        self.cache = cache or HFCache()
 
     def cases(self) -> Sequence[DecisionCase]:
         cases: List[DecisionCase] = []
         for split_name in ("train", "test"):
             limit = self.test_limit if split_name == "test" else self.train_limit
-            rows = load_raw_jsonl(f"medqa_{split_name}", "GBaker/MedQA-USMLE-4-options", split=split_name, limit=limit)
+            rows = self.cache.load("GBaker/MedQA-USMLE-4-options", split=split_name, limit=limit)
             is_test = split_name == "test"
             for r in rows:
                 state = str(r.get("question", "")).strip()

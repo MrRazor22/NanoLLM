@@ -1,66 +1,27 @@
-import json
-from pathlib import Path
-from typing import Callable, List, Mapping, Optional, Protocol, Sequence, runtime_checkable
-from datasets import load_dataset
+import logging
+from typing import List, Protocol, Sequence, runtime_checkable
 from data.case import DecisionCase
 
-RAW_DIR = Path(__file__).resolve().parent.parent / "raw"
-
-def load_raw_jsonl(
-    target_name: str,
-    dataset: str,
-    split: str,
-    subset: Optional[str] = None,
-    limit: Optional[int] = None,
-) -> List[dict]:
-    """Loads dataset rows from local disk cache, fetching and persisting from HuggingFace if absent."""
-    target = RAW_DIR / f"{target_name}.jsonl"
-    if target.exists():
-        with open(target, "r", encoding="utf-8") as f:
-            rows = [json.loads(line) for line in f if line.strip()]
-            return rows[:limit] if limit is not None else rows
-    args = [dataset]
-    if subset:
-        args.append(subset)
-    rows = list(load_dataset(*args, split=split))
-    if limit is not None:
-        rows = rows[:limit]
-    if rows:
-        target.parent.mkdir(parents=True, exist_ok=True)
-        target.write_text("\n".join(json.dumps(r, default=str) for r in rows) + "\n", encoding="utf-8")
-    return rows
+logger = logging.getLogger(__name__)
 
 @runtime_checkable
 class IDataSource(Protocol):
     """Sovereign policy contract: yields domain records from external data origins."""
     def cases(self) -> Sequence[DecisionCase]: ...
 
-def get_available_sources() -> Sequence[IDataSource]:
-    """Lazy catalog of all available decision sources."""
-    from data.sources.anli_source import ANLISource
-    from data.sources.art_source import ARTSource
-    from data.sources.copa_source import COPASource
-    from data.sources.decisions_source import DecisionsSource
-    from data.sources.glaive_source import GlaiveSource
-    from data.sources.hellaswag_source import HellaSwagSource
-    from data.sources.huggingface_source import HuggingFaceSource, STANDARD_BENCHMARKS
-    from data.sources.medqa_source import MedQASource
-    from data.sources.multichoice_source import MultiChoiceReasoningSource, MULTICHOICE_REASONING_BENCHMARKS
-    from data.sources.sciq_source import SciQSource
-    from data.sources.reclor_source import ReClorSource
+class MultiSource(IDataSource):
+    """Composite data source combining multiple independent sources."""
 
-    return [
-        GlaiveSource(),
-        DecisionsSource(),
-        ANLISource(),
-        HellaSwagSource(),
-        MedQASource(),
-        ARTSource(),
-        COPASource(),
-        SciQSource(),
-        ReClorSource(),
-        *(HuggingFaceSource(s) for s in STANDARD_BENCHMARKS),
-        *(MultiChoiceReasoningSource(s) for s in MULTICHOICE_REASONING_BENCHMARKS),
-    ]
+    def __init__(self, sources: Sequence[IDataSource]):
+        self.sources = list(sources)
 
-__all__ = ["IDataSource", "get_available_sources", "load_raw_jsonl", "RAW_DIR"]
+    def cases(self) -> Sequence[DecisionCase]:
+        cases: List[DecisionCase] = []
+        for src in self.sources:
+            src_cases = src.cases()
+            logger.info("Ingested %s: %d cases", getattr(src, "name", type(src).__name__), len(src_cases))
+            cases.extend(src_cases)
+        logger.info("Consolidated %d decision cases across %d sources", len(cases), len(self.sources))
+        return cases
+
+__all__ = ["IDataSource", "MultiSource"]

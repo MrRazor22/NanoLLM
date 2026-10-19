@@ -2,7 +2,7 @@ from dataclasses import dataclass
 from typing import List, Optional, Sequence
 from data.case import DecisionCase
 from data.sources.source import IDataSource
-from data.sources.source import load_raw_jsonl
+from data.sources.hf_cache import HFCache, IRawCachePolicy
 
 @dataclass(frozen=True, slots=True)
 class MultiChoiceSpec:
@@ -53,8 +53,9 @@ MULTICHOICE_REASONING_BENCHMARKS: Sequence[MultiChoiceSpec] = (
 class MultiChoiceReasoningSource(IDataSource):
     """Universal source adapter for multi-choice reasoning benchmarks (ARC, OpenBookQA)."""
 
-    def __init__(self, spec: Optional[MultiChoiceSpec] = None):
+    def __init__(self, spec: Optional[MultiChoiceSpec] = None, cache: Optional[IRawCachePolicy] = None):
         self.spec = spec or MULTICHOICE_REASONING_BENCHMARKS[0]
+        self.cache = cache or HFCache()
         self.name = self.spec.dataset.replace("/", "_")
         if self.spec.subset:
             self.name = f"{self.name}_{self.spec.subset}"
@@ -63,8 +64,7 @@ class MultiChoiceReasoningSource(IDataSource):
         cases: List[DecisionCase] = []
         for split_name in self.spec.splits:
             limit = self.spec.test_limit if split_name == "test" else self.spec.train_limit
-            rows = load_raw_jsonl(
-                f"{self.name}_{split_name}",
+            rows = self.cache.load(
                 self.spec.dataset,
                 split=split_name,
                 subset=self.spec.subset,

@@ -2,7 +2,8 @@ from dataclasses import dataclass
 from typing import List, Optional, Sequence
 
 from data.case import DecisionCase
-from data.sources.source import IDataSource, RAW_DIR, load_raw_jsonl
+from data.sources.source import IDataSource
+from data.sources.hf_cache import HFCache, IRawCachePolicy
 
 @dataclass(frozen=True, slots=True)
 class BenchmarkSpec:
@@ -33,16 +34,16 @@ STANDARD_BENCHMARKS: Sequence[BenchmarkSpec] = (
 class HuggingFaceSource(IDataSource):
     """Declarative benchmark dataset adapter: unifies train and test partitions under canonical shared candidate options."""
 
-    def __init__(self, spec: Optional[BenchmarkSpec] = None):
+    def __init__(self, spec: Optional[BenchmarkSpec] = None, cache: Optional[IRawCachePolicy] = None):
         self.spec = spec or STANDARD_BENCHMARKS[0]
+        self.cache = cache or HFCache()
         self.name = self.spec.dataset.replace("/", "_")
         if self.spec.subset:
             self.name = f"{self.name}_{self.spec.subset}"
 
     def cases(self) -> Sequence[DecisionCase]:
         split_rows = {
-            s: load_raw_jsonl(
-                f"{self.name}_{s}",
+            s: self.cache.load(
                 self.spec.dataset,
                 split=s,
                 subset=self.spec.subset,

@@ -1,24 +1,31 @@
-from typing import List, Sequence
+from typing import List, Optional, Sequence
 
 from data.case import DecisionCase
 from data.sources.source import IDataSource
-from data.sources.source import load_raw_jsonl
+from data.sources.hf_cache import HFCache, IRawCachePolicy
 
 class COPASource(IDataSource):
     """Choice of Plausible Alternatives (COPA) Source: causal directionality and root cause deduction."""
     name = "superglue_copa"
 
-    def __init__(self, train_limit: int = 500, test_limit: int = 200):
+    def __init__(
+        self,
+        train_limit: int = 500,
+        test_limit: int = 200,
+        cache: Optional[IRawCachePolicy] = None,
+    ):
         self.train_limit = train_limit
         self.test_limit = test_limit
+        self.cache = cache or HFCache()
 
     def cases(self) -> Sequence[DecisionCase]:
         cases: List[DecisionCase] = []
         for split_name, is_test in [("train", False), ("validation", True)]:
             limit = self.test_limit if is_test else self.train_limit
-            rows = load_raw_jsonl(f"copa_{split_name}", "aps/super_glue", split=split_name, subset="copa", limit=limit)
+            rows = self.cache.load("aps/super_glue", split=split_name, subset="copa", limit=limit)
             for r in rows:
                 premise = str(r.get("premise", "")).strip()
+                question = str(r.get("question", "")).strip()
                 choice1 = str(r.get("choice1", "")).strip()
                 choice2 = str(r.get("choice2", "")).strip()
                 label_raw = r.get("label")
@@ -37,10 +44,11 @@ class COPASource(IDataSource):
 
                 target_str = options[target_idx]
                 probs = {c: (1.0 if c == target_str else 0.0) for c in options}
+                state = f"{premise}\nWhat was the {question}?" if question else premise
 
                 cases.append(
                     DecisionCase(
-                        state=premise,
+                        state=state,
                         candidates=options,
                         probabilities=probs,
                         category="causal_reasoning",
