@@ -36,7 +36,7 @@ from data.sources.source import IDataSource, MultiSource
 from data.sources.hf_cache import IRawCachePolicy, HFCache, DEFAULT_RAW_DIR
 from data.sources.glaive_source import GlaiveSource
 from data.sources.decisions_source import DecisionsSource
-from data.sources.huggingface_source import HuggingFaceSource, BenchmarkSpec
+from data.sources.classification_source import ClassificationSource, TextClassificationSpec
 from benchmark.policies.scorer import BenchmarkReport, IScorerPolicy, ScorerPolicy
 from benchmark.policies.ledger import ILedgerPolicy, DiskLedgerPolicy
 from benchmark.policies.reporter import IReporterPolicy, ConsoleReporterPolicy
@@ -70,7 +70,7 @@ __all__ = [
     "IReporterPolicy", "ConsoleReporterPolicy",
     "AVAILABLE_ENGINES", "BENCHMARK_SUITES",
     "IRawCachePolicy", "HFCache",
-    "IDataSource", "MultiSource", "GlaiveSource", "DecisionsSource", "HuggingFaceSource", "BenchmarkSpec",
+    "IDataSource", "MultiSource", "GlaiveSource", "DecisionsSource", "ClassificationSource", "TextClassificationSpec",
     # Layers (Lambda: P -> P)
     "ProfilingLayer", "CheckpointingLayer", "MetricsLayer",
     # Domain DTOs & Models

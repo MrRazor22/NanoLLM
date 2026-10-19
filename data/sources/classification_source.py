@@ -6,36 +6,40 @@ from data.sources.source import IDataSource
 from data.sources.hf_cache import HFCache, IRawCachePolicy
 
 @dataclass(frozen=True, slots=True)
-class BenchmarkSpec:
-    """Core Domain DTO: Declarative specification for benchmark decision tasks."""
+class TextClassificationSpec:
+    """Core Domain DTO: Declarative schema mapping for fixed-label text classification datasets."""
     dataset: str
-    question: str = "decision"
-    instruction: str = "Select the best option:"
-    category: str = "general"
+    category: str
     text_field: str = "text"
     label_field: str = "label"
     label_names: Sequence[str] | None = None
     subset: str | None = None
     splits: Sequence[str] = ("train", "test")
-    train_limit: int | None = None
-    test_limit: int | None = 400
 
-STANDARD_BENCHMARKS: Sequence[BenchmarkSpec] = (
-    BenchmarkSpec("mteb/banking77", "intent", "What is the primary customer request?", "banking77", label_field="label_text"),
-    BenchmarkSpec("fancyzhx/ag_news", "topic", "What is the topic of article?", "ag_news", label_names=("World", "Sports", "Business", "Sci/Tech"), train_limit=1000),
-    BenchmarkSpec("dair-ai/emotion", "emotion", "Which emotion is most strongly expressed?", "emotion", label_names=("sadness", "joy", "love", "anger", "fear", "surprise"), train_limit=1000),
-    BenchmarkSpec("Tobi-Bueck/customer-support-tickets", "queue", "Which support queue should handle this ticket?", "customer_support", text_field="body", label_field="queue", splits=("train",)),
-    BenchmarkSpec("zefang-liu/phishing-email-dataset", "is_phishing", "Is this email a phishing or scam attempt?", "phishing_email", text_field="Email Text", label_field="Email Type", label_names=("Safe Email", "Phishing Email"), splits=("train",), train_limit=1000),
-    BenchmarkSpec("SetFit/enron_spam", "is_spam", "Is this email unsolicited spam or bulk marketing?", "enron_spam", label_names=("ham", "spam"), label_field="label_text", train_limit=1000),
-    BenchmarkSpec("lmsys/toxic-chat", "jailbreak", "Does prompt try to bypass system safety instructions?", "toxic_chat", label_names=("benign", "jailbreak"), text_field="user_input", label_field="jailbreaking", subset="toxicchat0124", train_limit=1000),
-    BenchmarkSpec("SetFit/amazon_massive_intent_en-US", "intent", "What is the user intent in this utterance?", "amazon_massive", label_field="label_text", train_limit=2000),
+STANDARD_CLASSIFICATIONS: Sequence[TextClassificationSpec] = (
+    TextClassificationSpec("mteb/banking77", "banking77", label_field="label_text"),
+    TextClassificationSpec("fancyzhx/ag_news", "ag_news", label_names=("World", "Sports", "Business", "Sci/Tech")),
+    TextClassificationSpec("dair-ai/emotion", "emotion", label_names=("sadness", "joy", "love", "anger", "fear", "surprise")),
+    TextClassificationSpec("Tobi-Bueck/customer-support-tickets", "customer_support", text_field="body", label_field="queue", splits=("train",)),
+    TextClassificationSpec("zefang-liu/phishing-email-dataset", "phishing_email", text_field="Email Text", label_field="Email Type", label_names=("Safe Email", "Phishing Email"), splits=("train",)),
+    TextClassificationSpec("SetFit/enron_spam", "enron_spam", label_names=("ham", "spam"), label_field="label_text"),
+    TextClassificationSpec("lmsys/toxic-chat", "toxic_chat", label_names=("benign", "jailbreak"), text_field="user_input", label_field="jailbreaking", subset="toxicchat0124"),
+    TextClassificationSpec("SetFit/amazon_massive_intent_en-US", "amazon_massive", label_field="label_text"),
 )
 
-class HuggingFaceSource(IDataSource):
-    """Declarative benchmark dataset adapter: unifies train and test partitions under canonical shared candidate options."""
+class ClassificationSource(IDataSource):
+    """Declarative benchmark dataset adapter for fixed-label text classification datasets."""
 
-    def __init__(self, spec: Optional[BenchmarkSpec] = None, cache: Optional[IRawCachePolicy] = None):
-        self.spec = spec or STANDARD_BENCHMARKS[0]
+    def __init__(
+        self,
+        spec: Optional[TextClassificationSpec] = None,
+        train_limit: Optional[int] = None,
+        test_limit: Optional[int] = None,
+        cache: Optional[IRawCachePolicy] = None,
+    ):
+        self.spec = spec or STANDARD_CLASSIFICATIONS[0]
+        self.train_limit = train_limit
+        self.test_limit = test_limit
         self.cache = cache or HFCache()
         self.name = self.spec.dataset.replace("/", "_")
         if self.spec.subset:
@@ -47,7 +51,7 @@ class HuggingFaceSource(IDataSource):
                 self.spec.dataset,
                 split=s,
                 subset=self.spec.subset,
-                limit=(self.spec.test_limit if s == "test" else self.spec.train_limit),
+                limit=(self.test_limit if s == "test" else self.train_limit),
             )
             for s in self.spec.splits
         }
@@ -67,7 +71,7 @@ class HuggingFaceSource(IDataSource):
         for split_name, rows in split_rows.items():
             is_test = split_name == "test"
             for r in rows:
-                text = str(r.get(self.spec.text_field) or r.get("prompt") or r.get("body") or "").strip()
+                text = str(r.get(self.spec.text_field, "")).strip()
                 if not text or self.spec.label_field not in r or r[self.spec.label_field] is None:
                     continue
                 raw_val = r[self.spec.label_field]
@@ -84,7 +88,7 @@ class HuggingFaceSource(IDataSource):
                 probs = {c: (1.0 if c == label_str else 0.0) for c in cands_tuple}
 
                 case = DecisionCase(
-                    state=text[:2000],
+                    state=text,
                     candidates=cands_tuple,
                     probabilities=probs,
                     category=self.spec.category,
@@ -94,3 +98,5 @@ class HuggingFaceSource(IDataSource):
                 cases.append(case)
 
         return cases
+
+__all__ = ["TextClassificationSpec", "ClassificationSource"]

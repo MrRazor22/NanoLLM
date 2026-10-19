@@ -22,7 +22,7 @@ def default_corpus_source() -> IDataSource:
     from data.sources.decisions_source import DecisionsSource
     from data.sources.glaive_source import GlaiveSource
     from data.sources.hellaswag_source import HellaSwagSource
-    from data.sources.huggingface_source import HuggingFaceSource, STANDARD_BENCHMARKS
+    from data.sources.classification_source import ClassificationSource, STANDARD_CLASSIFICATIONS
     from data.sources.medqa_source import MedQASource
     from data.sources.multichoice_source import MultiChoiceReasoningSource, MULTICHOICE_REASONING_BENCHMARKS
     from data.sources.sciq_source import SciQSource
@@ -38,7 +38,7 @@ def default_corpus_source() -> IDataSource:
         COPASource(),
         SciQSource(),
         ReClorSource(),
-        *(HuggingFaceSource(s) for s in STANDARD_BENCHMARKS),
+        *(ClassificationSource(s) for s in STANDARD_CLASSIFICATIONS),
         *(MultiChoiceReasoningSource(s) for s in MULTICHOICE_REASONING_BENCHMARKS),
     ])
 
