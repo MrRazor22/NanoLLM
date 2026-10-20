@@ -10,7 +10,7 @@ from model.policies.weight_cache import (
 )
 from model.device import resolve_device, resolve_vram_gb
 from model.weights import Weights, WeightMeta, list_weights, has_weights
-from model.token_layout import TokenLayout, PredictionLayout, TokenSlot, Batch, SampleTargets, TargetSlot
+from model.token_layout import Batch
 from inference.decision_engine import IDecisionEngine, DecisionEngine
 from inference.decision_resolver import IResolver, DecisionResolver
 from inference.profiling_layer import ProfilingLayer
@@ -78,8 +78,8 @@ __all__ = [
     "Weights",
     "IOption", "ChoiceOption", "NoulOption", "ScoreOption",
     "IAnswer", "ChoiceAnswer", "NoulAnswer", "ScoreAnswer",
-    "TokenLayout", "PredictionLayout", "DecisionCase", "DataSplits",
-    "Batch", "StepStats", "TokenSlot", "TargetSlot", "SampleTargets",
+    "DecisionCase", "DataSplits",
+    "Batch", "StepStats",
     "BenchmarkReport",
     # Transforms & Paths
     "format_state",

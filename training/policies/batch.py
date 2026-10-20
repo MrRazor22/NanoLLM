@@ -11,7 +11,7 @@ class IBatch(Protocol):
 def estimate_case_length(case: DecisionCase) -> int:
     """Pure Transform: Estimates token footprint of a case for bucketed batching."""
     state_len = len(case.state) // 4 if isinstance(case.state, str) else 30
-    opt_len = sum(len(q.options) * 5 if hasattr(q, "options") and q.options else 10 for q in case.questions)
+    opt_len = sum(len(c) // 4 for c in case.candidates) if case.candidates else 10
     return state_len + opt_len
 
 class BucketedBatch(IBatch):

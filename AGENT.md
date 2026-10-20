@@ -10,7 +10,8 @@
   4. **Data:** [`data/`](file:///d:/CodeBase/Piqo/data) — [`IDataset`](file:///d:/CodeBase/Piqo/data/dataset.py), [`Dataset`](file:///d:/CodeBase/Piqo/data/dataset.py)
   5. **Benchmark:** [`benchmark/`](file:///d:/CodeBase/Piqo/benchmark) — [`IBenchmark`](file:///d:/CodeBase/Piqo/benchmark/benchmark.py), [`Benchmark`](file:///d:/CodeBase/Piqo/benchmark/benchmark.py), [`IScorerPolicy`](file:///d:/CodeBase/Piqo/benchmark/policies/scorer.py), [`ILedgerPolicy`](file:///d:/CodeBase/Piqo/benchmark/policies/ledger.py), [`IReporterPolicy`](file:///d:/CodeBase/Piqo/benchmark/policies/reporter.py)
 - **Zero Meta-Buckets & Zero Nesting:** Root commands the sovereign domains directly as siblings with 1:1 disk topology.
-- **Zero Billboard Comments & Decorative Noise:** NEVER write ASCII banner lines, decorative dividers, or billboard section headers (`# --------...`, `// ======...`). Comments must be rare, subtle, and strictly concise explanations of non-obvious logic.
+- **Zero Code Comments:** Never write comments in code. Code must be completely self-explanatory through clean architecture and plain domain naming.
+- **Plain Domain Naming:** Variable names must describe what the data actually represents in plain domain English rather than obscure library jargon or framework-specific slang.
 - **System One Unified Candidate Decision Doctrine:**
   - **Single Universal Model Primitive:** Model boundary evaluates only $\text{Context} \to \text{Candidates} \to \mathbf{p} \in \Delta^{K-1}$. The neural backbone has zero awareness of question types.
   - **Pure Data Primitive:** `DecisionCase` in `data/case.py` contains strictly `(state, candidates, probabilities, category, source)`. Zero option or answer types exist in the data layer. `case_choice()` and `case_confidence()` are pure derived projections.

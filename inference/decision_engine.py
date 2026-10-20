@@ -42,22 +42,19 @@ class DecisionEngine(IDecisionEngine):
         if model is None:
             from model.torch_model import TorchModel
             from model.weights import has_weights
-            model = TorchModel(device=device)
             target_ckpt = checkpoint or ("piqo" if has_weights("piqo") else None)
-            if target_ckpt is not None:
-                model.load(target_ckpt)
+            model = TorchModel(device=device, weights=target_ckpt)
         self.model, self.resolver = model, resolver or DecisionResolver()
 
     def predict_candidates(self, state: str, candidates: Sequence[str]) -> Sequence[float]:
-        pred = self.model.predict(state, candidates)
+        scores = self.model.predict(state, candidates)
         import scipy.special as sp
-        scores = [pred.scores[i] for i in pred.slots[0]]
         return list(sp.softmax(scores))
 
     def decide(self, state: str, option: IOption) -> IOption:
         candidates = option_to_candidates(option)
-        pred = self.model.predict(state, candidates)
-        return self.resolver.resolve(option, pred.slots, pred.scores)
+        scores = self.model.predict(state, candidates)
+        return self.resolver.resolve(option, scores)
 
     def __or__(self, layer: IDecisionEngineLayer) -> "IDecisionEngine":
         return layer(self)

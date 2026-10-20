@@ -3,6 +3,7 @@ import time
 from typing import Optional, Protocol, Sequence, Union, runtime_checkable
 import torch
 import torch.nn as nn
+from torch.nn.utils.rnn import pad_sequence
 from transformers import AutoModel, AutoTokenizer, logging
 
 logging.set_verbosity_error()
@@ -14,17 +15,14 @@ from model.policies.head import IHead, MLPHead
 from model.policies.layout import ILayout, MaskedLayout
 from model.policies.optimizer import AdamWOptimizer, IOptimizerPolicy
 from model.policies.weight_cache import DiskWeightCache, IWeightCache
-from model.token_layout import PredictionLayout
 from model.weights import WeightMeta, Weights
 
 @runtime_checkable
 class IModel(Protocol):
     """Core Primitive: Neural computation boundary for inference scoring and loss computation."""
-    def predict(self, state: str, candidates: Sequence[str]) -> PredictionLayout: ...
+    def predict(self, state: str, candidates: Sequence[str]) -> Sequence[float]: ...
     def step(self, cases: Sequence[DecisionCase], backward: bool = True, lr: Optional[float] = None) -> float: ...
-    def flush(self) -> None: ...
     def save(self, target: Union[str, Path] = "piqo", meta: Optional[WeightMeta] = None) -> Path: ...
-    def load(self, source: Optional[Union[Weights, str, Path]] = None, strict: bool = True) -> None: ...
 
 class TorchModel(IModel):
     """Core Primitive Implementation: ModernBERT backbone with modular decision head, layout, and optimizer."""
@@ -39,7 +37,7 @@ class TorchModel(IModel):
         optimizer_policy: Optional[IOptimizerPolicy] = None,
         weight_cache: Optional[IWeightCache] = None,
         tokenizer: Optional[AutoTokenizer] = None,
-        weights: Optional[Weights] = None,
+        weights: Optional[Union[Weights, str, Path]] = None,
         lr: float = 2e-5,
         accum_steps: int = 1,
         max_state_tokens: int = 2048,
@@ -70,27 +68,25 @@ class TorchModel(IModel):
         if compile and hasattr(torch, "compile"):
             self.backbone = torch.compile(self.backbone)
 
-    def predict(self, state: str, candidates: Sequence[str]) -> PredictionLayout:
-        layout = self.layout.encode(state, candidates)
+    def predict(self, state: str, candidates: Sequence[str]) -> Sequence[float]:
+        batch = self.layout.encode(state, candidates).to(self.device)
         self.backbone.eval()
         self.head.eval()
-        ids = torch.as_tensor(layout.input_ids, dtype=torch.long, device=self.device).unsqueeze(0)
-        mask = torch.as_tensor(layout.mask, dtype=torch.float, device=self.device).unsqueeze(0)
         with torch.no_grad(), torch.amp.autocast(self.device.type, enabled=self.device.type == "cuda"):
-            hidden = self.backbone(input_ids=ids, attention_mask=mask).last_hidden_state
-            scores = self.head.score(hidden).squeeze(0).cpu().tolist()
-        return PredictionLayout(scores=scores, slots=layout.slots)
+            hidden = self.backbone(input_ids=batch.input_ids, attention_mask=batch.mask).last_hidden_state
+            scores = self.head.score(hidden).squeeze(0)
+            return [scores[i].item() for i in batch.candidate_indices[0]]
 
     def step(self, cases: Sequence[DecisionCase], backward: bool = True, lr: Optional[float] = None) -> float:
-        batch = self.layout.collate(cases, shuffle=backward)
+        batch = self.layout.collate(cases, shuffle=backward).to(self.device)
         self.backbone.train(backward)
         self.head.train(backward)
-        ids = batch.input_ids.to(self.device, non_blocking=True)
-        mask = batch.mask.to(self.device, non_blocking=True)
         with torch.set_grad_enabled(backward), torch.amp.autocast(self.device.type, enabled=self.device.type == "cuda"):
-            hidden = self.backbone(input_ids=ids, attention_mask=mask).last_hidden_state
+            hidden = self.backbone(input_ids=batch.input_ids, attention_mask=batch.mask).last_hidden_state
             preds = self.head.score(hidden)
-            loss = self.loss_policy.compute(preds, batch.targets)
+            # Pad candidate scores with -1e4 so empty option slots get ~0 probability in softmax
+            candidate_scores = pad_sequence([preds[b, idxs] for b, idxs in enumerate(batch.candidate_indices)], batch_first=True, padding_value=-1e4)
+            loss = self.loss_policy.compute(candidate_scores, batch.targets)
         if backward and self.optimizer_policy:
             self.optimizer_policy.step(loss, lr=lr)
         return loss.item()
@@ -100,6 +96,7 @@ class TorchModel(IModel):
             self.optimizer_policy.flush()
 
     def save(self, target: Union[str, Path] = "piqo", meta: Optional[WeightMeta] = None) -> Path:
+        self.flush()
         from safetensors.torch import save
         tensors = {f"backbone.{k}": v.contiguous() for k, v in self.backbone.state_dict().items()}
         tensors.update({f"head.{k}": v.contiguous() for k, v in self.head.state_dict().items()})

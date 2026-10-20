@@ -11,10 +11,11 @@ class DecisionCase:
     split: str | None = None
 
     def choice(self) -> str:
-        return max(self.probabilities, key=self.probabilities.__getitem__)
+        return max(self.probabilities, key=self.probabilities.__getitem__) if self.probabilities else ""
 
     def target_index(self) -> int:
-        return self.candidates.index(self.choice())
+        c = self.choice()
+        return self.candidates.index(c) if c in self.candidates else 0
 
     def to_dict(self) -> dict:
         res = {
