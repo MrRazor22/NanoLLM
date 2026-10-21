@@ -7,9 +7,8 @@ DEFAULT_WEIGHTS_DIR = Path(__file__).resolve().parent / "weights"
 DEFAULT_WEIGHTS_PATH = DEFAULT_WEIGHTS_DIR / "piqo.safetensors"
 
 def resolve_weights_path(path: Path | str = DEFAULT_WEIGHTS_PATH) -> Path:
-    p = Path(path)
-    stem = p.name if p.suffix == ".safetensors" else f"{p.name}.safetensors"
-    return DEFAULT_WEIGHTS_DIR / stem if p.parent == Path(".") else p.with_suffix(".safetensors")
+    p = Path(path).with_suffix(".safetensors")
+    return DEFAULT_WEIGHTS_DIR / p.name if p.parent == Path(".") else p
 
 @dataclass(frozen=True, slots=True)
 class WeightInfo:
