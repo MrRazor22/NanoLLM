@@ -1,8 +1,8 @@
 from pathlib import Path
+import time
 from typing import Iterator, Optional, Sequence, Union
 
 from data.case import DecisionCase
-from model.policies.weight_cache import WeightMeta
 from training.epoch_trainer import ITrainer, ITrainerLayer
 from training.stats import StepStats
 
@@ -40,13 +40,18 @@ class CheckpointingLayer(ITrainer):
         for s in self.inner.fit(train_cases, epochs=epochs, val_cases=val_cases):
             if self.output_path and model:
                 target = self.output_path
-                meta = WeightMeta(epoch=s.epoch, train_loss=s.loss, val_loss=s.val_loss)
+                meta = {
+                    "epoch": str(s.epoch),
+                    "train_loss": f"{s.loss:.4f}",
+                    "val_loss": f"{s.val_loss:.4f}" if s.val_loss is not None else "",
+                    "saved_at": time.strftime("%Y-%m-%d %H:%M:%S"),
+                }
                 p_target = Path(target)
                 if s.val_loss is not None and s.val_loss < self.best_val_loss:
                     self.best_val_loss = s.val_loss
                     model.save(target, meta=meta)
                 if s.batch == s.total_batches:
-                    epoch_target = p_target if (p_target.suffix or p_target.parent != Path(".")) else f"{target}_v{s.epoch}"
+                    epoch_target = p_target if (p_target.suffix or p_target.parent != Path(".")) else Path(f"{target}_v{s.epoch}")
                     model.save(epoch_target, meta=meta)
                     if s.val_loss is None:
                         model.save(target, meta=meta)

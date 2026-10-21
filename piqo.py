@@ -1,16 +1,11 @@
 """Piqo: Sovereign Composition Root (PFD)."""
 
-from model.torch_model import IModel, TorchModel
+from model.torch_model import IModel, TorchModel, DEFAULT_WEIGHTS_DIR, DEFAULT_WEIGHTS_PATH
+from model.weights import list_weights, WeightInfo
 from training.policies.loss import ILoss, CalibratedLoss
 from training.policies.learner import ILearner, AdamWLearner
 from model.policies.layout import ILayout, MaskedLayout, Layout
-from model.policies.weight_cache import (
-    DEFAULT_WEIGHTS_DIR, DEFAULT_WEIGHTS_PATH, DiskWeightCache, IWeightCache, WeightMeta, Weights,
-)
 from model.device import resolve_device, resolve_vram_gb
-from model.weights import (
-    list_weights, has_weights, save_weights, load_weights,
-)
 from inference.decision_engine import IDecisionEngine, DecisionEngine
 from inference.decision_resolver import IResolver, DecisionResolver
 from inference.profiling_layer import ProfilingLayer
@@ -59,7 +54,6 @@ __all__ = [
     "ILearner", "AdamWLearner",
     "ILoss", "CalibratedLoss",
     "ILayout", "MaskedLayout",
-    "IWeightCache", "DiskWeightCache", "DEFAULT_WEIGHTS_DIR", "DEFAULT_WEIGHTS_PATH",
     "ISchedule", "CosineSchedule", "ConstantSchedule",
     "IResolver", "DecisionResolver",
     "IStoragePolicy", "DiskStoragePolicy",
@@ -73,7 +67,7 @@ __all__ = [
     # Layers (Lambda: P -> P)
     "ProfilingLayer", "CheckpointingLayer", "MetricsLayer",
     # Domain DTOs & Models
-    "Weights",
+    "WeightInfo",
     "IOption", "ChoiceOption", "NoulOption", "ScoreOption",
     "IAnswer", "ChoiceAnswer", "NoulAnswer", "ScoreAnswer",
     "DecisionCase", "CaseMeta", "DataSplits",
@@ -87,10 +81,9 @@ __all__ = [
     "score_target_index",
     "matches_answer",
     "list_weights",
-    "has_weights",
-    "save_weights",
-    "load_weights",
     "resolve_device",
     "resolve_vram_gb",
+    "DEFAULT_WEIGHTS_DIR",
+    "DEFAULT_WEIGHTS_PATH",
     "DEFAULT_RAW_DIR",
 ]

@@ -4,25 +4,21 @@ import torch
 import torch.nn as nn
 from torch.nn.utils.rnn import pad_sequence
 from transformers import AutoModel, AutoTokenizer, logging
-from safetensors.torch import save, load
+from safetensors.torch import save_file, load_file
 
 logging.set_verbosity_error()
 
 from data.case import DecisionCase
 from model.device import resolve_device
 from model.policies.layout import ILayout, MaskedLayout
-from model.policies.weight_cache import (
-    DEFAULT_WEIGHTS_PATH,
-    IWeightCache,
-    DiskWeightCache,
-    WeightMeta,
-    Weights,
-)
+
+DEFAULT_WEIGHTS_DIR = Path(__file__).resolve().parent / "weights"
+DEFAULT_WEIGHTS_PATH = DEFAULT_WEIGHTS_DIR / "piqo.safetensors"
 
 @runtime_checkable
 class IModel(Protocol):
     def forward(self, cases: Sequence[DecisionCase], train: bool = False) -> torch.Tensor: ...
-    def save(self, path: Path = DEFAULT_WEIGHTS_PATH, meta: WeightMeta = WeightMeta()) -> Path: ...
+    def save(self, path: Path = DEFAULT_WEIGHTS_PATH, meta: Optional[dict[str, str]] = None) -> Path: ...
     def load(self, path: Path = DEFAULT_WEIGHTS_PATH) -> "IModel": ...
 
 class TorchModel(nn.Module, IModel):
@@ -32,7 +28,6 @@ class TorchModel(nn.Module, IModel):
         backbone: Optional[nn.Module] = None,
         head: Optional[nn.Module] = None,
         layout: Optional[ILayout] = None,
-        cache: Optional[IWeightCache] = None,
         tokenizer: Optional[AutoTokenizer] = None,
         max_state_tokens: int = 2048,
         device: Optional[Union[str, torch.device]] = None,
@@ -61,7 +56,6 @@ class TorchModel(nn.Module, IModel):
             tokenizer=tokenizer or AutoTokenizer.from_pretrained(backbone_name),
             max_state_tokens=max_state_tokens,
         )
-        self.cache = cache or DiskWeightCache()
 
         if compile and hasattr(torch, "compile"):
             self.backbone = torch.compile(self.backbone)
@@ -83,16 +77,20 @@ class TorchModel(nn.Module, IModel):
                 batch_scores.append(scores)
             return torch.stack(batch_scores)
 
-    def save(self, path: Path = DEFAULT_WEIGHTS_PATH, meta: WeightMeta = WeightMeta()) -> Path:
-        resolved_path = Path(path)
+    def save(self, path: Path = DEFAULT_WEIGHTS_PATH, meta: Optional[dict[str, str]] = None) -> Path:
+        target = Path(path)
+        out_file = target.with_suffix(".safetensors") if not target.suffix else target
+        out_file = DEFAULT_WEIGHTS_DIR / out_file.name if out_file.parent == Path(".") else out_file
+        out_file.parent.mkdir(parents=True, exist_ok=True)
         tensors = {k: v.contiguous() for k, v in self.state_dict().items()}
-        weights = Weights(payload=save(tensors), name=resolved_path.stem, meta=meta)
-        return self.cache.put(resolved_path, weights)
+        save_file(tensors, str(out_file), metadata=meta or {})
+        return out_file
 
     def load(self, path: Path = DEFAULT_WEIGHTS_PATH) -> "IModel":
-        resolved_path = Path(path)
-        weights = self.cache.get(resolved_path)
-        if not weights:
-            raise FileNotFoundError(f"Model weights not found for: {resolved_path}")
-        self.load_state_dict(load(weights.payload))
+        target = Path(path)
+        in_file = target.with_suffix(".safetensors") if not target.suffix else target
+        in_file = DEFAULT_WEIGHTS_DIR / in_file.name if in_file.parent == Path(".") else in_file
+        if not in_file.exists():
+            raise FileNotFoundError(f"Model weights not found at: {in_file}")
+        self.load_state_dict(load_file(str(in_file)))
         return self

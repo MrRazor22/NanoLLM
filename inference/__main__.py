@@ -1,15 +1,14 @@
-import os, warnings
 from typing import List, Optional
-from rich import box
 from rich.console import Console
 from rich.table import Table
+from rich import box
 import typer
 
-os.environ["TOKENIZERS_PARALLELISM"] = "false"
-warnings.filterwarnings("ignore")
-
-from inference.options import ChoiceAnswer, ChoiceOption, IOption, NoulAnswer, NoulOption, ScoreAnswer, ScoreOption
-from inference.decision_engine import DecisionEngine, IDecisionEngine
+from inference.options import (
+    IOption, ChoiceOption, NoulOption, ScoreOption,
+    ChoiceAnswer, NoulAnswer, ScoreAnswer,
+)
+from inference.decision_engine import IDecisionEngine, DecisionEngine
 from inference.profiling_layer import ProfilingLayer
 from model.weights import list_weights
 
@@ -46,8 +45,10 @@ def main(
     if weights:
         t = Table(title="Saved Weights", box=box.ROUNDED)
         for col in ("Identity", "Size", "Val Loss", "Saved At"): t.add_column(col)
-        for c in list_weights(): t.add_row(c.name, f"{c.size_mb:.1f} MB", f"{c.meta.val_loss:.4f}" if c.meta.val_loss else "-", c.meta.saved_at or "-")
-        console.print(t); return
+        for c in list_weights():
+            t.add_row(c.name, f"{c.size_mb:.1f} MB", c.meta.get("val_loss") or "-", c.meta.get("saved_at") or "-")
+        console.print(t)
+        return
 
     profiler = ProfilingLayer()
     try:
@@ -56,7 +57,7 @@ def main(
         console.print(f"[bold red]Model Error:[/] {e}")
         available = [w.name for w in list_weights()]
         if available:
-            console.print(f"Available weights in cache: {available}")
+            console.print(f"Available weights: {available}")
         raise typer.Exit(code=1)
 
     if play or state is None:
@@ -77,7 +78,7 @@ def main(
     elif score:
         opt = ScoreOption()
     else:
-        opt = ChoiceOption(options=["Yes", "No"])
+        opt = NoulOption()
 
     resolved = engine.decide(state, opt)
     render(resolved, state, profiler.last_latency_ms)

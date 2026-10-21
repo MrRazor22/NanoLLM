@@ -19,6 +19,8 @@ class MaskedLayout(ILayout):
         if tokenizer is None:
             from transformers import AutoTokenizer
             tokenizer = AutoTokenizer.from_pretrained("answerdotai/ModernBERT-base")
+        if tokenizer.pad_token_id is None:
+            raise ValueError("Tokenizer must define pad_token_id.")
         self.tokenizer = tokenizer
         self.max_state_tokens = max_state_tokens
 
@@ -41,8 +43,7 @@ class MaskedLayout(ILayout):
         ids.extend(state_tokens)
         ids.append(sep_id)
 
-        pad_id = getattr(self.tokenizer, "pad_token_id", 0) or 0
-        return Layout(tokens=ids, slots=slots, pad_id=pad_id)
+        return Layout(tokens=ids, slots=slots, pad_id=self.tokenizer.pad_token_id)
 
     def layout(self, cases: Sequence[DecisionCase]) -> Sequence[Layout]:
         return [self.layout_case(c) for c in cases]
