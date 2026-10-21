@@ -30,14 +30,11 @@ class KevEngine(IDecisionEngine):
 
     def decide(self, state: str, option: IOption) -> IAnswer:
         if isinstance(option, ChoiceOption):
-            opts = option.options if isinstance(option.options, dict) else {o: o for o in option.options}
-            q_spec = {"type": "choice", "criteria": opts}
+            q_spec = {"type": "choice", "criteria": dict(option.criteria)}
             if option.instruction:
                 q_spec["instructions"] = option.instruction
         elif isinstance(option, NoulOption):
-            q_spec = {"type": "noul", "instructions": option.instruction}
-            if option.criteria:
-                q_spec["criteria"] = dict(option.criteria)
+            q_spec = {"type": "noul", "instructions": option.instruction, "criteria": dict(option.criteria)}
         elif isinstance(option, ScoreOption):
             q_spec = {"type": "score", "criteria": list(option.criteria)}
             if option.instruction:

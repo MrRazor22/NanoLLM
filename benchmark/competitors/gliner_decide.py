@@ -36,7 +36,7 @@ class GlinerDecideEngine(IDecisionEngine):
         prompt_text = str(state)
 
         if isinstance(option, ChoiceOption):
-            opt_map = {desc or k: k for k, desc in option.options.items()} if isinstance(option.options, dict) else {opt: opt for opt in option.options}
+            opt_map = {desc or k: k for k, desc in option.criteria.items()}
             if hasattr(model, "classify_text"):
                 raw = model.classify_text(prompt_text, {"decision": list(opt_map.keys())}).get("decision", "")
                 if raw in opt_map:

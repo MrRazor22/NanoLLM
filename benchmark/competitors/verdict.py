@@ -35,7 +35,7 @@ class VerdictEngine(IDecisionEngine):
         prompt_text = str(state)
 
         if isinstance(option, ChoiceOption):
-            opt_map = {f"It is {desc or k}": k for k, desc in option.options.items()} if isinstance(option.options, dict) else {f"It is {o}": o for o in option.options}
+            opt_map = {f"It is {desc or k}": k for k, desc in option.criteria.items()}
             res = pipe(prompt_text, list(opt_map.keys()))
             items = res[0] if (res and isinstance(res, list) and isinstance(res[0], list)) else (res or [])
             cand_scores = {opt_map[it["label"]]: float(it.get("score", 0.0)) for it in items if it.get("label") in opt_map}

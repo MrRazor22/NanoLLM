@@ -28,12 +28,11 @@ class LayaEngine(IDecisionEngine):
                 raise ImportError("Laya is not installed. To run live: pip install laya")
 
         if isinstance(option, ChoiceOption):
-            opts = option.options if isinstance(option.options, dict) else {o: o for o in option.options}
-            q_spec = {"type": "choice", "instructions": "Select the best option.", "criteria": opts}
+            q_spec = {"type": "choice", "instructions": option.instruction or "Select the best option.", "criteria": dict(option.criteria)}
         elif isinstance(option, NoulOption):
-            q_spec = {"type": "noul", "instructions": "Make a binary decision."}
+            q_spec = {"type": "noul", "instructions": option.instruction or "Make a binary decision.", "criteria": dict(option.criteria)}
         else:
-            q_spec = {"type": "score", "instructions": "Assign a score.", "criteria": [str(option.min_value), str(option.max_value)]}
+            q_spec = {"type": "score", "instructions": option.instruction or "Assign a score.", "criteria": list(option.criteria)}
 
         raw = self._agent.system_one(str(state), {"decision": q_spec})
         raw_answers = raw.get("answers", {})

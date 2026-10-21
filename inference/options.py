@@ -32,7 +32,7 @@ class IOption(Protocol):
 @dataclass(frozen=True, slots=True)
 class ChoiceOption(IOption):
     instruction: str
-    options: Sequence[str] | Mapping[str, str]
+    criteria: Mapping[str, str]
 
 @dataclass(frozen=True, slots=True)
 class NoulOption(IOption):
@@ -46,10 +46,8 @@ class ScoreOption(IOption):
 
 def option_to_candidates(option: IOption) -> Sequence[str]:
     match option:
-        case ChoiceOption(options=opts):
-            if isinstance(opts, Mapping):
-                return tuple(f"{k}: {v}" if v else k for k, v in opts.items())
-            return tuple(opts)
+        case ChoiceOption(criteria=crit):
+            return tuple(f"{k}: {v}" if v else k for k, v in crit.items())
         case NoulOption(criteria=crit):
             return (crit["false"], crit["true"])
         case ScoreOption(criteria=crit):
@@ -61,8 +59,8 @@ def option_to_candidates(option: IOption) -> Sequence[str]:
 
 def probabilities_to_answer(option: IOption, probs: Sequence[float]) -> IAnswer:
     match option:
-        case ChoiceOption(options=opts):
-            keys = tuple(opts.keys()) if isinstance(opts, Mapping) else tuple(opts)
+        case ChoiceOption(criteria=crit):
+            keys = tuple(crit.keys())
             best = int(max(range(len(probs)), key=lambda i: probs[i]))
             return ChoiceAnswer(
                 choice=keys[best],

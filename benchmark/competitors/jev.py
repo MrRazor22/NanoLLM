@@ -29,12 +29,11 @@ class JevEngine(IDecisionEngine):
             raise ValueError("TypeSafe Jev API key not set. Set JEV_API_KEY environment variable to evaluate hosted Jev.")
 
         if isinstance(option, ChoiceOption):
-            opts = option.options if isinstance(option.options, dict) else {o: o for o in option.options}
-            q_spec = {"type": "choice", "criteria": opts}
+            q_spec = {"type": "choice", "instruction": option.instruction, "criteria": dict(option.criteria)}
         elif isinstance(option, NoulOption):
-            q_spec = {"type": "noul", "instruction": option.instruction, "criteria": {"false": "No", "true": "Yes"}} if option.instruction else {"type": "noul", "criteria": {"false": "No", "true": "Yes"}}
+            q_spec = {"type": "noul", "instruction": option.instruction, "criteria": dict(option.criteria)}
         elif isinstance(option, ScoreOption):
-            q_spec = {"type": "score", "criteria": list(option.criteria)}
+            q_spec = {"type": "score", "instruction": option.instruction, "criteria": list(option.criteria)}
         else:
             raise ValueError(f"Unsupported option type: {type(option)}")
 

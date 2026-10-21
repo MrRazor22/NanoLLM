@@ -65,14 +65,14 @@ def main(
         while (ctx := console.input("\n[bold]Context[/]: ").strip()) and ctx.lower() not in ("q", "quit", "exit"):
             opts = [o.strip() for o in console.input("[bold]Choices[/]: ").split(",") if o.strip()]
             if opts:
-                ans = engine.decide(ctx, ChoiceOption(instruction=ctx, options=opts))
+                ans = engine.decide(ctx, ChoiceOption(instruction=ctx, criteria={o: "" for o in opts}))
                 render(ans, ctx, profiler.last_latency_ms)
         return
 
     opt: IOption
     if choice:
         opts = [o.strip() for item in choice for o in item.split(",") if o.strip()]
-        opt = ChoiceOption(instruction=state or "Select option", options=opts)
+        opt = ChoiceOption(instruction=state or "Select option", criteria={o: "" for o in opts})
     elif noul:
         opt = NoulOption(instruction=state or "holds")
     elif score:
