@@ -1,23 +1,8 @@
-from dataclasses import dataclass
 from pathlib import Path
 from typing import Iterator, Optional, Sequence, Union
 
 from data.case import DecisionCase
-from model.weights import WeightInfo
-from training.epoch_trainer import ITrainer, ITrainerLayer
-
-@dataclass(frozen=True, slots=True)
-class TrainingStats(WeightInfo):
-    epoch: int = 1
-    total_epochs: int = 1
-    step: int = 0
-    total_steps: int = 0
-    train_loss: float = 0.0
-    val_loss: Optional[float] = None
-    lr: float = 0.0
-    elapsed_ms: float = 0.0
-    batch: int = 0
-    total_batches: int = 0
+from training.epoch_trainer import ITrainer, ITrainerLayer, TrainingStats
 
 class CheckpointingLayer(ITrainer):
     def __init__(

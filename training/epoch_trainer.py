@@ -1,3 +1,4 @@
+from dataclasses import dataclass
 import itertools
 import logging
 from pathlib import Path
@@ -7,11 +8,25 @@ import torch
 
 from data.case import DecisionCase
 from model.torch_model import IModel
+from model.weights import WeightInfo
 from training.policies.learner import AdamWLearner, ILearner
 from training.policies.loss import CalibratedLoss, ILoss
 from training.policies.schedule import CosineSchedule, ISchedule
 
 logger = logging.getLogger("piqo.training")
+
+@dataclass(frozen=True, slots=True)
+class TrainingStats(WeightInfo):
+    epoch: int = 1
+    total_epochs: int = 1
+    step: int = 0
+    total_steps: int = 0
+    train_loss: float = 0.0
+    val_loss: Optional[float] = None
+    lr: float = 0.0
+    elapsed_ms: float = 0.0
+    batch: int = 0
+    total_batches: int = 0
 
 @runtime_checkable
 class ITrainerLayer(Protocol):
@@ -24,7 +39,7 @@ class ITrainer(Protocol):
         train_cases: Sequence[DecisionCase],
         val_cases: Sequence[DecisionCase],
         epochs: int = 1,
-    ) -> Iterator["TrainingStats"]: ...
+    ) -> Iterator[TrainingStats]: ...
 
     def evaluate(self, cases: Sequence[DecisionCase]) -> float: ...
     def __or__(self, layer: ITrainerLayer) -> "ITrainer": ...
@@ -65,9 +80,7 @@ class EpochTrainer(ITrainer):
         train_cases: Sequence[DecisionCase],
         val_cases: Sequence[DecisionCase],
         epochs: int = 1,
-    ) -> Iterator["TrainingStats"]:
-        from training.checkpointing_layer import TrainingStats
-
+    ) -> Iterator[TrainingStats]:
         items = list(train_cases)
         total_batches = (len(items) + self.batch_size - 1) // self.batch_size if items else 0
         total_steps = epochs * total_batches
