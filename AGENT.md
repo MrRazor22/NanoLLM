@@ -18,9 +18,9 @@
   - **Pure Data Primitive:** `DecisionCase` in `data/case.py` contains strictly `(state, candidates, probabilities, category, source)`. Zero option or answer types exist in the data layer. `case_choice()` and `case_confidence()` are pure derived projections.
   - **Fail-Fast Invariant (Zero Silent Fallbacks):** Never write defensive fallback branches, magical `0` defaults, or sneaky swallowing of missing candidates. If a derived choice is not present in `candidates`, throw immediately (`ValueError`). If a state or category is missing, abort. Defensive fallbacks corrupt training data and mask upstream pipeline bugs.
   - **High-Level Ergonomic Layer (System One Specification):**
-    - `ChoiceOption`: Categorical routing with `options: Sequence[str] | Mapping[str, str]` and `instruction: str = ""` $\to$ `ChoiceAnswer(choice, confidence, probabilities)`.
-    - `NoulOption`: Binary verification with `instruction: str` and optional `criteria: Mapping[str, str] | None` $\to$ `NoulAnswer(noul, decision, confidence)` where `noul` $\in [0, 1]$ is probability of yes.
-    - `ScoreOption`: Ordinal rating with required `criteria: Sequence[str]` (2 to 10 ordered levels) and `instruction: str = ""` $\to$ `ScoreAnswer(score, confidence, probabilities)`.
+    - `ChoiceOption(instruction: str, options: Sequence[str] | Mapping[str, str])` $\to$ `ChoiceAnswer(choice: str, confidence: float, probabilities: Mapping[str, float])`.
+    - `NoulOption(instruction: str, criteria: Mapping[str, str] = {"false": "false", "true": "true"})` $\to$ `NoulAnswer(noul: float, decision: bool, confidence: float)` where `noul` $\in [0, 1]$ is probability of yes. `criteria` is strictly `Mapping[str, str]` with keys `"false"` and `"true"`.
+    - `ScoreOption(instruction: str, criteria: Sequence[str])` $\to$ `ScoreAnswer(score: float, confidence: float, probabilities: Sequence[float])` where `criteria` requires 2 to 10 ordered level descriptions.
   - **Consolidated Corpus:** Training and evaluation splits live in a single consolidated schema inside `data/corpus/` (`train.jsonl`, `val.jsonl`, `test.jsonl`). No type-fragmented subdirectories. Raw downloads remain strictly isolated in `data/raw/`.
 
 ## 2. Operational Workflows & Commands (Zero-Flag Self-Wiring Defaults)

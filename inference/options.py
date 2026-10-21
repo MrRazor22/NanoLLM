@@ -1,4 +1,4 @@
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Mapping, Protocol, Sequence, runtime_checkable
 
 # Sovereign High-Level Contracts: System One Options & Answers
@@ -31,18 +31,18 @@ class IOption(Protocol):
 
 @dataclass(frozen=True, slots=True)
 class ChoiceOption(IOption):
+    instruction: str
     options: Sequence[str] | Mapping[str, str]
-    instruction: str = ""
 
 @dataclass(frozen=True, slots=True)
 class NoulOption(IOption):
     instruction: str
-    criteria: Sequence[str] | Mapping[str, str] = ("false", "true")
+    criteria: Mapping[str, str] = field(default_factory=lambda: {"false": "false", "true": "true"})
 
 @dataclass(frozen=True, slots=True)
 class ScoreOption(IOption):
+    instruction: str
     criteria: Sequence[str]
-    instruction: str = ""
 
 def option_to_candidates(option: IOption) -> Sequence[str]:
     match option:
@@ -51,9 +51,7 @@ def option_to_candidates(option: IOption) -> Sequence[str]:
                 return tuple(f"{k}: {v}" if v else k for k, v in opts.items())
             return tuple(opts)
         case NoulOption(criteria=crit):
-            if isinstance(crit, Mapping):
-                return (crit.get("false", "false"), crit.get("true", "true"))
-            return tuple(crit)
+            return (crit["false"], crit["true"])
         case ScoreOption(criteria=crit):
             if len(crit) < 2:
                 raise ValueError("ScoreOption requires at least 2 ordered criteria levels.")

@@ -73,7 +73,7 @@ def run_playground(engines: Sequence[tuple[str, IDecisionEngine]]) -> None:
         opts = [o.strip() for o in raw_choices.split(",") if o.strip()]
         if not opts:
             continue
-        opt = ChoiceOption(options=opts)
+        opt = ChoiceOption(instruction=ctx, options=opts)
         print(f"\nState: {ctx}\n" + "-" * 55)
         for m_name, eng in engines:
             try:
@@ -111,7 +111,7 @@ def main(
         for name, eng in active_engines.items():
             try:
                 profiled = eng | ProfilingLayer()
-                profiled.decide("warmup", ChoiceOption(options=["warm"]))
+                profiled.decide("warmup", ChoiceOption(instruction="warmup", options=["warm"]))
                 live_engines.append((name, profiled))
             except Exception as e:
                 print(f"[{name}] Skipping playground: {e}")
