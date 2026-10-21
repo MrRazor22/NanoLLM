@@ -16,7 +16,7 @@ from model.weights import DEFAULT_WEIGHTS_PATH, WeightInfo, resolve_weights_path
 @runtime_checkable
 class IModel(Protocol):
     def forward(self, cases: Sequence[DecisionCase], train: bool = False) -> torch.Tensor: ...
-    def save(self, path: Path = DEFAULT_WEIGHTS_PATH, info: Optional[WeightInfo] = None) -> Path: ...
+    def save(self, path: Path = DEFAULT_WEIGHTS_PATH, info: Optional[WeightInfo] = None) -> None: ...
     def load(self, path: Path = DEFAULT_WEIGHTS_PATH) -> None: ...
 
 class TorchModel(nn.Module, IModel):
@@ -75,12 +75,10 @@ class TorchModel(nn.Module, IModel):
                 batch_scores.append(scores)
             return torch.stack(batch_scores)
 
-    def save(self, path: Path = DEFAULT_WEIGHTS_PATH, info: Optional[WeightInfo] = None) -> Path:
+    def save(self, path: Path = DEFAULT_WEIGHTS_PATH, info: Optional[WeightInfo] = None) -> None:
         out_file = resolve_weights_path(path, ensure_parent=True)
-        tensors = {k: v.contiguous() for k, v in self.state_dict().items()}
         resolved_info = info or WeightInfo(name=out_file.stem, path=out_file)
-        save_file(tensors, str(out_file), metadata=resolved_info.to_metadata())
-        return out_file
+        save_file(self.state_dict(), str(out_file), metadata=resolved_info.to_metadata())
 
     def load(self, path: Path = DEFAULT_WEIGHTS_PATH) -> None:
         in_file = resolve_weights_path(path)
