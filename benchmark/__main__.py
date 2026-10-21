@@ -88,8 +88,8 @@ def run_playground(engines: Sequence[tuple[str, IDecisionEngine]]) -> None:
 
 @app.command()
 def main(
-    suite: str = typer.Option("all", "--suite", "-s", help="Benchmark suite(s): all, laya, jev, kev (comma-separated)"),
-    model: str = typer.Option("all", "--model", "-m", help="Model(s) to evaluate: all, piqo, gliner, jev, laya, verdict (comma-separated)"),
+    suite: str = typer.Option("all", "--suite", "-s", help="Benchmark suite(s): all, laya, fast, jev (comma-separated)"),
+    model: str = typer.Option("all", "--model", "-m", help="Model(s) to evaluate: all, piqo, gliner, laya, verdict, d1_omni, jevk5_lite (comma-separated)"),
     report: bool = typer.Option(False, "--report", "-r", help="Show leaderboard report without running models"),
     limit: Optional[int] = typer.Option(None, help="Item limit per suite"),
     device: Optional[str] = typer.Option(None, help="Target compute device (cpu, cuda, mps)"),

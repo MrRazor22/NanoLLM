@@ -30,4 +30,4 @@ venv/
 .vs/
 
 # Local competitor models and reference binaries
-systemonemodels/
+spec/competitors/

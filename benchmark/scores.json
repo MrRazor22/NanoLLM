@@ -5,7 +5,6 @@
       "count": 500,
       "Piqo": 0.362,
       "Gliner": 0.442,
-      "Kev": 0.602,
       "Laya": 0.388,
       "Verdict": 0.292
     },
@@ -13,7 +12,6 @@
       "count": 2000,
       "Piqo": 0.477,
       "Gliner": 0.4795,
-      "Kev": 0.6615,
       "Laya": 0.365,
       "Verdict": 0.3505
     },
@@ -21,7 +19,6 @@
       "count": "-",
       "Piqo": 38.92,
       "Gliner": 298.12,
-      "Kev": 792.98,
       "Laya": 113.53,
       "Verdict": 133.03
     },
@@ -29,7 +26,6 @@
       "count": "-",
       "Piqo": 0.6541,
       "Gliner": 1.041,
-      "Kev": 0.6777,
       "Laya": 0.8085,
       "Verdict": 1.0232
     },
@@ -37,7 +33,6 @@
       "count": 500,
       "Piqo": 0.604,
       "Gliner": 0.596,
-      "Kev": 0.732,
       "Laya": 0.388,
       "Verdict": 0.396
     },
@@ -45,7 +40,6 @@
       "count": 500,
       "Piqo": 0.424,
       "Gliner": 0.382,
-      "Kev": 0.656,
       "Laya": 0.366,
       "Verdict": 0.346
     },
@@ -53,7 +47,6 @@
       "count": 500,
       "Piqo": 0.518,
       "Gliner": 0.498,
-      "Kev": 0.656,
       "Laya": 0.318,
       "Verdict": 0.368
     }
@@ -64,7 +57,6 @@
       "count": 24,
       "Piqo": 0.7083,
       "Gliner": 0.9583,
-      "Kev": 1.0,
       "Laya": 0.8333,
       "Verdict": 0.7083
     },
@@ -72,7 +64,6 @@
       "count": 231,
       "Piqo": 0.5065,
       "Gliner": 0.4935,
-      "Kev": 0.671,
       "Laya": 0.5325,
       "Verdict": 0.4069
     },
@@ -80,14 +71,12 @@
       "count": "-",
       "Piqo": 34.36,
       "Gliner": 51.88,
-      "Kev": 444.89,
       "Laya": 46.46,
       "Verdict": 35.99
     },
     "BRIER_SCORE": {
       "count": "-",
       "Piqo": 0.5452,
-      "Kev": 0.2902,
       "Laya": 0.5685,
       "Verdict": 0.8351,
       "Gliner": 0.8571
@@ -96,7 +85,6 @@
       "count": 12,
       "Piqo": 0.6667,
       "Gliner": 1.0,
-      "Kev": 1.0,
       "Laya": 1.0,
       "Verdict": 0.5
     },
@@ -104,7 +92,6 @@
       "count": 24,
       "Piqo": 0.8333,
       "Gliner": 0.6667,
-      "Kev": 0.9583,
       "Laya": 0.8333,
       "Verdict": 0.5417
     },
@@ -112,7 +99,6 @@
       "count": 12,
       "Piqo": 1.0,
       "Gliner": 1.0,
-      "Kev": 1.0,
       "Laya": 1.0,
       "Verdict": 1.0
     },
@@ -120,7 +106,6 @@
       "count": 12,
       "Piqo": 0.6667,
       "Gliner": 0.5,
-      "Kev": 1.0,
       "Laya": 0.8333,
       "Verdict": 0.3333
     },
@@ -128,7 +113,6 @@
       "count": 12,
       "Piqo": 0.0,
       "Gliner": 0.0,
-      "Kev": 0.0,
       "Laya": 0.0,
       "Verdict": 0.0
     },
@@ -136,7 +120,6 @@
       "count": 12,
       "Piqo": 0.4167,
       "Gliner": 0.5833,
-      "Kev": 0.6667,
       "Laya": 0.6667,
       "Verdict": 0.4167
     },
@@ -144,7 +127,6 @@
       "count": 12,
       "Piqo": 0.75,
       "Gliner": 0.5,
-      "Kev": 1.0,
       "Laya": 0.5,
       "Verdict": 0.4167
     },
@@ -152,7 +134,6 @@
       "count": 19,
       "Piqo": 0.4737,
       "Gliner": 0.1053,
-      "Kev": 0.3158,
       "Laya": 0.1579,
       "Verdict": 0.2632
     },
@@ -160,7 +141,6 @@
       "count": 10,
       "Piqo": 0.4,
       "Gliner": 0.3,
-      "Kev": 0.5,
       "Laya": 0.5,
       "Verdict": 0.3
     },
@@ -168,7 +148,6 @@
       "count": 15,
       "Piqo": 0.2667,
       "Gliner": 0.2667,
-      "Kev": 0.1333,
       "Laya": 0.2667,
       "Verdict": 0.1333
     },
@@ -176,7 +155,6 @@
       "count": 7,
       "Piqo": 0.2857,
       "Gliner": 0.1429,
-      "Kev": 0.5714,
       "Laya": 0.1429,
       "Verdict": 0.4286
     },
@@ -184,7 +162,6 @@
       "count": 18,
       "Piqo": 0.1667,
       "Gliner": 0.2222,
-      "Kev": 0.4444,
       "Laya": 0.3333,
       "Verdict": 0.3889
     },
@@ -192,7 +169,6 @@
       "count": 6,
       "Piqo": 0.5,
       "Gliner": 0.1667,
-      "Kev": 0.3333,
       "Laya": 0.8333,
       "Verdict": 0.1667
     },
@@ -200,7 +176,6 @@
       "count": 6,
       "Piqo": 0.3333,
       "Gliner": 0.6667,
-      "Kev": 0.6667,
       "Laya": 0.3333,
       "Verdict": 0.1667
     },
@@ -208,7 +183,6 @@
       "count": 8,
       "Piqo": 0.0,
       "Gliner": 0.375,
-      "Kev": 0.875,
       "Laya": 0.0,
       "Verdict": 0.5
     },
@@ -216,7 +190,6 @@
       "count": 17,
       "Piqo": 0.4118,
       "Gliner": 0.4706,
-      "Kev": 0.5294,
       "Laya": 0.4706,
       "Verdict": 0.3529
     },
@@ -224,44 +197,8 @@
       "count": 5,
       "Piqo": 0.8,
       "Gliner": 0.4,
-      "Kev": 1.0,
       "Laya": 0.2,
       "Verdict": 0.0
-    }
-  },
-  "kev_transfer": {
-    "count": 764,
-    "general": {
-      "count": 764,
-      "Piqo": 0.5052,
-      "Gliner": 0.555,
-      "Kev": 0.8207,
-      "Laya": 0.6427,
-      "Verdict": 0.5092
-    },
-    "OVERALL": {
-      "count": 764,
-      "Piqo": 0.5052,
-      "Gliner": 0.555,
-      "Kev": 0.8207,
-      "Laya": 0.6427,
-      "Verdict": 0.5092
-    },
-    "LATENCY_P50_MS": {
-      "count": "-",
-      "Piqo": 33.07,
-      "Gliner": 50.64,
-      "Kev": 377.61,
-      "Laya": 47.03,
-      "Verdict": 26.51
-    },
-    "BRIER_SCORE": {
-      "count": "-",
-      "Piqo": 0.6302,
-      "Gliner": 0.8901,
-      "Kev": 0.296,
-      "Laya": 0.6244,
-      "Verdict": 0.782
     }
   }
 }

@@ -22,6 +22,7 @@ class JevBenchSuite(IBenchmarkSuite):
             "Jev-1.13": 0.845,
             "SemIf (Qwen3.5)": 0.732,
             "Verdict v1.4": 0.646,
+            "JevK5-Lite": 0.628,
             "Laya (Zero-Shot)": 0.584,
         }
 

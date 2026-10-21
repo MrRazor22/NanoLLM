@@ -2,15 +2,14 @@ from pathlib import Path
 from typing import Optional, Protocol, Sequence, runtime_checkable
 import torch
 import torch.nn as nn
-from torch.nn.utils.rnn import pad_sequence
 from transformers import AutoModel, AutoTokenizer, logging
 from safetensors.torch import save_file, load_file
 
 logging.set_verbosity_error()
 
 from data.case import DecisionCase
-from model.device import resolve_device
-from model.layout import ILayout, MaskedLayout
+from model.device import is_cuda, resolve_device
+from model.layout import BatchTokens, ILayout, MaskedLayout
 from model.weights import DEFAULT_WEIGHTS_PATH, WeightInfo, resolve_weights_path
 
 @runtime_checkable
@@ -22,24 +21,16 @@ class IModel(Protocol):
 class TorchModel(nn.Module, IModel):
     def __init__(
         self,
-        backbone_name: str = "answerdotai/ModernBERT-base",
-        backbone: Optional[nn.Module] = None,
+        backbone: str = "answerdotai/ModernBERT-base",
         head: Optional[nn.Module] = None,
         layout: Optional[ILayout] = None,
         tokenizer: Optional[AutoTokenizer] = None,
-        max_state_tokens: int = 2048,
         device: Optional[str] = None,
-        compile: bool = False,
     ):
         super().__init__()
-        self.device = torch.device(resolve_device(device))
-        if self.device.type == "cuda":
-            torch.backends.cuda.matmul.allow_tf32 = True
-            torch.backends.cudnn.allow_tf32 = True
-
-        model_kwargs = {"attn_implementation": "sdpa"} if self.device.type == "cuda" else {}
-        self.backbone = (backbone or AutoModel.from_pretrained(backbone_name, **model_kwargs)).to(self.device)
-        hidden_dim = getattr(self.backbone.config, "hidden_size", 768) if hasattr(self.backbone, "config") else 768
+        self.device = resolve_device(device)
+        self.backbone = AutoModel.from_pretrained(backbone).to(self.device)
+        hidden_dim = self.backbone.config.hidden_size
 
         self.head = (head or nn.Sequential(
             nn.LayerNorm(hidden_dim),
@@ -50,28 +41,19 @@ class TorchModel(nn.Module, IModel):
         )).to(self.device)
 
         self.layout = layout or MaskedLayout(
-            tokenizer=tokenizer or AutoTokenizer.from_pretrained(backbone_name),
-            max_state_tokens=max_state_tokens,
+            tokenizer=tokenizer or AutoTokenizer.from_pretrained(backbone),
+            max_sequence_tokens=int(self.backbone.config.max_position_embeddings),
         )
 
-        if compile and hasattr(torch, "compile"):
-            self.backbone = torch.compile(self.backbone)
-
     def forward(self, cases: Sequence[DecisionCase], train: bool = False) -> torch.Tensor:
-        layouts = self.layout.layout(cases)
-        pad_id = layouts[0].pad_id if layouts else 0
+        if self.training != train:
+            self.train(train)
+        
+        batch_tokens = self.layout.encode(cases).to(self.device)
 
-        input_ids = pad_sequence([torch.as_tensor(l.tokens, dtype=torch.long) for l in layouts], batch_first=True, padding_value=pad_id).to(self.device)
-        attention_mask = (input_ids != pad_id).long()
-
-        with torch.set_grad_enabled(train), torch.amp.autocast(device_type=self.device.type, enabled=train and self.device.type == "cuda"):
-            embeddings = self.backbone(input_ids=input_ids, attention_mask=attention_mask).last_hidden_state
-            batch_scores = []
-            for i, l in enumerate(layouts):
-                slots = torch.as_tensor(l.slots, dtype=torch.long, device=self.device)
-                slot_embeddings = embeddings[i, slots, :]
-                scores = self.head(slot_embeddings).squeeze(-1)
-                batch_scores.append(scores)
+        with torch.set_grad_enabled(train), torch.amp.autocast(device_type=self.device.type, enabled=train and is_cuda(self.device)):
+            embeddings = self.backbone(input_ids=batch_tokens.input_ids, attention_mask=batch_tokens.attention_mask).last_hidden_state
+            batch_scores = [self.head(embeddings[i, idx, :]).squeeze(-1) for i, idx in enumerate(batch_tokens.candidate_idx)]
             return torch.stack(batch_scores)
 
     def save(self, path: Path = DEFAULT_WEIGHTS_PATH, info: Optional[WeightInfo] = None) -> None:

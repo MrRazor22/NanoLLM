@@ -1,5 +1,6 @@
 from typing import Iterable, Optional, Protocol, runtime_checkable
 import torch
+from model.device import is_cuda
 
 @runtime_checkable
 class ILearner(Protocol):
@@ -13,10 +14,10 @@ class AdamWLearner(ILearner):
         accum_steps: int = 1,
     ):
         param_list = list(params)
-        is_cuda = any(p.device.type == "cuda" for p in param_list)
+        cuda_enabled = is_cuda()
         self.accum_steps = max(1, accum_steps)
-        self.optimizer = torch.optim.AdamW(param_list, lr=lr, fused=is_cuda)
-        self.scaler = torch.amp.GradScaler("cuda", enabled=is_cuda)
+        self.optimizer = torch.optim.AdamW(param_list, lr=lr, fused=cuda_enabled)
+        self.scaler = torch.amp.GradScaler("cuda", enabled=cuda_enabled)
 
     def step(self, loss: torch.Tensor, lr: Optional[float] = None, commit: bool = True) -> None:
         if lr is not None:

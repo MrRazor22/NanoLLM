@@ -13,6 +13,7 @@
 - **Zero Meta-Buckets & Zero Nesting:** Root commands the sovereign domains directly as siblings with 1:1 disk topology.
 - **Zero Code Comments:** Never write comments in code. Code must be completely self-explanatory through clean architecture and plain domain naming.
 - **Plain Domain Naming:** Variable names must describe what the data actually represents in plain domain English rather than obscure library jargon or framework-specific slang.
+- **Centralized Device Resolution Invariant (`model/device.py`):** All compute device resolution, backend configuration, seed generation, execution synchronization, and VRAM inspection are strictly centralized in `model/device.py` (`resolve_device`, `seed_device`, `synchronize_device`, `resolve_vram_gb`). Never introduce ad-hoc device branching, raw substrate checks (`torch.cuda.is_available()`), or fragmented device handling across callers, models, layouts, or training policies.
 - **System One Unified Candidate Decision Doctrine:**
   - **Single Universal Model Primitive:** Model boundary evaluates only $\text{Context} \to \text{Candidates} \to \mathbf{p} \in \Delta^{K-1}$. The neural backbone has zero awareness of question types.
   - **Pure Data Primitive:** `DecisionCase` in `data/case.py` contains strictly `(state, candidates, probabilities, category, source)`. Zero option or answer types exist in the data layer. `case_choice()` and `case_confidence()` are pure derived projections.

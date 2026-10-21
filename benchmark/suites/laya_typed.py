@@ -19,9 +19,9 @@ class LayaTypedDecisionsSuite(IBenchmarkSuite):
     @property
     def published_baselines(self) -> Mapping[str, float]:
         return {
+            "openJev-verdict-2.0": 0.771,
             "Laya (Fine-Tuned)": 0.767,
             "Jev 1.13.0": 0.727,
-            "Verdict-151M": 0.261,
             "Laya (Zero-Shot)": 0.362,
         }
 

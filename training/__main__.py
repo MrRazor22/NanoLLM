@@ -6,6 +6,7 @@ import torch
 import typer
 
 from data.dataset import Dataset
+from model.device import seed_device
 from model.torch_model import TorchModel
 from training.checkpointing_layer import CheckpointingLayer
 from training.epoch_trainer import EpochTrainer, ITrainer
@@ -30,13 +31,13 @@ def main(
 ) -> None:
     logging.basicConfig(level=logging.INFO, format="[%(name)s] %(message)s")
     random.seed(seed)
-    torch.manual_seed(seed)
-    if torch.cuda.is_available():
-        torch.cuda.manual_seed_all(seed)
+    seed_device(seed)
 
-    model = TorchModel(backbone_name=backbone, compile=compile)
+    model = TorchModel(backbone=backbone)
     if init_weights:
         model.load(init_weights)
+    if compile:
+        model = torch.compile(model)
 
     splits = Dataset().load()
     schedule_policy = CosineSchedule(warmup_ratio=warmup_ratio)

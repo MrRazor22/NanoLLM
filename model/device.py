@@ -1,28 +1,39 @@
-import os
 from typing import Optional
 import torch
 
-def resolve_device(preferred: Optional[str] = None) -> str:
-    """Domain Operation: Resolves optimal compute target device name without substrate leakage."""
-    if preferred and preferred.strip():
-        return preferred.strip().lower()
+CPU = "cpu"
+CUDA = "cuda"
 
-    env = os.environ.get("PIQO_DEVICE")
-    if env and env.strip():
-        return env.strip().lower()
+def configure_backend(device_name: str) -> None:
+    if device_name.startswith(CUDA) and torch.cuda.is_available():
+        torch.backends.cuda.matmul.allow_tf32 = True
+        torch.backends.cudnn.allow_tf32 = True
+        torch.backends.cudnn.benchmark = True
 
-    try:
-        if torch.cuda.is_available():
-            return "cuda"
-        if hasattr(torch.backends, "mps") and torch.backends.mps.is_available():
-            return "mps"
-    except (ImportError, AttributeError):
-        pass
+def resolve_device(device: Optional[str] = None) -> torch.device:
+    if device and device.strip():
+        target = torch.device(device.strip().lower())
+        configure_backend(target.type)
+        return target
 
-    return "cpu"
+    if torch.cuda.is_available():
+        configure_backend(CUDA)
+        return torch.device(CUDA)
+
+    return torch.device(CPU)
+
+def is_cuda(device: Optional[torch.device | str] = None) -> bool:
+    if device is not None:
+        target = device if isinstance(device, torch.device) else torch.device(device)
+        return target.type == CUDA
+    return resolve_device().type == CUDA
+
+def seed_device(seed: int) -> None:
+    torch.manual_seed(seed)
+    if torch.cuda.is_available():
+        torch.cuda.manual_seed_all(seed)
 
 def resolve_vram_gb() -> Optional[float]:
-    """Domain Operation: Inspects GPU reserved memory in GB without substrate leakage."""
     try:
         if torch.cuda.is_available():
             return torch.cuda.memory_reserved() / (1024**3)
@@ -31,6 +42,5 @@ def resolve_vram_gb() -> Optional[float]:
     return None
 
 def synchronize_device() -> None:
-    """Domain Operation: Blocks until compute substrate finishes asynchronous execution."""
     if torch.cuda.is_available():
         torch.cuda.synchronize()
