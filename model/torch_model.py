@@ -1,11 +1,13 @@
+import logging
 from pathlib import Path
 from typing import Optional, Protocol, Sequence, runtime_checkable
 import torch
 import torch.nn as nn
-from transformers import AutoModel, AutoTokenizer, logging
+from transformers import AutoModel, AutoTokenizer, logging as hf_logging
 from safetensors.torch import save_file, load_file
 
-logging.set_verbosity_error()
+hf_logging.set_verbosity_error()
+logger = logging.getLogger("piqo.model")
 
 from data.case import DecisionCase
 from model.device import is_cuda, resolve_device
@@ -44,6 +46,7 @@ class TorchModel(nn.Module, IModel):
             tokenizer=tokenizer or AutoTokenizer.from_pretrained(backbone),
             max_sequence_tokens=int(self.backbone.config.max_position_embeddings),
         )
+        logger.info("Initialized TorchModel with backbone %s on %s", backbone, self.device)
 
     def forward(self, cases: Sequence[DecisionCase], train: bool = False) -> torch.Tensor:
         if self.training != train:
@@ -60,9 +63,12 @@ class TorchModel(nn.Module, IModel):
         out_file = resolve_weights_path(path)
         resolved_info = info or WeightInfo(name=out_file.stem, path=out_file)
         save_file(self.state_dict(), str(out_file), metadata=resolved_info.to_metadata())
+        size_mb = out_file.stat().st_size / (1024 * 1024) if out_file.exists() else 0.0
+        logger.info("Saved model weights to %s (%.2f MB)", out_file, size_mb)
 
     def load(self, path: Path = DEFAULT_WEIGHTS_PATH) -> None:
         in_file = resolve_weights_path(path)
         if not in_file.exists():
             raise FileNotFoundError(f"Model weights not found at: {in_file}")
         self.load_state_dict(load_file(str(in_file)))
+        logger.info("Loaded model weights from %s onto %s", in_file, self.device)

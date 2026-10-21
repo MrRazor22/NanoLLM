@@ -1,5 +1,8 @@
+import logging
 from typing import Optional
 import torch
+
+logger = logging.getLogger("piqo.device")
 
 CPU = "cpu"
 CUDA = "cuda"
@@ -9,6 +12,7 @@ def configure_backend(device_name: str) -> None:
         torch.backends.cuda.matmul.allow_tf32 = True
         torch.backends.cudnn.allow_tf32 = True
         torch.backends.cudnn.benchmark = True
+        logger.info("Configured %s substrate optimizations (TF32=True, cuDNN benchmark=True)", device_name)
 
 def resolve_device(device: Optional[str] = None) -> torch.device:
     if device and device.strip():
