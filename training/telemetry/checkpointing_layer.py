@@ -2,6 +2,7 @@ from pathlib import Path
 from typing import Iterator, Optional, Sequence, Union
 
 from data.case import DecisionCase
+from model.policies.weight_cache import WeightMeta
 from training.epoch_trainer import ITrainer, ITrainerLayer
 from training.stats import StepStats
 
@@ -27,7 +28,7 @@ class CheckpointingLayer(ITrainer):
 
     def fit(
         self,
-        cases: Sequence[DecisionCase],
+        train_cases: Sequence[DecisionCase],
         epochs: int = 1,
         val_cases: Optional[Sequence[DecisionCase]] = None,
     ) -> Iterator[StepStats]:
@@ -36,9 +37,8 @@ class CheckpointingLayer(ITrainer):
         model = self.model
         if self.output_path and model is None:
             raise RuntimeError("CheckpointingLayer cannot locate model in trainer pipeline.")
-        for s in self.inner.fit(cases, epochs=epochs, val_cases=val_cases):
+        for s in self.inner.fit(train_cases, epochs=epochs, val_cases=val_cases):
             if self.output_path and model:
-                from model.weights import WeightMeta
                 target = self.output_path
                 meta = WeightMeta(epoch=s.epoch, train_loss=s.loss, val_loss=s.val_loss)
                 p_target = Path(target)

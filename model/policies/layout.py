@@ -8,10 +8,11 @@ from data.case import DecisionCase
 class Layout:
     tokens: Sequence[int]
     slots: Sequence[int]
+    pad_id: int = 0
 
 @runtime_checkable
 class ILayout(Protocol):
-    def layout(self, case: DecisionCase) -> Layout: ...
+    def layout(self, cases: Sequence[DecisionCase]) -> Sequence[Layout]: ...
 
 class MaskedLayout(ILayout):
     def __init__(self, tokenizer: Optional[PreTrainedTokenizerBase] = None, max_state_tokens: int = 8192):
@@ -21,7 +22,7 @@ class MaskedLayout(ILayout):
         self.tokenizer = tokenizer
         self.max_state_tokens = max_state_tokens
 
-    def layout(self, case: DecisionCase) -> Layout:
+    def layout_case(self, case: DecisionCase) -> Layout:
         cls_id = self.tokenizer.cls_token_id   # [CLS] ID
         sep_id = self.tokenizer.sep_token_id   # [SEP] ID
         mask_id = self.tokenizer.mask_token_id # [MASK] ID
@@ -40,6 +41,10 @@ class MaskedLayout(ILayout):
         ids.extend(state_tokens)
         ids.append(sep_id)
 
-        return Layout(tokens=ids, slots=slots)
+        pad_id = getattr(self.tokenizer, "pad_token_id", 0) or 0
+        return Layout(tokens=ids, slots=slots, pad_id=pad_id)
+
+    def layout(self, cases: Sequence[DecisionCase]) -> Sequence[Layout]:
+        return [self.layout_case(c) for c in cases]
 
     #Start[CLS] [SEP]​​  Candidate anchors and text[MASK] cand1​  [MASK] cand2​​​  Delimiter[SEP]​​  Decision contextstate tokens​​  End[SEP]​​

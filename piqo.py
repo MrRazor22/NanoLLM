@@ -2,14 +2,15 @@
 
 from model.torch_model import IModel, TorchModel
 from training.policies.loss import ILoss, CalibratedLoss
-from model.policies.head import IHead, MLPHead
 from training.policies.learner import ILearner, AdamWLearner
 from model.policies.layout import ILayout, MaskedLayout, Layout
 from model.policies.weight_cache import (
-    DEFAULT_WEIGHTS_DIR, DiskWeightCache, IWeightCache,
+    DEFAULT_WEIGHTS_DIR, DEFAULT_WEIGHTS_PATH, DiskWeightCache, IWeightCache, WeightMeta, Weights,
 )
 from model.device import resolve_device, resolve_vram_gb
-from model.weights import Weights, WeightMeta, list_weights, has_weights
+from model.weights import (
+    list_weights, has_weights, save_weights, load_weights,
+)
 from inference.decision_engine import IDecisionEngine, DecisionEngine
 from inference.decision_resolver import IResolver, DecisionResolver
 from inference.profiling_layer import ProfilingLayer
@@ -55,11 +56,10 @@ __all__ = [
     "IDataset", "Dataset", "default_corpus_source",
     "IBenchmark", "Benchmark", "GlinerDecideEngine", "JevEngine", "KevEngine", "LayaEngine", "VerdictEngine",
     # Policies & Injected Sub-Primitives
-    "IHead", "MLPHead",
     "ILearner", "AdamWLearner",
     "ILoss", "CalibratedLoss",
     "ILayout", "MaskedLayout",
-    "IWeightCache", "DiskWeightCache", "DEFAULT_WEIGHTS_DIR",
+    "IWeightCache", "DiskWeightCache", "DEFAULT_WEIGHTS_DIR", "DEFAULT_WEIGHTS_PATH",
     "ISchedule", "CosineSchedule", "ConstantSchedule",
     "IResolver", "DecisionResolver",
     "IStoragePolicy", "DiskStoragePolicy",
@@ -88,6 +88,8 @@ __all__ = [
     "matches_answer",
     "list_weights",
     "has_weights",
+    "save_weights",
+    "load_weights",
     "resolve_device",
     "resolve_vram_gb",
     "DEFAULT_RAW_DIR",

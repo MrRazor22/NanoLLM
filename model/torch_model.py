@@ -1,45 +1,44 @@
 from pathlib import Path
-import time
 from typing import Optional, Protocol, Sequence, Union, runtime_checkable
 import torch
 import torch.nn as nn
 from torch.nn.utils.rnn import pad_sequence
 from transformers import AutoModel, AutoTokenizer, logging
+from safetensors.torch import save, load
 
 logging.set_verbosity_error()
 
 from data.case import DecisionCase
 from model.device import resolve_device
-from model.policies.head import IHead, MLPHead
 from model.policies.layout import ILayout, MaskedLayout
-from model.policies.weight_cache import DiskWeightCache, IWeightCache
-from model.weights import WeightMeta, Weights
-from training.policies.learner import AdamWLearner, ILearner
+from model.policies.weight_cache import (
+    DEFAULT_WEIGHTS_PATH,
+    IWeightCache,
+    DiskWeightCache,
+    WeightMeta,
+    Weights,
+)
 
 @runtime_checkable
 class IModel(Protocol):
     def forward(self, cases: Sequence[DecisionCase], train: bool = False) -> torch.Tensor: ...
-    def step(self, loss: torch.Tensor, lr: Optional[float] = None, commit: bool = True) -> None: ...
-    def save(self, target: Union[str, Path] = "piqo", meta: Optional[WeightMeta] = None) -> Path: ...
-    def load(self, source: Optional[Union[Weights, str, Path]] = None, strict: bool = True) -> None: ...
+    def save(self, path: Path = DEFAULT_WEIGHTS_PATH, meta: WeightMeta = WeightMeta()) -> Path: ...
+    def load(self, path: Path = DEFAULT_WEIGHTS_PATH) -> "IModel": ...
 
-class TorchModel(IModel):
+class TorchModel(nn.Module, IModel):
     def __init__(
         self,
         backbone_name: str = "answerdotai/ModernBERT-base",
         backbone: Optional[nn.Module] = None,
-        head: Optional[IHead] = None,
+        head: Optional[nn.Module] = None,
         layout: Optional[ILayout] = None,
-        learner: Optional[ILearner] = None,
-        weight_cache: Optional[IWeightCache] = None,
+        cache: Optional[IWeightCache] = None,
         tokenizer: Optional[AutoTokenizer] = None,
-        weights: Optional[Union[Weights, str, Path]] = None,
-        lr: float = 2e-5,
-        accum_steps: int = 1,
         max_state_tokens: int = 2048,
         device: Optional[Union[str, torch.device]] = None,
         compile: bool = False,
     ):
+        super().__init__()
         target_dev = device if isinstance(device, torch.device) else resolve_device(device)
         self.device = torch.device(target_dev) if isinstance(target_dev, str) else target_dev
         if self.device.type == "cuda":
@@ -48,73 +47,52 @@ class TorchModel(IModel):
 
         model_kwargs = {"attn_implementation": "sdpa"} if self.device.type == "cuda" else {}
         self.backbone = (backbone or AutoModel.from_pretrained(backbone_name, **model_kwargs)).to(self.device)
-        self.tokenizer = tokenizer or AutoTokenizer.from_pretrained(backbone_name)
         hidden_dim = getattr(self.backbone.config, "hidden_size", 768) if hasattr(self.backbone, "config") else 768
 
-        self.head = (head or MLPHead(hidden_dim=hidden_dim)).to(self.device)
-        self.layout = layout or MaskedLayout(tokenizer=self.tokenizer, max_state_tokens=max_state_tokens)
-        self.weight_cache = weight_cache or DiskWeightCache()
+        self.head = (head or nn.Sequential(
+            nn.LayerNorm(hidden_dim),
+            nn.Dropout(0.1),
+            nn.Linear(hidden_dim, hidden_dim),
+            nn.GELU(),
+            nn.Linear(hidden_dim, 1),
+        )).to(self.device)
 
-        parameters = list(self.backbone.parameters()) + list(self.head.parameters())
-        self.learner = learner or AdamWLearner(parameters, lr=lr, accum_steps=accum_steps, device=self.device)
+        self.layout = layout or MaskedLayout(
+            tokenizer=tokenizer or AutoTokenizer.from_pretrained(backbone_name),
+            max_state_tokens=max_state_tokens,
+        )
+        self.cache = cache or DiskWeightCache()
 
-        if weights is not None:
-            self.load(weights)
         if compile and hasattr(torch, "compile"):
             self.backbone = torch.compile(self.backbone)
 
     def forward(self, cases: Sequence[DecisionCase], train: bool = False) -> torch.Tensor:
-        prepared = [c.shuffled() if train else c for c in cases]
-        layouts = [self.layout.layout(c) for c in prepared]
-        pad_id = getattr(self.tokenizer, "pad_token_id", 0)
-        max_len = max(len(l.tokens) for l in layouts)
+        layouts = self.layout.layout(cases)
+        pad_id = layouts[0].pad_id if layouts else 0
 
-        input_ids = torch.full((len(layouts), max_len), pad_id, dtype=torch.long, device=self.device)
-        mask = torch.zeros((len(layouts), max_len), dtype=torch.float, device=self.device)
-        for i, l in enumerate(layouts):
-            sz = len(l.tokens)
-            input_ids[i, :sz] = torch.as_tensor(l.tokens, dtype=torch.long, device=self.device)
-            mask[i, :sz] = 1.0
+        input_ids = pad_sequence([torch.as_tensor(l.tokens, dtype=torch.long) for l in layouts], batch_first=True, padding_value=pad_id).to(self.device)
+        attention_mask = (input_ids != pad_id).long()
 
-        self.backbone.train(train)
-        self.head.train(train)
-        with torch.set_grad_enabled(train), torch.amp.autocast(self.device.type, enabled=self.device.type == "cuda"):
-            hidden = self.backbone(input_ids=input_ids, attention_mask=mask).last_hidden_state
-            preds = self.head.score(hidden)
-            candidate_scores = pad_sequence([preds[b, l.slots] for b, l in enumerate(layouts)], batch_first=True, padding_value=-1e4)
-        return candidate_scores
+        with torch.set_grad_enabled(train), torch.amp.autocast(device_type=self.device.type, enabled=train and self.device.type == "cuda"):
+            embeddings = self.backbone(input_ids=input_ids, attention_mask=attention_mask).last_hidden_state
+            batch_scores = []
+            for i, l in enumerate(layouts):
+                slots = torch.as_tensor(l.candidate_indices, dtype=torch.long, device=self.device)
+                slot_embeddings = embeddings[i, slots, :]
+                scores = self.head(slot_embeddings).squeeze(-1)
+                batch_scores.append(scores)
+            return torch.stack(batch_scores)
 
-    def step(self, loss: torch.Tensor, lr: Optional[float] = None, commit: bool = True) -> None:
-        self.learner.step(loss, lr=lr, commit=commit)
+    def save(self, path: Path = DEFAULT_WEIGHTS_PATH, meta: WeightMeta = WeightMeta()) -> Path:
+        resolved_path = Path(path)
+        tensors = {k: v.contiguous() for k, v in self.state_dict().items()}
+        weights = Weights(payload=save(tensors), name=resolved_path.stem, meta=meta)
+        return self.cache.put(resolved_path, weights)
 
-    def save(self, target: Union[str, Path] = "piqo", meta: Optional[WeightMeta] = None) -> Path:
-        from safetensors.torch import save
-        tensors = {f"backbone.{k}": v.contiguous() for k, v in self.backbone.state_dict().items()}
-        tensors.update({f"head.{k}": v.contiguous() for k, v in self.head.state_dict().items()})
-        raw_bytes = save(tensors)
-        metadata = meta or WeightMeta(saved_at=time.strftime("%Y-%m-%d %H:%M:%S"))
-        if not metadata.saved_at:
-            metadata = WeightMeta(epoch=metadata.epoch, train_loss=metadata.train_loss, val_loss=metadata.val_loss, saved_at=time.strftime("%Y-%m-%d %H:%M:%S"))
-        return self.weight_cache.put(target, Weights(payload=raw_bytes, name=Path(target).stem, meta=metadata))
-
-    def load(self, source: Optional[Union[Weights, str, Path]] = None, strict: bool = True) -> None:
-        target = "piqo" if source is None else source
-        weights = target if isinstance(target, Weights) else self.weight_cache.get(target)
+    def load(self, path: Path = DEFAULT_WEIGHTS_PATH) -> "IModel":
+        resolved_path = Path(path)
+        weights = self.cache.get(resolved_path)
         if not weights:
-            raise FileNotFoundError(f"Weights not found: {target}")
-        if not weights.payload:
-            return
-        from safetensors.torch import load
-        sd = load(weights.payload)
-        bb_sd = {k.removeprefix("backbone."): v for k, v in sd.items() if k.startswith("backbone.")}
-        h_sd = {k.removeprefix("head."): v for k, v in sd.items() if k.startswith("head.")}
-        if bb_sd:
-            res_bb = self.backbone.load_state_dict(bb_sd, strict=strict)
-            if not strict and (res_bb.missing_keys or res_bb.unexpected_keys):
-                import sys
-                sys.stderr.write(f"\n[CHECKPOINT WARNING] '{target}' backbone missing: {res_bb.missing_keys}, unexpected: {res_bb.unexpected_keys}\n")
-        if h_sd:
-            res_h = self.head.load_state_dict(h_sd, strict=strict)
-            if not strict and (res_h.missing_keys or res_h.unexpected_keys):
-                import sys
-                sys.stderr.write(f"\n[CHECKPOINT WARNING] '{target}' head missing: {res_h.missing_keys}, unexpected: {res_h.unexpected_keys}\n")
+            raise FileNotFoundError(f"Model weights not found for: {resolved_path}")
+        self.load_state_dict(load(weights.payload))
+        return self

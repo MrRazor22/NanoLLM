@@ -42,7 +42,7 @@ class MetricsLayer(ITrainer):
 
     def fit(
         self,
-        cases: Sequence[DecisionCase],
+        train_cases: Sequence[DecisionCase],
         epochs: int = 1,
         val_cases: Optional[Sequence[DecisionCase]] = None,
     ) -> Iterator[StepStats]:
@@ -50,7 +50,7 @@ class MetricsLayer(ITrainer):
             raise RuntimeError("MetricsLayer has no inner trainer.")
         start_time = time.perf_counter()
         last_log = start_time
-        for s in self.inner.fit(cases, epochs=epochs, val_cases=val_cases):
+        for s in self.inner.fit(train_cases, epochs=epochs, val_cases=val_cases):
             now = time.perf_counter()
             is_epoch_end = (s.batch == s.total_batches)
             is_checkpoint = (s.val_loss is not None)

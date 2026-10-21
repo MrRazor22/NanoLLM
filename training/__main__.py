@@ -59,7 +59,9 @@ def main(
     target_epochs = epochs if epochs is not None else (2 if from_scratch else 1)
     target_lr = lr if lr is not None else (3e-5 if from_scratch else 1e-5)
 
-    model = TorchModel(backbone_name=backbone, weights=init_ckpt, accum_steps=accum_steps, lr=target_lr, compile=compile)
+    model = TorchModel(backbone_name=backbone, compile=compile)
+    if init_ckpt:
+        model.load(init_ckpt)
 
     schedule_policy = ConstantSchedule() if schedule.lower() == "constant" else CosineSchedule(warmup_ratio=warmup_ratio)
     trainer: ITrainer = (

@@ -37,27 +37,28 @@ class DecisionEngine(IDecisionEngine):
 
     def __init__(
         self,
-        model: Optional["IModel"] = None,
+        model: Optional[IModel] = None,
         device: Optional[str] = None,
         checkpoint: Optional[Union[str, Path]] = None,
         resolver: Optional[IResolver] = None,
     ):
         if model is None:
             from model.torch_model import TorchModel
-            from model.weights import has_weights
-            target_ckpt = checkpoint or ("piqo" if has_weights("piqo") else None)
-            model = TorchModel(device=device, weights=target_ckpt)
+            target_model = TorchModel(device=device)
+            if checkpoint:
+                target_model.load(checkpoint)
+            model = target_model
         self.model, self.resolver = model, resolver or DecisionResolver()
 
     def predict_candidates(self, state: str, candidates: Sequence[str]) -> Sequence[float]:
         with torch.no_grad():
-            scores = self.model.forward([DecisionCase(state=state, candidates=candidates)], train=False)[0]
+            scores = self.model.forward([DecisionCase(state=state, candidates=candidates)])[0]
         return list(sp.softmax(scores.tolist()))
 
     def decide(self, state: str, option: IOption) -> IOption:
         candidates = option_to_candidates(option)
         with torch.no_grad():
-            scores = self.model.forward([DecisionCase(state=state, candidates=candidates)], train=False)[0]
+            scores = self.model.forward([DecisionCase(state=state, candidates=candidates)])[0]
         return self.resolver.resolve(option, scores.tolist())
 
     def __or__(self, layer: IDecisionEngineLayer) -> "IDecisionEngine":
