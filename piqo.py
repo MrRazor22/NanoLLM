@@ -1,10 +1,10 @@
 """Piqo: Sovereign Composition Root (PFD)."""
 
-from model.torch_model import IModel, TorchModel, DEFAULT_WEIGHTS_DIR, DEFAULT_WEIGHTS_PATH
-from model.weights import list_weights, WeightInfo
+from model.torch_model import IModel, TorchModel
+from model.weights import list_weights, WeightInfo, DEFAULT_WEIGHTS_DIR, DEFAULT_WEIGHTS_PATH
 from training.policies.loss import ILoss, CalibratedLoss
 from training.policies.learner import ILearner, AdamWLearner
-from model.policies.layout import ILayout, MaskedLayout, Layout
+from model.layout import ILayout, MaskedLayout, Layout
 from model.device import resolve_device, resolve_vram_gb
 from inference.decision_engine import IDecisionEngine, DecisionEngine
 from inference.decision_resolver import IResolver, DecisionResolver

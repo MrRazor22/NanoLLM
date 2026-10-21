@@ -1,9 +1,15 @@
 from dataclasses import dataclass
 from pathlib import Path
-import time
 from typing import Optional, Sequence
 from safetensors import safe_open
-from model.torch_model import DEFAULT_WEIGHTS_DIR
+
+DEFAULT_WEIGHTS_DIR = Path(__file__).resolve().parent / "weights"
+DEFAULT_WEIGHTS_PATH = DEFAULT_WEIGHTS_DIR / "piqo.safetensors"
+
+def resolve_weights_path(path: Path | str = DEFAULT_WEIGHTS_PATH) -> Path:
+    target = Path(path)
+    file_path = target.with_suffix(".safetensors") if not target.suffix else target
+    return DEFAULT_WEIGHTS_DIR / file_path.name if file_path.parent == Path(".") else file_path
 
 @dataclass(frozen=True, slots=True)
 class WeightInfo:

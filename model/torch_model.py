@@ -10,16 +10,14 @@ logging.set_verbosity_error()
 
 from data.case import DecisionCase
 from model.device import resolve_device
-from model.policies.layout import ILayout, MaskedLayout
-
-DEFAULT_WEIGHTS_DIR = Path(__file__).resolve().parent / "weights"
-DEFAULT_WEIGHTS_PATH = DEFAULT_WEIGHTS_DIR / "piqo.safetensors"
+from model.layout import ILayout, MaskedLayout
+from model.weights import DEFAULT_WEIGHTS_PATH, resolve_weights_path
 
 @runtime_checkable
 class IModel(Protocol):
     def forward(self, cases: Sequence[DecisionCase], train: bool = False) -> torch.Tensor: ...
     def save(self, path: Path = DEFAULT_WEIGHTS_PATH, meta: Optional[dict[str, str]] = None) -> Path: ...
-    def load(self, path: Path = DEFAULT_WEIGHTS_PATH) -> "IModel": ...
+    def load(self, path: Path = DEFAULT_WEIGHTS_PATH) -> None: ...
 
 class TorchModel(nn.Module, IModel):
     def __init__(
@@ -78,19 +76,14 @@ class TorchModel(nn.Module, IModel):
             return torch.stack(batch_scores)
 
     def save(self, path: Path = DEFAULT_WEIGHTS_PATH, meta: Optional[dict[str, str]] = None) -> Path:
-        target = Path(path)
-        out_file = target.with_suffix(".safetensors") if not target.suffix else target
-        out_file = DEFAULT_WEIGHTS_DIR / out_file.name if out_file.parent == Path(".") else out_file
+        out_file = resolve_weights_path(path)
         out_file.parent.mkdir(parents=True, exist_ok=True)
         tensors = {k: v.contiguous() for k, v in self.state_dict().items()}
         save_file(tensors, str(out_file), metadata=meta or {})
         return out_file
 
-    def load(self, path: Path = DEFAULT_WEIGHTS_PATH) -> "IModel":
-        target = Path(path)
-        in_file = target.with_suffix(".safetensors") if not target.suffix else target
-        in_file = DEFAULT_WEIGHTS_DIR / in_file.name if in_file.parent == Path(".") else in_file
+    def load(self, path: Path = DEFAULT_WEIGHTS_PATH) -> None:
+        in_file = resolve_weights_path(path)
         if not in_file.exists():
             raise FileNotFoundError(f"Model weights not found at: {in_file}")
         self.load_state_dict(load_file(str(in_file)))
-        return self
