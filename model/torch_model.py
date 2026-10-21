@@ -1,5 +1,5 @@
 from pathlib import Path
-from typing import Optional, Protocol, Sequence, Union, runtime_checkable
+from typing import Optional, Protocol, Sequence, runtime_checkable
 import torch
 import torch.nn as nn
 from torch.nn.utils.rnn import pad_sequence
@@ -28,12 +28,11 @@ class TorchModel(nn.Module, IModel):
         layout: Optional[ILayout] = None,
         tokenizer: Optional[AutoTokenizer] = None,
         max_state_tokens: int = 2048,
-        device: Optional[Union[str, torch.device]] = None,
+        device: Optional[str] = None,
         compile: bool = False,
     ):
         super().__init__()
-        target_dev = device if isinstance(device, torch.device) else resolve_device(device)
-        self.device = torch.device(target_dev) if isinstance(target_dev, str) else target_dev
+        self.device = torch.device(resolve_device(device))
         if self.device.type == "cuda":
             torch.backends.cuda.matmul.allow_tf32 = True
             torch.backends.cudnn.allow_tf32 = True

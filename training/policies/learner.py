@@ -1,4 +1,4 @@
-from typing import Iterable, Optional, Protocol, Union, runtime_checkable
+from typing import Iterable, Optional, Protocol, runtime_checkable
 import torch
 
 @runtime_checkable
@@ -11,12 +11,11 @@ class AdamWLearner(ILearner):
         params: Iterable[torch.nn.Parameter],
         lr: float = 2e-5,
         accum_steps: int = 1,
-        device: Optional[Union[str, torch.device]] = None,
     ):
+        param_list = list(params)
+        is_cuda = any(p.device.type == "cuda" for p in param_list)
         self.accum_steps = max(1, accum_steps)
-        dev = torch.device(device) if isinstance(device, str) else device
-        is_cuda = dev.type == "cuda" if dev is not None else torch.cuda.is_available()
-        self.optimizer = torch.optim.AdamW(params, lr=lr, fused=is_cuda)
+        self.optimizer = torch.optim.AdamW(param_list, lr=lr, fused=is_cuda)
         self.scaler = torch.amp.GradScaler("cuda", enabled=is_cuda)
 
     def step(self, loss: torch.Tensor, lr: Optional[float] = None, commit: bool = True) -> None:

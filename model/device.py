@@ -29,3 +29,8 @@ def resolve_vram_gb() -> Optional[float]:
     except (ImportError, AttributeError):
         pass
     return None
+
+def synchronize_device() -> None:
+    """Domain Operation: Blocks until compute substrate finishes asynchronous execution."""
+    if torch.cuda.is_available():
+        torch.cuda.synchronize()

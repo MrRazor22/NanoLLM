@@ -5,7 +5,7 @@ from model.weights import list_weights, WeightInfo, DEFAULT_WEIGHTS_DIR, DEFAULT
 from training.policies.loss import ILoss, CalibratedLoss
 from training.policies.learner import ILearner, AdamWLearner
 from model.layout import ILayout, MaskedLayout, Layout
-from model.device import resolve_device, resolve_vram_gb
+from model.device import resolve_device, resolve_vram_gb, synchronize_device
 from inference.decision_engine import IDecisionEngine, DecisionEngine
 from inference.decision_resolver import IResolver, DecisionResolver
 from inference.profiling_layer import ProfilingLayer
@@ -81,6 +81,7 @@ __all__ = [
     "list_weights",
     "resolve_device",
     "resolve_vram_gb",
+    "synchronize_device",
     "DEFAULT_WEIGHTS_DIR",
     "DEFAULT_WEIGHTS_PATH",
     "DEFAULT_RAW_DIR",

@@ -59,7 +59,7 @@ class EpochTrainer(ITrainer):
         self.batch_size = batch_size
         self.base_lr = base_lr
         self.accum_steps = accum_steps
-        self.learner = learner or AdamWLearner(model)
+        self.learner = learner or AdamWLearner(model.parameters() if hasattr(model, "parameters") else ())
         self.schedule = schedule or CosineSchedule()
         self.loss = loss or CalibratedLoss()
 
