@@ -15,7 +15,7 @@ from data.dataset import IDataset, Dataset, default_corpus_source
 from inference.options import (
     IAnswer, ChoiceAnswer, NoulAnswer, ScoreAnswer,
     IOption, ChoiceOption, NoulOption, ScoreOption,
-    option_to_candidates, scores_to_answer,
+    option_to_candidates, probabilities_to_answer,
 )
 from data.case import CaseMeta, DataSplits, DecisionCase
 from data.storage import IStoragePolicy, DiskStoragePolicy
@@ -70,7 +70,7 @@ __all__ = [
     "BenchmarkReport",
     # Transforms & Paths
     "option_to_candidates",
-    "scores_to_answer",
+    "probabilities_to_answer",
     "list_weights",
     "resolve_device",
     "resolve_vram_gb",

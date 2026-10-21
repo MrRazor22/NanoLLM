@@ -2,8 +2,9 @@ from pathlib import Path
 from typing import Optional, Protocol, Union, runtime_checkable
 
 from data.case import DecisionCase
-from inference.options import IAnswer, IOption, option_to_candidates, scores_to_answer
+from inference.options import IAnswer, IOption, option_to_candidates, probabilities_to_answer
 from model.torch_model import IModel
+import scipy.special as sp
 import torch
 
 @runtime_checkable
@@ -38,7 +39,8 @@ class DecisionEngine(IDecisionEngine):
         candidates = option_to_candidates(option)
         with torch.no_grad():
             scores = self.model.forward([DecisionCase(state=state, candidates=candidates, instruction=option.instruction)])[0]
-        return scores_to_answer(option, scores.tolist())
+        probs = sp.softmax(scores.tolist())
+        return probabilities_to_answer(option, probs)
 
     def __or__(self, layer: IDecisionEngineLayer) -> "IDecisionEngine":
         return layer(self)
