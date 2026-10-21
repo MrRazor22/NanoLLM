@@ -5,10 +5,7 @@ from typing import Dict, Mapping, Protocol, Sequence, runtime_checkable
 
 from data.case import DecisionCase
 from inference.decision_engine import IDecisionEngine
-from inference.options import (
-    ChoiceAnswer, ChoiceOption, IOption, NoulOption, ScoreOption,
-    choice_keys, matches_answer,
-)
+from inference.options import ChoiceAnswer, ChoiceOption, IOption
 
 @dataclass(frozen=True, slots=True)
 class BenchmarkReport:

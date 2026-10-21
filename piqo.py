@@ -7,7 +7,6 @@ from training.policies.learner import ILearner, AdamWLearner
 from model.layout import ILayout, MaskedLayout, Layout
 from model.device import resolve_device, resolve_vram_gb, synchronize_device
 from inference.decision_engine import IDecisionEngine, DecisionEngine
-from inference.decision_resolver import IResolver, DecisionResolver
 from inference.profiling_layer import ProfilingLayer
 from training.epoch_trainer import ITrainer, EpochTrainer
 from training.policies.schedule import ISchedule, CosineSchedule
@@ -16,8 +15,7 @@ from data.dataset import IDataset, Dataset, default_corpus_source
 from inference.options import (
     IAnswer, ChoiceAnswer, NoulAnswer, ScoreAnswer,
     IOption, ChoiceOption, NoulOption, ScoreOption,
-    choice_keys, choice_target_index, shuffle_choice,
-    score_keys, score_target_index, matches_answer,
+    option_to_candidates, resolve_decision,
 )
 from data.case import CaseMeta, DataSplits, DecisionCase
 from data.storage import IStoragePolicy, DiskStoragePolicy
@@ -53,7 +51,6 @@ __all__ = [
     "ILoss", "CalibratedLoss",
     "ILayout", "MaskedLayout",
     "ISchedule", "CosineSchedule",
-    "IResolver", "DecisionResolver",
     "IStoragePolicy", "DiskStoragePolicy",
     "ISplitPolicy", "BudgetSplitPolicy", "IStratificationPolicy", "RoundRobinStratification", "ILeakagePolicy", "JaccardLeakagePolicy",
     "ILedgerPolicy", "DiskLedgerPolicy",
@@ -72,12 +69,8 @@ __all__ = [
     "Layout",
     "BenchmarkReport",
     # Transforms & Paths
-    "choice_keys",
-    "choice_target_index",
-    "shuffle_choice",
-    "score_keys",
-    "score_target_index",
-    "matches_answer",
+    "option_to_candidates",
+    "resolve_decision",
     "list_weights",
     "resolve_device",
     "resolve_vram_gb",

@@ -32,10 +32,6 @@ flowchart TD
         subgraph InfLayers ["Outer Decorators (layers/)"]
             PROF["ProfilingLayer: Per-stage latency & timing traces"]
         end
-
-        subgraph InfPolicies ["Irreducible Policies (policies/)"]
-            RES["DecisionResolver (IResolver): Calibrated softmax, sigmoid & min-max scale"]
-        end
     end
 
     subgraph ModelPrimitive ["4. Model Primitive (model/)"]
@@ -94,7 +90,6 @@ flowchart TD
 | Domain | Boundary Contract | Primary Implementation | Role & PFD Discipline |
 | :--- | :--- | :--- | :--- |
 | **Inference (`inference/`)** | `IDecisionEngine` | `DecisionEngine` | Orchestrates single-pass micro-decisions; strictly decoupled from frameworks. |
-| **Inference Policies** | `IResolver` | `DecisionResolver` | Calibrated softmax, sigmoid & min-max scale resolution. |
 | **Inference Layers** | Decorator ($\lambda: P \to P$) | `ProfilingLayer` | Non-invasive instrumentation for sub-millisecond stage tracking. |
 | **Model (`model/`)** | `IModel` | `TorchModel` | Encapsulates weights, tokenizer layout, and candidate scoring. |
 | **Training (`training/`)** | `ITrainer` | `EpochTrainer` | Drives multi-epoch convergence, evaluation, and validation loops. |
