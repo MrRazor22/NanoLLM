@@ -69,7 +69,7 @@ class TorchModel(nn.Module, IModel):
             embeddings = self.backbone(input_ids=input_ids, attention_mask=attention_mask).last_hidden_state
             batch_scores = []
             for i, l in enumerate(layouts):
-                slots = torch.as_tensor(l.candidate_indices, dtype=torch.long, device=self.device)
+                slots = torch.as_tensor(l.slots, dtype=torch.long, device=self.device)
                 slot_embeddings = embeddings[i, slots, :]
                 scores = self.head(slot_embeddings).squeeze(-1)
                 batch_scores.append(scores)
