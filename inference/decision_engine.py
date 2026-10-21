@@ -36,9 +36,8 @@ class DecisionEngine(IDecisionEngine):
 
     def decide(self, state: str, option: IOption) -> IAnswer:
         candidates = option_to_candidates(option)
-        instruction = getattr(option, "instruction", "")
         with torch.no_grad():
-            scores = self.model.forward([DecisionCase(state=state, candidates=candidates, instruction=instruction)])[0]
+            scores = self.model.forward([DecisionCase(state=state, candidates=candidates, instruction=option.instruction)])[0]
         return scores_to_answer(option, scores.tolist())
 
     def __or__(self, layer: IDecisionEngineLayer) -> "IDecisionEngine":

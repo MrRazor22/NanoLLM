@@ -28,7 +28,7 @@ class ScoreAnswer(IAnswer):
 @runtime_checkable
 class IOption(Protocol):
     """Decision query specification: represents candidate domains for resolution."""
-    pass
+    instruction: str
 
 @dataclass(frozen=True, slots=True)
 class ChoiceOption(IOption):
@@ -48,15 +48,17 @@ class ScoreOption(IOption):
 def option_to_candidates(option: IOption) -> Sequence[str]:
     match option:
         case ChoiceOption(options=opts):
-            if isinstance(opts, dict):
+            if isinstance(opts, Mapping):
                 return tuple(f"{k}: {v}" if v else k for k, v in opts.items())
             return tuple(opts)
-        case NoulOption(instruction=inst, criteria=crit):
-            if crit and "true" in crit and "false" in crit:
-                return (f"false: {crit['false']}", f"true: {crit['true']}")
-            return (f"false: {inst} does not hold", f"true: {inst} holds") if inst else ("false: does not hold", "true: holds")
+        case NoulOption(criteria=crit):
+            if crit:
+                val_f = str(crit.get("false", crit.get("no", "false")))
+                val_t = str(crit.get("true", crit.get("yes", "true")))
+                return (val_f, val_t)
+            return ("false", "true")
         case ScoreOption(criteria=crit):
-            if not crit:
+            if not crit or len(crit) < 2:
                 raise ValueError("ScoreOption requires at least 2 ordered criteria levels.")
             return tuple(crit)
         case _:
