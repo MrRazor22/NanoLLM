@@ -11,9 +11,7 @@ from inference.decision_resolver import IResolver, DecisionResolver
 from inference.profiling_layer import ProfilingLayer
 from training.epoch_trainer import ITrainer, EpochTrainer
 from training.policies.schedule import ISchedule, CosineSchedule, ConstantSchedule
-from training.telemetry.checkpointing_layer import CheckpointingLayer
-from training.telemetry.metrics_layer import MetricsLayer
-from training.stats import StepStats
+from training.checkpointing_layer import CheckpointingLayer, TrainingStats
 from data.dataset import IDataset, Dataset, default_corpus_source
 from inference.options import (
     IAnswer, ChoiceAnswer, NoulAnswer, ScoreAnswer,
@@ -65,13 +63,13 @@ __all__ = [
     "IRawCachePolicy", "HFCache",
     "IDataSource", "MultiSource", "GlaiveSource", "TypedDecisionsSource", "ClassificationSource", "TextClassificationSpec", "MultiChoiceSource", "MultiChoiceSpec",
     # Layers (Lambda: P -> P)
-    "ProfilingLayer", "CheckpointingLayer", "MetricsLayer",
+    "ProfilingLayer", "CheckpointingLayer",
     # Domain DTOs & Models
-    "WeightInfo",
+    "WeightInfo", "TrainingStats",
     "IOption", "ChoiceOption", "NoulOption", "ScoreOption",
     "IAnswer", "ChoiceAnswer", "NoulAnswer", "ScoreAnswer",
     "DecisionCase", "CaseMeta", "DataSplits",
-    "Layout", "StepStats",
+    "Layout",
     "BenchmarkReport",
     # Transforms & Paths
     "choice_keys",

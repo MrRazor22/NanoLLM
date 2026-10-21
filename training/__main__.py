@@ -15,8 +15,7 @@ from model.torch_model import TorchModel
 from model.weights import list_weights
 from training.epoch_trainer import EpochTrainer, ITrainer
 from training.policies.schedule import ConstantSchedule, CosineSchedule
-from training.telemetry.checkpointing_layer import CheckpointingLayer
-from training.telemetry.metrics_layer import MetricsLayer
+from training.checkpointing_layer import CheckpointingLayer
 
 DEFAULT_BACKBONE = "answerdotai/ModernBERT-base"
 
@@ -66,7 +65,6 @@ def main(
     schedule_policy = ConstantSchedule() if schedule.lower() == "constant" else CosineSchedule(warmup_ratio=warmup_ratio)
     trainer: ITrainer = (
         EpochTrainer(model=model, batch_size=batch_size, base_lr=target_lr, accum_steps=accum_steps, schedule=schedule_policy)
-        | MetricsLayer(log_interval_sec=5.0)
         | CheckpointingLayer(output_path=out_target)
     )
 

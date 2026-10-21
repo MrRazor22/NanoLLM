@@ -1,22 +1,25 @@
 from dataclasses import dataclass
 from pathlib import Path
-import time
 from typing import Iterator, Optional, Sequence, Union
 
 from data.case import DecisionCase
 from model.weights import WeightInfo
 from training.epoch_trainer import ITrainer, ITrainerLayer
-from training.stats import StepStats
 
 @dataclass(frozen=True, slots=True)
-class CheckpointInfo(WeightInfo):
+class TrainingStats(WeightInfo):
     epoch: int = 1
-    train_loss: Optional[float] = None
+    total_epochs: int = 1
+    step: int = 0
+    total_steps: int = 0
+    train_loss: float = 0.0
     val_loss: Optional[float] = None
+    lr: float = 0.0
+    elapsed_ms: float = 0.0
+    batch: int = 0
+    total_batches: int = 0
 
 class CheckpointingLayer(ITrainer):
-    """Layer Decorator (lambda: P -> P): Sovereign saving telemetry at epoch-end."""
-
     def __init__(
         self,
         inner: Optional[ITrainer] = None,
@@ -39,7 +42,7 @@ class CheckpointingLayer(ITrainer):
         train_cases: Sequence[DecisionCase],
         val_cases: Sequence[DecisionCase],
         epochs: int = 1,
-    ) -> Iterator[StepStats]:
+    ) -> Iterator[TrainingStats]:
         if not self.inner:
             raise RuntimeError("CheckpointingLayer has no inner trainer.")
         model = self.model
@@ -48,20 +51,13 @@ class CheckpointingLayer(ITrainer):
         for s in self.inner.fit(train_cases, val_cases, epochs=epochs):
             if self.output_path and model:
                 target = self.output_path
-                info = CheckpointInfo(
-                    name=target.stem,
-                    epoch=s.epoch,
-                    train_loss=s.loss,
-                    val_loss=s.val_loss,
-                    saved_at=time.strftime("%Y-%m-%d %H:%M:%S"),
-                )
                 p_target = Path(target)
                 if s.val_loss is not None and s.val_loss < self.best_val_loss:
                     self.best_val_loss = s.val_loss
-                    model.save(target, info=info)
+                    model.save(target, info=s)
                 if s.batch == s.total_batches:
                     epoch_target = p_target if (p_target.suffix or p_target.parent != Path(".")) else Path(f"{target}_v{s.epoch}")
-                    model.save(epoch_target, info=info)
+                    model.save(epoch_target, info=s)
             yield s
 
     def evaluate(self, cases: Sequence[DecisionCase]) -> float:
