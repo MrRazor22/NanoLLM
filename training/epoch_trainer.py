@@ -1,20 +1,20 @@
 import time
 from typing import Iterator, Optional, Protocol, Sequence, runtime_checkable
+import torch
 
 from data.case import DecisionCase
 from model.torch_model import IModel, TorchModel
 from training.policies.batch import BucketedBatch, IBatch, SequentialBatch
+from training.policies.loss import CalibratedLoss, ILoss
 from training.policies.schedule import CosineSchedule, ISchedule
 from training.stats import StepStats
 
 @runtime_checkable
 class ITrainerLayer(Protocol):
-    """Layer Decorator Contract (lambda: P -> P): Instruments or wraps trainer execution."""
     def __call__(self, inner: "ITrainer") -> "ITrainer": ...
 
 @runtime_checkable
 class ITrainer(Protocol):
-    """Core Primitive: Operational boundary for model optimization and evaluation."""
     def fit(
         self,
         cases: Sequence[DecisionCase],
@@ -26,31 +26,39 @@ class ITrainer(Protocol):
     def __or__(self, layer: ITrainerLayer) -> "ITrainer": ...
 
 class EpochTrainer(ITrainer):
-    """Core Primitive Implementation: Supervised training loop over domain decision cases."""
-
     def __init__(
         self,
         model: Optional[IModel] = None,
         batch_size: int = 16,
         base_lr: float = 2e-5,
+        accum_steps: int = 1,
         schedule: Optional[ISchedule] = None,
         batching: Optional[IBatch] = None,
         eval_batching: Optional[IBatch] = None,
+        loss: Optional[ILoss] = None,
         warmup_ratio: float = 0.05,
     ):
-        self.model = model or TorchModel()
+        self.model = model or TorchModel(accum_steps=accum_steps, lr=base_lr)
         self.batch_size = batch_size
         self.base_lr = base_lr
+        self.accum_steps = max(1, accum_steps)
         self.schedule = schedule or CosineSchedule(warmup_ratio=warmup_ratio)
         self.batching = batching or BucketedBatch()
         self.eval_batching = eval_batching or SequentialBatch()
+        self.loss = loss or CalibratedLoss()
 
     def evaluate(self, cases: Sequence[DecisionCase]) -> float:
-        """Evaluates model performance over candidate cases."""
         batches = list(self.eval_batching.batch(cases, batch_size=self.batch_size))
-        total = len(batches)
-        total_loss = sum(self.model.step(b, backward=False) for b in batches)
-        return total_loss / max(1, total)
+        if not batches:
+            return 0.0
+        total_loss = 0.0
+        with torch.no_grad():
+            for batch in batches:
+                scores = self.model.forward(batch, train=False)
+                targets = torch.as_tensor([c.target_index() for c in batch], device=scores.device)
+                loss_tensor = self.loss.compute(scores, targets)
+                total_loss += loss_tensor.item()
+        return total_loss / len(batches)
 
     def fit(
         self,
@@ -71,9 +79,14 @@ class EpochTrainer(ITrainer):
                 cur_lr = self.schedule.get_lr(step, total_steps, self.base_lr)
 
                 t0 = time.perf_counter()
-                loss = self.model.step(batch, backward=True, lr=cur_lr)
+                scores = self.model.forward(batch, train=True)
+                targets = torch.as_tensor([c.target_index() for c in batch], device=scores.device)
+                loss_tensor = self.loss.compute(scores, targets)
+
+                should_commit = ((n + 1) % self.accum_steps == 0) or (n + 1 == total_batches)
+                self.model.step(loss_tensor, lr=cur_lr, commit=should_commit)
                 dt = (time.perf_counter() - t0) * 1000.0
-                total_loss += loss
+                total_loss += loss_tensor.item()
 
                 is_val_cadence = val_cases and (n + 1 == total_batches or n + 1 == (total_batches // 2))
                 val_loss = self.evaluate(val_cases) if is_val_cadence else None

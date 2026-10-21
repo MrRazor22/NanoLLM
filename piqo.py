@@ -1,16 +1,15 @@
 """Piqo: Sovereign Composition Root (PFD)."""
 
 from model.torch_model import IModel, TorchModel
-from model.policies.calibrated_loss import ILoss, CalibratedLoss
+from training.policies.loss import ILoss, CalibratedLoss
 from model.policies.head import IHead, MLPHead
-from model.policies.optimizer import IOptimizerPolicy, AdamWOptimizer
-from model.policies.layout import ILayout, MaskedLayout
+from training.policies.learner import ILearner, AdamWLearner
+from model.policies.layout import ILayout, MaskedLayout, Layout
 from model.policies.weight_cache import (
     DEFAULT_WEIGHTS_DIR, DiskWeightCache, IWeightCache,
 )
 from model.device import resolve_device, resolve_vram_gb
 from model.weights import Weights, WeightMeta, list_weights, has_weights
-from model.token_layout import Batch
 from inference.decision_engine import IDecisionEngine, DecisionEngine
 from inference.decision_resolver import IResolver, DecisionResolver
 from inference.profiling_layer import ProfilingLayer
@@ -26,8 +25,7 @@ from inference.options import (
     choice_keys, choice_target_index, shuffle_choice,
     score_keys, score_target_index, matches_answer,
 )
-from model.policies.layout import format_state
-from data.case import DataSplits, DecisionCase
+from data.case import CaseMeta, DataSplits, DecisionCase
 from data.storage import IStoragePolicy, DiskStoragePolicy
 from data.split.split import ISplitPolicy, BudgetSplitPolicy
 from data.split.policies.stratification import IStratificationPolicy, RoundRobinStratification
@@ -58,7 +56,7 @@ __all__ = [
     "IBenchmark", "Benchmark", "GlinerDecideEngine", "JevEngine", "KevEngine", "LayaEngine", "VerdictEngine",
     # Policies & Injected Sub-Primitives
     "IHead", "MLPHead",
-    "IOptimizerPolicy", "AdamWOptimizer",
+    "ILearner", "AdamWLearner",
     "ILoss", "CalibratedLoss",
     "ILayout", "MaskedLayout",
     "IWeightCache", "DiskWeightCache", "DEFAULT_WEIGHTS_DIR",
@@ -78,11 +76,10 @@ __all__ = [
     "Weights",
     "IOption", "ChoiceOption", "NoulOption", "ScoreOption",
     "IAnswer", "ChoiceAnswer", "NoulAnswer", "ScoreAnswer",
-    "DecisionCase", "DataSplits",
-    "Batch", "StepStats",
+    "DecisionCase", "CaseMeta", "DataSplits",
+    "Layout", "StepStats",
     "BenchmarkReport",
     # Transforms & Paths
-    "format_state",
     "choice_keys",
     "choice_target_index",
     "shuffle_choice",

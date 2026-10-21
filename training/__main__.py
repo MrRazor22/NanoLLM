@@ -59,11 +59,11 @@ def main(
     target_epochs = epochs if epochs is not None else (2 if from_scratch else 1)
     target_lr = lr if lr is not None else (3e-5 if from_scratch else 1e-5)
 
-    model = TorchModel(backbone_name=backbone, weights=init_ckpt, accum_steps=accum_steps, compile=compile)
+    model = TorchModel(backbone_name=backbone, weights=init_ckpt, accum_steps=accum_steps, lr=target_lr, compile=compile)
 
     schedule_policy = ConstantSchedule() if schedule.lower() == "constant" else CosineSchedule(warmup_ratio=warmup_ratio)
     trainer: ITrainer = (
-        EpochTrainer(model=model, batch_size=batch_size, base_lr=target_lr, schedule=schedule_policy)
+        EpochTrainer(model=model, batch_size=batch_size, base_lr=target_lr, accum_steps=accum_steps, schedule=schedule_policy)
         | MetricsLayer(log_interval_sec=5.0)
         | CheckpointingLayer(output_path=out_target)
     )

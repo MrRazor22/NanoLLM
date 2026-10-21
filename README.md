@@ -41,7 +41,6 @@ flowchart TD
     subgraph ModelPrimitive ["4. Model Primitive (model/)"]
         direction TB
         MODEL["TorchModel (Contract: IModel): Backbone + Tokenizer + Prediction Layout"]
-        LOSS["CalibratedLoss (ILoss): Multi-task loss registry (CE, BCE, MSE)"]
     end
 
     subgraph Outputs ["5. Instant Calibrated Result (sub-40ms)"]
@@ -97,9 +96,9 @@ flowchart TD
 | **Inference (`inference/`)** | `IDecisionEngine` | `DecisionEngine` | Orchestrates single-pass micro-decisions; strictly decoupled from frameworks. |
 | **Inference Policies** | `IResolver` | `DecisionResolver` | Calibrated softmax, sigmoid & min-max scale resolution. |
 | **Inference Layers** | Decorator ($\lambda: P \to P$) | `ProfilingLayer` | Non-invasive instrumentation for sub-millisecond stage tracking. |
-| **Model (`model/`)** | `IModel` | `TorchModel` | Encapsulates weights, tokenizer layout, and gradient step executions. |
-| **Model Policies** | `ILoss` | `CalibratedLoss` | Dynamic loss composition tailored to multi-task question heads. |
-| **Training (`training/`)** | `ITrainer` | `EpochTrainer` | Drives multi-epoch model convergence and validation loops. |
+| **Model (`model/`)** | `IModel` | `TorchModel` | Encapsulates weights, tokenizer layout, and candidate scoring. |
+| **Training (`training/`)** | `ITrainer` | `EpochTrainer` | Drives multi-epoch convergence, evaluation, and validation loops. |
+| **Training Policies** | `ILearner`, `ILoss`, `ISchedule`, `IBatch` | `AdamWLearner`, `CalibratedLoss`, `CosineSchedule`, `BucketedBatch` | Isolated parameter learning, loss evaluation, schedule, and batch policies. |
 | **Training Layers** | Decorator ($\lambda: P \to P$) | `MetricsLayer`, `CheckpointingLayer` | Pluggable telemetry monitoring and champion checkpoint persistence. |
 | **Data (`data/`)** | `IDataset` | `Dataset` | Clean ingestion, budget splitting, 13-gram leakage policy, and disk caching. |
 | **Benchmark (`benchmark/`)** | `IScorecard` | `Scorecard` | Evaluates engine accuracy & latency against competitive baselines. |

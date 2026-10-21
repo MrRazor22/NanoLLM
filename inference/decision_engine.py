@@ -3,7 +3,10 @@ from typing import Optional, Protocol, Sequence, Union, runtime_checkable
 
 from inference.decision_resolver import DecisionResolver, IResolver
 from inference.options import ChoiceOption, IOption, NoulOption, ScoreOption
+from data.case import DecisionCase
 from model.torch_model import IModel
+import torch
+import scipy.special as sp
 
 @runtime_checkable
 class IDecisionEngineLayer(Protocol):
@@ -47,14 +50,15 @@ class DecisionEngine(IDecisionEngine):
         self.model, self.resolver = model, resolver or DecisionResolver()
 
     def predict_candidates(self, state: str, candidates: Sequence[str]) -> Sequence[float]:
-        scores = self.model.predict(state, candidates)
-        import scipy.special as sp
-        return list(sp.softmax(scores))
+        with torch.no_grad():
+            scores = self.model.forward([DecisionCase(state=state, candidates=candidates)], train=False)[0]
+        return list(sp.softmax(scores.tolist()))
 
     def decide(self, state: str, option: IOption) -> IOption:
         candidates = option_to_candidates(option)
-        scores = self.model.predict(state, candidates)
-        return self.resolver.resolve(option, scores)
+        with torch.no_grad():
+            scores = self.model.forward([DecisionCase(state=state, candidates=candidates)], train=False)[0]
+        return self.resolver.resolve(option, scores.tolist())
 
     def __or__(self, layer: IDecisionEngineLayer) -> "IDecisionEngine":
         return layer(self)

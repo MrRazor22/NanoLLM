@@ -10,31 +10,27 @@ logging.set_verbosity_error()
 
 from data.case import DecisionCase
 from model.device import resolve_device
-from model.policies.calibrated_loss import CalibratedLoss, ILoss
 from model.policies.head import IHead, MLPHead
 from model.policies.layout import ILayout, MaskedLayout
-from model.policies.optimizer import AdamWOptimizer, IOptimizerPolicy
 from model.policies.weight_cache import DiskWeightCache, IWeightCache
 from model.weights import WeightMeta, Weights
+from training.policies.learner import AdamWLearner, ILearner
 
 @runtime_checkable
 class IModel(Protocol):
-    """Core Primitive: Neural computation boundary for inference scoring and loss computation."""
-    def predict(self, state: str, candidates: Sequence[str]) -> Sequence[float]: ...
-    def step(self, cases: Sequence[DecisionCase], backward: bool = True, lr: Optional[float] = None) -> float: ...
+    def forward(self, cases: Sequence[DecisionCase], train: bool = False) -> torch.Tensor: ...
+    def step(self, loss: torch.Tensor, lr: Optional[float] = None, commit: bool = True) -> None: ...
     def save(self, target: Union[str, Path] = "piqo", meta: Optional[WeightMeta] = None) -> Path: ...
+    def load(self, source: Optional[Union[Weights, str, Path]] = None, strict: bool = True) -> None: ...
 
 class TorchModel(IModel):
-    """Core Primitive Implementation: ModernBERT backbone with modular decision head, layout, and optimizer."""
-
     def __init__(
         self,
         backbone_name: str = "answerdotai/ModernBERT-base",
         backbone: Optional[nn.Module] = None,
         head: Optional[IHead] = None,
         layout: Optional[ILayout] = None,
-        loss_policy: Optional[ILoss] = None,
-        optimizer_policy: Optional[IOptimizerPolicy] = None,
+        learner: Optional[ILearner] = None,
         weight_cache: Optional[IWeightCache] = None,
         tokenizer: Optional[AutoTokenizer] = None,
         weights: Optional[Union[Weights, str, Path]] = None,
@@ -57,46 +53,41 @@ class TorchModel(IModel):
 
         self.head = (head or MLPHead(hidden_dim=hidden_dim)).to(self.device)
         self.layout = layout or MaskedLayout(tokenizer=self.tokenizer, max_state_tokens=max_state_tokens)
-        self.loss_policy = loss_policy or CalibratedLoss()
         self.weight_cache = weight_cache or DiskWeightCache()
 
-        params = list(self.backbone.parameters()) + list(self.head.parameters())
-        self.optimizer_policy = optimizer_policy or AdamWOptimizer(params, lr=lr, accum_steps=accum_steps, device=self.device)
+        parameters = list(self.backbone.parameters()) + list(self.head.parameters())
+        self.learner = learner or AdamWLearner(parameters, lr=lr, accum_steps=accum_steps, device=self.device)
 
         if weights is not None:
             self.load(weights)
         if compile and hasattr(torch, "compile"):
             self.backbone = torch.compile(self.backbone)
 
-    def predict(self, state: str, candidates: Sequence[str]) -> Sequence[float]:
-        batch = self.layout.encode(state, candidates).to(self.device)
-        self.backbone.eval()
-        self.head.eval()
-        with torch.no_grad(), torch.amp.autocast(self.device.type, enabled=self.device.type == "cuda"):
-            hidden = self.backbone(input_ids=batch.input_ids, attention_mask=batch.mask).last_hidden_state
-            scores = self.head.score(hidden).squeeze(0)
-            return [scores[i].item() for i in batch.candidate_indices[0]]
+    def forward(self, cases: Sequence[DecisionCase], train: bool = False) -> torch.Tensor:
+        prepared = [c.shuffled() if train else c for c in cases]
+        layouts = [self.layout.layout(c) for c in prepared]
+        pad_id = getattr(self.tokenizer, "pad_token_id", 0)
+        max_len = max(len(l.tokens) for l in layouts)
 
-    def step(self, cases: Sequence[DecisionCase], backward: bool = True, lr: Optional[float] = None) -> float:
-        batch = self.layout.collate(cases, shuffle=backward).to(self.device)
-        self.backbone.train(backward)
-        self.head.train(backward)
-        with torch.set_grad_enabled(backward), torch.amp.autocast(self.device.type, enabled=self.device.type == "cuda"):
-            hidden = self.backbone(input_ids=batch.input_ids, attention_mask=batch.mask).last_hidden_state
+        input_ids = torch.full((len(layouts), max_len), pad_id, dtype=torch.long, device=self.device)
+        mask = torch.zeros((len(layouts), max_len), dtype=torch.float, device=self.device)
+        for i, l in enumerate(layouts):
+            sz = len(l.tokens)
+            input_ids[i, :sz] = torch.as_tensor(l.tokens, dtype=torch.long, device=self.device)
+            mask[i, :sz] = 1.0
+
+        self.backbone.train(train)
+        self.head.train(train)
+        with torch.set_grad_enabled(train), torch.amp.autocast(self.device.type, enabled=self.device.type == "cuda"):
+            hidden = self.backbone(input_ids=input_ids, attention_mask=mask).last_hidden_state
             preds = self.head.score(hidden)
-            # Pad candidate scores with -1e4 so empty option slots get ~0 probability in softmax
-            candidate_scores = pad_sequence([preds[b, idxs] for b, idxs in enumerate(batch.candidate_indices)], batch_first=True, padding_value=-1e4)
-            loss = self.loss_policy.compute(candidate_scores, batch.targets)
-        if backward and self.optimizer_policy:
-            self.optimizer_policy.step(loss, lr=lr)
-        return loss.item()
+            candidate_scores = pad_sequence([preds[b, l.slots] for b, l in enumerate(layouts)], batch_first=True, padding_value=-1e4)
+        return candidate_scores
 
-    def flush(self) -> None:
-        if self.optimizer_policy:
-            self.optimizer_policy.flush()
+    def step(self, loss: torch.Tensor, lr: Optional[float] = None, commit: bool = True) -> None:
+        self.learner.step(loss, lr=lr, commit=commit)
 
     def save(self, target: Union[str, Path] = "piqo", meta: Optional[WeightMeta] = None) -> Path:
-        self.flush()
         from safetensors.torch import save
         tensors = {f"backbone.{k}": v.contiguous() for k, v in self.backbone.state_dict().items()}
         tensors.update({f"head.{k}": v.contiguous() for k, v in self.head.state_dict().items()})
