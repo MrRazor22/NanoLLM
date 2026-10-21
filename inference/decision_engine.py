@@ -1,3 +1,4 @@
+import logging
 from pathlib import Path
 from typing import Optional, Protocol, Union, runtime_checkable
 
@@ -7,20 +8,18 @@ from model.torch_model import IModel
 import scipy.special as sp
 import torch
 
+logger = logging.getLogger(__name__)
+
 @runtime_checkable
 class IDecisionEngineLayer(Protocol):
-    """Layer Decorator Contract (lambda: P -> P): Instruments or wraps decision engine execution."""
     def __call__(self, inner: "IDecisionEngine") -> "IDecisionEngine": ...
 
 @runtime_checkable
 class IDecisionEngine(Protocol):
-    """Core Primitive: Sovereign operational boundary for domain decision resolution."""
     def decide(self, state: str, option: IOption) -> IAnswer: ...
     def __or__(self, layer: IDecisionEngineLayer) -> "IDecisionEngine": ...
 
 class DecisionEngine(IDecisionEngine):
-    """Core Primitive Implementation: Coordinates neural prediction and decision resolution."""
-
     def __init__(
         self,
         model: Optional[IModel] = None,
@@ -40,7 +39,9 @@ class DecisionEngine(IDecisionEngine):
         with torch.no_grad():
             scores = self.model.forward([DecisionCase(state=state, candidates=candidates, instruction=option.instruction)])[0]
         probs = sp.softmax(scores.tolist())
-        return probabilities_to_answer(option, probs)
+        answer = probabilities_to_answer(option, probs)
+        logger.info("Decided %s with %.1f%% confidence across %d candidates", type(option).__name__, answer.confidence * 100, len(candidates))
+        return answer
 
     def __or__(self, layer: IDecisionEngineLayer) -> "IDecisionEngine":
         return layer(self)

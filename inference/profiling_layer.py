@@ -1,12 +1,13 @@
+import logging
 import time
 
 from inference.decision_engine import IDecisionEngine, IDecisionEngineLayer
 from inference.options import IAnswer, IOption
 from model.device import synchronize_device
 
-class ProfilingLayer(IDecisionEngine):
-    """Layer Decorator (lambda: P -> P): Transparent hardware synchronization and latency profiling."""
+logger = logging.getLogger(__name__)
 
+class ProfilingLayer(IDecisionEngine):
     def __init__(self, inner: IDecisionEngine | None = None):
         self.inner = inner
         self.last_latency_ms: float = 0.0
@@ -23,6 +24,7 @@ class ProfilingLayer(IDecisionEngine):
         res = self.inner.decide(state, option)
         synchronize_device()
         self.last_latency_ms = (time.perf_counter() - t0) * 1000.0
+        logger.info("Latency measured at %.2f ms", self.last_latency_ms)
         return res
 
     def __or__(self, layer: IDecisionEngineLayer) -> IDecisionEngine:
