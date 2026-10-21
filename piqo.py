@@ -10,7 +10,7 @@ from inference.decision_engine import IDecisionEngine, DecisionEngine
 from inference.decision_resolver import IResolver, DecisionResolver
 from inference.profiling_layer import ProfilingLayer
 from training.epoch_trainer import ITrainer, EpochTrainer
-from training.policies.schedule import ISchedule, CosineSchedule, ConstantSchedule
+from training.policies.schedule import ISchedule, CosineSchedule
 from training.checkpointing_layer import CheckpointingLayer, TrainingStats
 from data.dataset import IDataset, Dataset, default_corpus_source
 from inference.options import (
@@ -52,7 +52,7 @@ __all__ = [
     "ILearner", "AdamWLearner",
     "ILoss", "CalibratedLoss",
     "ILayout", "MaskedLayout",
-    "ISchedule", "CosineSchedule", "ConstantSchedule",
+    "ISchedule", "CosineSchedule",
     "IResolver", "DecisionResolver",
     "IStoragePolicy", "DiskStoragePolicy",
     "ISplitPolicy", "BudgetSplitPolicy", "IStratificationPolicy", "RoundRobinStratification", "ILeakagePolicy", "JaccardLeakagePolicy",

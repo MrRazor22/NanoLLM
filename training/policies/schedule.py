@@ -25,9 +25,3 @@ class CosineSchedule(ISchedule):
         progress = min(max(float(step - warmup_steps) / float(decay_steps), 0.0), 1.0)
         cosine_decay = 0.5 * (1.0 + math.cos(math.pi * progress))
         return base_lr * (self.min_lr_ratio + (1.0 - self.min_lr_ratio) * cosine_decay)
-
-class ConstantSchedule(ISchedule):
-    """Preserves base learning rate across all steps unconditionally."""
-
-    def get_lr(self, step: int, total_steps: int, base_lr: float) -> float:
-        return base_lr
