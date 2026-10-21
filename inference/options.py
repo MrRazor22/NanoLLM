@@ -47,36 +47,41 @@ class ScoreOption(IOption):
 def option_to_candidates(option: IOption) -> Sequence[str]:
     match option:
         case ChoiceOption(criteria=crit):
-            return tuple(f"{k}: {v}" if v else k for k, v in crit.items())
+            candidates = tuple(f"{k}: {v}" if v else k for k, v in crit.items())
         case NoulOption(criteria=crit):
-            return (crit["false"], crit["true"])
+            candidates = (crit["false"], crit["true"])
         case ScoreOption(criteria=crit):
-            if len(crit) < 2:
-                raise ValueError("ScoreOption requires at least 2 ordered criteria levels.")
-            return tuple(crit)
+            candidates = tuple(crit)
         case _:
             raise ValueError(f"Unsupported option type: {type(option)}")
+    if len(candidates) < 2:
+        raise ValueError("Options require at least 2 candidates.")
+    return candidates
 
 def probabilities_to_answer(option: IOption, probs: Sequence[float]) -> IAnswer:
     match option:
         case ChoiceOption(criteria=crit):
-            keys = tuple(crit.keys())
-            best = int(max(range(len(probs)), key=lambda i: probs[i]))
+            keys = tuple(crit)
+            best = max(range(len(probs)), key=probs.__getitem__)
             return ChoiceAnswer(
                 choice=keys[best],
                 confidence=float(probs[best]),
-                probabilities={k: float(p) for k, p in zip(keys, probs)},
+                probabilities=dict(zip(keys, map(float, probs))),
             )
         case NoulOption():
-            p_true = float(probs[1]) if len(probs) >= 2 else float(probs[0])
+            p_true = float(probs[1])
             decision = p_true >= 0.5
             return NoulAnswer(
                 noul=p_true,
                 decision=decision,
-                confidence=p_true if decision else 1.0 - p_true,
+                confidence=max(p_true, 1.0 - p_true),
             )
         case ScoreOption():
-            expected = float(sum(i * p for i, p in enumerate(probs)))
-            return ScoreAnswer(score=expected, confidence=float(max(probs)), probabilities=list(probs))
+            expected = sum(i * p for i, p in enumerate(probs))
+            return ScoreAnswer(
+                score=float(expected),
+                confidence=float(max(probs)),
+                probabilities=list(map(float, probs)),
+            )
         case _:
             raise ValueError(f"Unsupported option type: {type(option)}")
