@@ -7,7 +7,7 @@ from typing import Iterator, Optional, Protocol, Sequence, runtime_checkable
 import torch
 
 from data.case import DecisionCase
-from model.torch_model import IModel
+from model.torch_model import IModel, TorchModel
 from model.weights import WeightInfo
 from training.policies.learner import AdamWLearner, ILearner
 from training.policies.loss import CalibratedLoss, ILoss
@@ -47,7 +47,7 @@ class ITrainer(Protocol):
 class EpochTrainer(ITrainer):
     def __init__(
         self,
-        model: IModel,
+        model: Optional[TorchModel] = None,
         batch_size: int = 16,
         base_lr: float = 2e-5,
         accum_steps: int = 1,
@@ -55,11 +55,11 @@ class EpochTrainer(ITrainer):
         schedule: Optional[ISchedule] = None,
         loss: Optional[ILoss] = None,
     ):
-        self.model = model
+        self.model = model or TorchModel()
         self.batch_size = batch_size
         self.base_lr = base_lr
         self.accum_steps = accum_steps
-        self.learner = learner or AdamWLearner(model.parameters() if hasattr(model, "parameters") else ())
+        self.learner = learner or AdamWLearner(self.model.parameters())
         self.schedule = schedule or CosineSchedule()
         self.loss = loss or CalibratedLoss()
 

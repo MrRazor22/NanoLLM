@@ -6,7 +6,6 @@ from inference.options import ChoiceOption, IOption, NoulOption, ScoreOption
 from data.case import DecisionCase
 from model.torch_model import IModel
 import torch
-import scipy.special as sp
 
 @runtime_checkable
 class IDecisionEngineLayer(Protocol):
@@ -17,7 +16,6 @@ class IDecisionEngineLayer(Protocol):
 class IDecisionEngine(Protocol):
     """Core Primitive: Sovereign operational boundary for domain decision resolution."""
     def decide(self, state: str, option: IOption) -> IOption: ...
-    def predict_candidates(self, state: str, candidates: Sequence[str]) -> Sequence[float]: ...
     def __or__(self, layer: IDecisionEngineLayer) -> "IDecisionEngine": ...
 
 def option_to_candidates(option: IOption) -> Sequence[str]:
@@ -49,11 +47,6 @@ class DecisionEngine(IDecisionEngine):
                 target_model.load(checkpoint)
             model = target_model
         self.model, self.resolver = model, resolver or DecisionResolver()
-
-    def predict_candidates(self, state: str, candidates: Sequence[str]) -> Sequence[float]:
-        with torch.no_grad():
-            scores = self.model.forward([DecisionCase(state=state, candidates=candidates)])[0]
-        return list(sp.softmax(scores.tolist()))
 
     def decide(self, state: str, option: IOption) -> IOption:
         candidates = option_to_candidates(option)

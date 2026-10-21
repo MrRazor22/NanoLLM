@@ -6,7 +6,7 @@ from typing import Dict, Mapping, Protocol, Sequence, runtime_checkable
 from data.case import DecisionCase
 from inference.decision_engine import IDecisionEngine
 from inference.options import (
-    ChoiceOption, IOption, NoulOption, ScoreOption,
+    ChoiceAnswer, ChoiceOption, IOption, NoulOption, ScoreOption,
     choice_keys, matches_answer,
 )
 
@@ -65,19 +65,20 @@ class ScorerPolicy(IScorerPolicy):
             t_call = time.perf_counter()
 
             if hasattr(item, "candidates") and item.candidates:
-                probs = engine.predict_candidates(item.state, item.candidates)
+                resolved = engine.decide(item.state, ChoiceOption(options=item.candidates))
                 dt_ms = getattr(engine, "last_latency_ms", 0.0) or (time.perf_counter() - t_call) * 1000.0
                 latencies.append(dt_ms)
                 cat_total[cat] = cat_total.get(cat, 0) + 1
-                gold_idx = item.target_index()
-                pred_idx = int(max(range(len(probs)), key=lambda i: probs[i]))
-                is_hit = (pred_idx == gold_idx)
+                ans = resolved.answer
+                pred_choice = ans.choice if isinstance(ans, ChoiceAnswer) else ""
+                gold_choice = item.choice()
+                is_hit = (pred_choice == gold_choice)
                 hits.append(1.0 if is_hit else 0.0)
                 if is_hit:
                     cat_correct[cat] = cat_correct.get(cat, 0) + 1
-                b_val = sum((probs[i] - float(item.probabilities.get(c, 0.0))) ** 2 for i, c in enumerate(item.candidates))
+                probs = ans.probabilities if isinstance(ans, ChoiceAnswer) else {}
+                b_val = sum((float(probs.get(c, 0.0)) - float(item.probabilities.get(c, 0.0))) ** 2 for c in item.candidates)
                 brier_diffs.append(b_val)
-                continue
 
             now = time.perf_counter()
             if self.show_progress and (now - last_log >= self.log_interval_sec or idx == total_items):
