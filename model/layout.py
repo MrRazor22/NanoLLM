@@ -1,5 +1,5 @@
 from dataclasses import dataclass
-from typing import Optional, Protocol, Sequence, runtime_checkable
+from typing import Protocol, Sequence, runtime_checkable
 from transformers import PreTrainedTokenizerBase
 
 from data.case import DecisionCase
@@ -15,10 +15,7 @@ class ILayout(Protocol):
     def layout(self, cases: Sequence[DecisionCase]) -> Sequence[Layout]: ...
 
 class MaskedLayout(ILayout):
-    def __init__(self, tokenizer: Optional[PreTrainedTokenizerBase] = None, max_state_tokens: int = 8192):
-        if tokenizer is None:
-            from transformers import AutoTokenizer
-            tokenizer = AutoTokenizer.from_pretrained("answerdotai/ModernBERT-base")
+    def __init__(self, tokenizer: PreTrainedTokenizerBase, max_state_tokens: int = 8192):
         if tokenizer.pad_token_id is None:
             raise ValueError("Tokenizer must define pad_token_id.")
         self.tokenizer = tokenizer
