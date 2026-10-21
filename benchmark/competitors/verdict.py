@@ -1,6 +1,6 @@
 from typing import Optional
 from inference.options import (
-    ChoiceAnswer, ChoiceOption, IOption, NoulAnswer, NoulOption, ScoreOption,
+    ChoiceAnswer, ChoiceOption, IAnswer, IOption, NoulAnswer, NoulOption, ScoreOption,
 )
 from inference.decision_engine import IDecisionEngine, IDecisionEngineLayer
 from model.device import resolve_device
@@ -18,7 +18,7 @@ class VerdictEngine(IDecisionEngine):
         self._pipeline = None
         self.last_latency_ms: float = 0.0
 
-    def decide(self, state: str, option: IOption) -> IOption:
+    def decide(self, state: str, option: IOption) -> IAnswer:
         if self._pipeline is None:
             try:
                 from gliclass import GLiClassModel, ZeroShotClassificationPipeline
@@ -43,20 +43,18 @@ class VerdictEngine(IDecisionEngine):
                 total = sum(cand_scores.values()) or 1.0
                 norm_p = {k: v / total for k, v in cand_scores.items()}
                 top_k = opt_map.get(items[0].get("label", ""))
-                ans = ChoiceAnswer(choice=str(top_k), confidence=norm_p.get(top_k, 1.0), probabilities=norm_p)
-                return ChoiceOption(options=option.options, answer=ans)
+                return ChoiceAnswer(choice=str(top_k), confidence=norm_p.get(top_k, 1.0), probabilities=norm_p)
         elif isinstance(option, NoulOption):
             res = pipe(prompt_text, ["It is true", "It is false"])
             items = res[0] if (res and isinstance(res, list) and isinstance(res[0], list)) else (res or [])
             s_map = {it["label"]: float(it.get("score", 0.0)) for it in items if "label" in it}
             if s_map:
                 prob = s_map.get("It is true", 0.0) / ((s_map.get("It is true", 0.0) + s_map.get("It is false", 0.0)) or 1.0)
-                ans = NoulAnswer(decision=prob >= 0.5, confidence=prob if prob >= 0.5 else 1.0 - prob)
-                return NoulOption(answer=ans)
+                return NoulAnswer(noul=prob, decision=prob >= 0.5, confidence=prob if prob >= 0.5 else 1.0 - prob)
         elif isinstance(option, ScoreOption):
             raise NotImplementedError("Verdict does not support continuous regression decisions")
 
-        return option
+        raise ValueError(f"Unsupported option type or no prediction from Verdict: {type(option)}")
 
     def __or__(self, layer: IDecisionEngineLayer) -> IDecisionEngine:
         return layer(self)

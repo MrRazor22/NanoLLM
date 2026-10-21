@@ -3,6 +3,7 @@
 ## 1. Architectural Doctrine: Primitive-First Design (PFD)
 - **Always Apply PFD:** All architecture, boundary definitions, refactorings, and reviews in this repository strictly follow Primitive-First Design (PFD).
 - **Authoritative Reference:** Always read and adhere to `~/.gemini/config/skills/pfd/SKILL.md` (invocable via `/primitive-first-design`). Never use partial heuristics or speculative wrapper abstractions.
+- **Authoritative System One Specification:** All modifications to the inference boundary (`inference/options.py`, `inference/decision_engine.py`) MUST strictly match the authoritative TypeSafe AI System One specification in `docs/spec/systemone/` 1-to-1 (`choice`, `noul`, `score`). Never invent speculative parameters, defaults, or arbitrary wrapper types.
 - **The 5 Irreducible Sovereign Domains:**
   1. **Model:** [`model/`](file:///d:/CodeBase/Piqo/model) — [`IModel`](file:///d:/CodeBase/Piqo/model/torch_model.py), [`TorchModel`](file:///d:/CodeBase/Piqo/model/torch_model.py)
   2. **Inference:** [`inference/`](file:///d:/CodeBase/Piqo/inference) — [`IDecisionEngine`](file:///d:/CodeBase/Piqo/inference/decision_engine.py), [`DecisionEngine`](file:///d:/CodeBase/Piqo/inference/decision_engine.py)
@@ -16,10 +17,10 @@
   - **Single Universal Model Primitive:** Model boundary evaluates only $\text{Context} \to \text{Candidates} \to \mathbf{p} \in \Delta^{K-1}$. The neural backbone has zero awareness of question types.
   - **Pure Data Primitive:** `DecisionCase` in `data/case.py` contains strictly `(state, candidates, probabilities, category, source)`. Zero option or answer types exist in the data layer. `case_choice()` and `case_confidence()` are pure derived projections.
   - **Fail-Fast Invariant (Zero Silent Fallbacks):** Never write defensive fallback branches, magical `0` defaults, or sneaky swallowing of missing candidates. If a derived choice is not present in `candidates`, throw immediately (`ValueError`). If a state or category is missing, abort. Defensive fallbacks corrupt training data and mask upstream pipeline bugs.
-  - **High-Level Ergonomic Layer:** `ChoiceOption`, `NoulOption`, and `ScoreOption` live strictly at the user-facing inference boundary (`inference/options.py`).
-    - `ChoiceOption`: Unordered option selection $\to$ argmax and probability distribution.
-    - `NoulOption`: Binary statement evaluation $\to$ candidates `["false: does not hold", "true: holds"]` $\to$ scalar probability $P(\text{true})$.
-    - `ScoreOption`: Discrete rubric criteria $\to$ candidates derived from semantic levels $\to$ continuous expected level $\sum_{i=0}^{K-1} i \cdot p_i$.
+  - **High-Level Ergonomic Layer (System One Specification):**
+    - `ChoiceOption`: Categorical routing with `options: Sequence[str] | Mapping[str, str]` and `instruction: str = ""` $\to$ `ChoiceAnswer(choice, confidence, probabilities)`.
+    - `NoulOption`: Binary verification with `instruction: str` and optional `criteria: Mapping[str, str] | None` $\to$ `NoulAnswer(noul, decision, confidence)` where `noul` $\in [0, 1]$ is probability of yes.
+    - `ScoreOption`: Ordinal rating with required `criteria: Sequence[str]` (2 to 10 ordered levels) and `instruction: str = ""` $\to$ `ScoreAnswer(score, confidence, probabilities)`.
   - **Consolidated Corpus:** Training and evaluation splits live in a single consolidated schema inside `data/corpus/` (`train.jsonl`, `val.jsonl`, `test.jsonl`). No type-fragmented subdirectories. Raw downloads remain strictly isolated in `data/raw/`.
 
 ## 2. Operational Workflows & Commands (Zero-Flag Self-Wiring Defaults)

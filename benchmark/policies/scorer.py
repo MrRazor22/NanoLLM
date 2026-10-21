@@ -62,11 +62,10 @@ class ScorerPolicy(IScorerPolicy):
             t_call = time.perf_counter()
 
             if hasattr(item, "candidates") and item.candidates:
-                resolved = engine.decide(item.state, ChoiceOption(options=item.candidates))
+                ans = engine.decide(item.state, ChoiceOption(options=item.candidates))
                 dt_ms = getattr(engine, "last_latency_ms", 0.0) or (time.perf_counter() - t_call) * 1000.0
                 latencies.append(dt_ms)
                 cat_total[cat] = cat_total.get(cat, 0) + 1
-                ans = resolved.answer
                 pred_choice = ans.choice if isinstance(ans, ChoiceAnswer) else ""
                 gold_choice = item.choice()
                 is_hit = (pred_choice == gold_choice)

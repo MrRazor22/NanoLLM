@@ -1,6 +1,6 @@
 from typing import Optional
 from inference.options import (
-    ChoiceAnswer, ChoiceOption, IOption, NoulAnswer, NoulOption, ScoreOption,
+    ChoiceAnswer, ChoiceOption, IAnswer, IOption, NoulAnswer, NoulOption, ScoreOption,
 )
 from inference.decision_engine import IDecisionEngine, IDecisionEngineLayer
 from model.device import resolve_device
@@ -18,7 +18,7 @@ class GlinerDecideEngine(IDecisionEngine):
         self._model = None
         self.last_latency_ms: float = 0.0
 
-    def decide(self, state: str, option: IOption) -> IOption:
+    def decide(self, state: str, option: IOption) -> IAnswer:
         if self._model is None:
             try:
                 try:
@@ -41,8 +41,7 @@ class GlinerDecideEngine(IDecisionEngine):
                 raw = model.classify_text(prompt_text, {"decision": list(opt_map.keys())}).get("decision", "")
                 if raw in opt_map:
                     k = opt_map[raw]
-                    ans = ChoiceAnswer(choice=str(k), confidence=1.0, probabilities={v: (1.0 if v == k else 0.0) for v in opt_map.values()})
-                    return ChoiceOption(options=option.options, answer=ans)
+                    return ChoiceAnswer(choice=str(k), confidence=1.0, probabilities={v: (1.0 if v == k else 0.0) for v in opt_map.values()})
             else:
                 preds = model.classify(prompt_text, list(opt_map.keys())) if hasattr(model, "classify") else model.predict_entities(prompt_text, list(opt_map.keys()))
                 scores = {opt_map[p["label"]]: float(p.get("score", 0.0)) for p in (preds or []) if p.get("label") in opt_map}
@@ -50,25 +49,23 @@ class GlinerDecideEngine(IDecisionEngine):
                     total = sum(scores.values()) or 1.0
                     norm_p = {k: v / total for k, v in scores.items()}
                     top_k = opt_map[preds[0]["label"]]
-                    ans = ChoiceAnswer(choice=str(top_k), confidence=norm_p.get(top_k, 1.0), probabilities=norm_p)
-                    return ChoiceOption(options=option.options, answer=ans)
+                    return ChoiceAnswer(choice=str(top_k), confidence=norm_p.get(top_k, 1.0), probabilities=norm_p)
         elif isinstance(option, NoulOption):
             if hasattr(model, "classify_text"):
                 ans_label = model.classify_text(prompt_text, {"decision": ["Yes", "No"]}).get("decision", "")
                 if ans_label in ("Yes", "No"):
                     is_pos = (ans_label == "Yes")
-                    ans = NoulAnswer(decision=is_pos, confidence=1.0)
-                    return NoulOption(answer=ans)
+                    return NoulAnswer(noul=1.0 if is_pos else 0.0, decision=is_pos, confidence=1.0)
             else:
                 preds = model.classify(prompt_text, ["Yes", "No"]) if hasattr(model, "classify") else model.predict_entities(prompt_text, ["Yes", "No"])
                 if preds and preds[0].get("label") in ("Yes", "No"):
                     is_pos = (preds[0]["label"] == "Yes")
                     score = float(preds[0].get("score", 0.5))
-                    ans = NoulAnswer(decision=is_pos, confidence=score if is_pos else 1.0 - score)
-                    return NoulOption(answer=ans)
+                    prob = score if is_pos else 1.0 - score
+                    return NoulAnswer(noul=prob, decision=is_pos, confidence=prob if is_pos else 1.0 - prob)
         elif isinstance(option, ScoreOption):
             raise NotImplementedError("GLiNER does not support continuous regression decisions")
-        return option
+        raise ValueError(f"Unsupported option type: {type(option)}")
 
     def __or__(self, layer: IDecisionEngineLayer) -> IDecisionEngine:
         return layer(self)

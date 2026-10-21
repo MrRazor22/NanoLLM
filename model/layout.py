@@ -34,6 +34,9 @@ class MaskedLayout(ILayout):
             ids.extend(self.tokenizer.encode(f" {cand}", add_special_tokens=False))
 
         ids.append(sep_id)
+        if case.instruction:
+            ids.extend(self.tokenizer.encode(f"Question: {case.instruction}", add_special_tokens=False))
+            ids.append(sep_id)
         state_tokens = self.tokenizer.encode(case.state, add_special_tokens=False)
         if len(state_tokens) > self.max_state_tokens:
             state_tokens = state_tokens[:self.max_state_tokens]

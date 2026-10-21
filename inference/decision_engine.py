@@ -2,7 +2,7 @@ from pathlib import Path
 from typing import Optional, Protocol, Union, runtime_checkable
 
 from data.case import DecisionCase
-from inference.options import IOption, option_to_candidates, resolve_decision
+from inference.options import IAnswer, IOption, option_to_candidates, scores_to_answer
 from model.torch_model import IModel
 import torch
 
@@ -14,7 +14,7 @@ class IDecisionEngineLayer(Protocol):
 @runtime_checkable
 class IDecisionEngine(Protocol):
     """Core Primitive: Sovereign operational boundary for domain decision resolution."""
-    def decide(self, state: str, option: IOption) -> IOption: ...
+    def decide(self, state: str, option: IOption) -> IAnswer: ...
     def __or__(self, layer: IDecisionEngineLayer) -> "IDecisionEngine": ...
 
 class DecisionEngine(IDecisionEngine):
@@ -34,11 +34,12 @@ class DecisionEngine(IDecisionEngine):
             model = target_model
         self.model = model
 
-    def decide(self, state: str, option: IOption) -> IOption:
+    def decide(self, state: str, option: IOption) -> IAnswer:
         candidates = option_to_candidates(option)
+        instruction = getattr(option, "instruction", "")
         with torch.no_grad():
-            scores = self.model.forward([DecisionCase(state=state, candidates=candidates)])[0]
-        return resolve_decision(option, scores.tolist())
+            scores = self.model.forward([DecisionCase(state=state, candidates=candidates, instruction=instruction)])[0]
+        return scores_to_answer(option, scores.tolist())
 
     def __or__(self, layer: IDecisionEngineLayer) -> "IDecisionEngine":
         return layer(self)

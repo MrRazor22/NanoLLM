@@ -12,6 +12,7 @@ class CaseMeta:
 class DecisionCase:
     state: str
     candidates: Sequence[str]
+    instruction: str = ""
     probabilities: Mapping[str, float] = field(default_factory=dict)
     meta: CaseMeta = field(default_factory=CaseMeta)
 
@@ -19,6 +20,7 @@ class DecisionCase:
         self,
         state: str,
         candidates: Sequence[str],
+        instruction: str = "",
         probabilities: Optional[Mapping[str, float]] = None,
         meta: Optional[CaseMeta] = None,
         category: str = "",
@@ -27,6 +29,7 @@ class DecisionCase:
     ):
         object.__setattr__(self, "state", state)
         object.__setattr__(self, "candidates", candidates if isinstance(candidates, tuple) else tuple(candidates))
+        object.__setattr__(self, "instruction", instruction)
         object.__setattr__(self, "probabilities", probabilities or {})
         resolved_meta = meta or CaseMeta(category=category, source=source, split=split)
         object.__setattr__(self, "meta", resolved_meta)

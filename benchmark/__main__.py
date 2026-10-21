@@ -77,8 +77,7 @@ def run_playground(engines: Sequence[tuple[str, IDecisionEngine]]) -> None:
         print(f"\nState: {ctx}\n" + "-" * 55)
         for m_name, eng in engines:
             try:
-                res_opt = eng.decide(ctx, opt)
-                ans = res_opt.answer
+                ans = eng.decide(ctx, opt)
                 val = getattr(ans, "choice", "-")
                 conf = getattr(ans, "confidence", 1.0)
                 lat = getattr(eng, "last_latency_ms", 0.0)
@@ -90,7 +89,7 @@ def run_playground(engines: Sequence[tuple[str, IDecisionEngine]]) -> None:
 @app.command()
 def main(
     suite: str = typer.Option("all", "--suite", "-s", help="Benchmark suite(s): all, laya, jev, kev (comma-separated)"),
-    model: str = typer.Option("all", "--model", "-m", help="Model(s) to evaluate: all, piqo, gliner, jev, kev, laya, verdict (comma-separated)"),
+    model: str = typer.Option("all", "--model", "-m", help="Model(s) to evaluate: all, piqo, gliner, jev, laya, verdict (comma-separated)"),
     report: bool = typer.Option(False, "--report", "-r", help="Show leaderboard report without running models"),
     limit: Optional[int] = typer.Option(None, help="Item limit per suite"),
     device: Optional[str] = typer.Option(None, help="Target compute device (cpu, cuda, mps)"),
@@ -112,7 +111,7 @@ def main(
         for name, eng in active_engines.items():
             try:
                 profiled = eng | ProfilingLayer()
-                profiled.decide("warmup", [Choice("decision", ["warm"])])
+                profiled.decide("warmup", ChoiceOption(options=["warm"]))
                 live_engines.append((name, profiled))
             except Exception as e:
                 print(f"[{name}] Skipping playground: {e}")

@@ -2,7 +2,7 @@ import os
 from typing import Optional
 import httpx
 from inference.options import (
-    ChoiceAnswer, ChoiceOption, IOption, NoulAnswer, NoulOption,
+    ChoiceAnswer, ChoiceOption, IAnswer, IOption, NoulAnswer, NoulOption,
     ScoreAnswer, ScoreOption,
 )
 from inference.decision_engine import IDecisionEngine, IDecisionEngineLayer
@@ -24,7 +24,7 @@ class JevEngine(IDecisionEngine):
         self.timeout = timeout
         self.last_latency_ms: float = 0.0
 
-    def decide(self, state: str, option: IOption) -> IOption:
+    def decide(self, state: str, option: IOption) -> IAnswer:
         if not self.api_key and "api.typesafe.ai" in self.endpoint:
             raise ValueError("TypeSafe Jev API key not set. Set JEV_API_KEY environment variable to evaluate hosted Jev.")
 
@@ -32,9 +32,11 @@ class JevEngine(IDecisionEngine):
             opts = option.options if isinstance(option.options, dict) else {o: o for o in option.options}
             q_spec = {"type": "choice", "criteria": opts}
         elif isinstance(option, NoulOption):
-            q_spec = {"type": "noul", "criteria": {"false": "No", "true": "Yes"}}
+            q_spec = {"type": "noul", "instruction": option.instruction, "criteria": {"false": "No", "true": "Yes"}} if option.instruction else {"type": "noul", "criteria": {"false": "No", "true": "Yes"}}
+        elif isinstance(option, ScoreOption):
+            q_spec = {"type": "score", "criteria": list(option.criteria)}
         else:
-            q_spec = {"type": "score", "min": option.min_value, "max": option.max_value}
+            raise ValueError(f"Unsupported option type: {type(option)}")
 
         payload = {
             "model": self.model,
@@ -57,18 +59,16 @@ class JevEngine(IDecisionEngine):
             choice = res.get("choice", "")
             probs = res.get("probabilities", {})
             conf = res.get("confidence", probs.get(choice, 1.0))
-            ans = ChoiceAnswer(choice=str(choice), confidence=float(conf), probabilities=probs)
-            return ChoiceOption(options=option.options, answer=ans)
+            return ChoiceAnswer(choice=str(choice), confidence=float(conf), probabilities=probs)
         elif isinstance(option, NoulOption):
             is_pos = res.get("decision", False)
             conf = res.get("probability", 1.0 if is_pos else 0.0)
-            ans = NoulAnswer(decision=bool(is_pos), confidence=float(conf))
-            return NoulOption(answer=ans)
+            noul_prob = float(res.get("noul", conf if is_pos else 1.0 - conf))
+            return NoulAnswer(noul=noul_prob, decision=bool(is_pos), confidence=float(conf))
         elif isinstance(option, ScoreOption):
             val = float(res.get("score", 0.0))
-            ans = ScoreAnswer(score=val, confidence=1.0)
-            return ScoreOption(min_value=option.min_value, max_value=option.max_value, answer=ans)
-        return option
+            return ScoreAnswer(score=val, confidence=1.0)
+        raise ValueError(f"Unsupported option type: {type(option)}")
 
     def __or__(self, layer: IDecisionEngineLayer) -> IDecisionEngine:
         return layer(self)

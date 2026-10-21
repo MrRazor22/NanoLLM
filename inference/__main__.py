@@ -6,7 +6,7 @@ import typer
 
 from inference.options import (
     IOption, ChoiceOption, NoulOption, ScoreOption,
-    ChoiceAnswer, NoulAnswer, ScoreAnswer,
+    IAnswer, ChoiceAnswer, NoulAnswer, ScoreAnswer,
 )
 from inference.decision_engine import IDecisionEngine, DecisionEngine
 from inference.profiling_layer import ProfilingLayer
@@ -15,18 +15,18 @@ from model.weights import list_weights
 console = Console()
 app = typer.Typer(add_completion=False, help="Piqo Micro-Decision Engine CLI")
 
-def render(opt: IOption, state: str, latency_ms: float = 0.0) -> None:
+def render(ans: IAnswer, state: str, latency_ms: float = 0.0) -> None:
     console.print(f"\n[bold]Context:[/] {state}")
     t = Table(title=f"Micro-Decision (Latency: {latency_ms:.2f} ms)", box=box.ROUNDED)
     t.add_column("Type", style="bold cyan")
     t.add_column("Decision", style="bold green")
     t.add_column("Confidence", justify="right")
     t.add_column("Details / Distribution", style="dim")
-    match opt.answer:
+    match ans:
         case ChoiceAnswer(choice=c, confidence=p, probabilities=dist):
             t.add_row("Choice", c, f"{p*100:.1f}%", ", ".join(f"{o}: {x*100:.1f}%" for o, x in dist.items()))
-        case NoulAnswer(decision=dec, confidence=p):
-            t.add_row("Noul", "[bold green]YES[/]" if dec else "[bold red]NO[/]", f"{p*100:.1f}%", f"p={p:.4f}")
+        case NoulAnswer(noul=prob, decision=dec, confidence=p):
+            t.add_row("Noul", "[bold green]YES[/]" if dec else "[bold red]NO[/]", f"p={prob:.3f}", f"conf={p*100:.1f}%")
         case ScoreAnswer(score=s, confidence=p):
             t.add_row("Score", f"{s:.1f}", f"{p*100:.1f}%", "")
     console.print(t)
@@ -65,8 +65,8 @@ def main(
         while (ctx := console.input("\n[bold]Context[/]: ").strip()) and ctx.lower() not in ("q", "quit", "exit"):
             opts = [o.strip() for o in console.input("[bold]Choices[/]: ").split(",") if o.strip()]
             if opts:
-                resolved = engine.decide(ctx, ChoiceOption(options=opts))
-                render(resolved, ctx, profiler.last_latency_ms)
+                ans = engine.decide(ctx, ChoiceOption(options=opts))
+                render(ans, ctx, profiler.last_latency_ms)
         return
 
     opt: IOption
@@ -74,14 +74,14 @@ def main(
         opts = [o.strip() for item in choice for o in item.split(",") if o.strip()]
         opt = ChoiceOption(options=opts)
     elif noul:
-        opt = NoulOption()
+        opt = NoulOption(instruction=state or "holds")
     elif score:
-        opt = ScoreOption()
+        opt = ScoreOption(criteria=["Low", "Medium", "High"])
     else:
-        opt = NoulOption()
+        opt = NoulOption(instruction=state or "holds")
 
-    resolved = engine.decide(state, opt)
-    render(resolved, state, profiler.last_latency_ms)
+    ans = engine.decide(state, opt)
+    render(ans, state, profiler.last_latency_ms)
 
 if __name__ == "__main__":
     app()

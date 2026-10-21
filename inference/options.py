@@ -15,6 +15,7 @@ class ChoiceAnswer(IAnswer):
 
 @dataclass(frozen=True, slots=True)
 class NoulAnswer(IAnswer):
+    noul: float
     decision: bool
     confidence: float
 
@@ -26,57 +27,67 @@ class ScoreAnswer(IAnswer):
 
 @runtime_checkable
 class IOption(Protocol):
-    answer: IAnswer | None
+    """Decision query specification: represents candidate domains for resolution."""
+    pass
 
 @dataclass(frozen=True, slots=True)
 class ChoiceOption(IOption):
-    options: Sequence[str]
-    answer: ChoiceAnswer | None = None
+    options: Sequence[str] | Mapping[str, str]
+    instruction: str = ""
 
 @dataclass(frozen=True, slots=True)
 class NoulOption(IOption):
-    answer: NoulAnswer | None = None
+    instruction: str
+    criteria: Mapping[str, str] | None = None
 
 @dataclass(frozen=True, slots=True)
 class ScoreOption(IOption):
-    criteria: Sequence[str] = ()
-    answer: ScoreAnswer | None = None
+    criteria: Sequence[str]
+    instruction: str = ""
 
 def option_to_candidates(option: IOption) -> Sequence[str]:
     match option:
         case ChoiceOption(options=opts):
-            return tuple(opts.keys()) if isinstance(opts, dict) else tuple(opts)
+            if isinstance(opts, dict):
+                return tuple(f"{k}: {v}" if v else k for k, v in opts.items())
+            return tuple(opts)
+        case NoulOption(instruction=inst, criteria=crit):
+            if crit and "true" in crit and "false" in crit:
+                return (f"false: {crit['false']}", f"true: {crit['true']}")
+            return (f"false: {inst} does not hold", f"true: {inst} holds") if inst else ("false: does not hold", "true: holds")
         case ScoreOption(criteria=crit):
-            return tuple(crit) if crit else ("0", "1", "2")
-        case NoulOption():
-            return ("false: does not hold", "true: holds")
+            if not crit:
+                raise ValueError("ScoreOption requires at least 2 ordered criteria levels.")
+            return tuple(crit)
         case _:
             raise ValueError(f"Unsupported option type: {type(option)}")
 
-def resolve_decision(option: IOption, scores: Sequence[float]) -> IOption:
+def scores_to_answer(option: IOption, scores: Sequence[float]) -> IAnswer:
     match option:
         case ChoiceOption(options=opts):
             keys = tuple(opts.keys()) if isinstance(opts, dict) else tuple(opts)
             probs = sp.softmax(scores)
             best = int(probs.argmax())
-            ans = ChoiceAnswer(
+            return ChoiceAnswer(
                 choice=keys[best],
                 confidence=float(probs[best]),
                 probabilities={k: float(p) for k, p in zip(keys, probs)},
             )
-            return ChoiceOption(options=opts, answer=ans)
         case NoulOption():
             if len(scores) >= 2:
                 probs = sp.softmax(scores)
                 p_true = float(probs[1])
             else:
                 p_true = float(sp.expit(scores[0]))
-            ans = NoulAnswer(decision=p_true >= 0.5, confidence=p_true if p_true >= 0.5 else 1.0 - p_true)
-            return NoulOption(answer=ans)
+            decision = p_true >= 0.5
+            return NoulAnswer(
+                noul=p_true,
+                decision=decision,
+                confidence=p_true if decision else 1.0 - p_true,
+            )
         case ScoreOption(criteria=crit):
             probs = sp.softmax(scores)
             expected = float(sum(i * p for i, p in enumerate(probs)))
-            ans = ScoreAnswer(score=expected, confidence=float(max(probs)), probabilities=list(probs))
-            return ScoreOption(criteria=crit, answer=ans)
+            return ScoreAnswer(score=expected, confidence=float(max(probs)), probabilities=list(probs))
         case _:
             raise ValueError(f"Unsupported option type: {type(option)}")

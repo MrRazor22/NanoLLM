@@ -1,7 +1,7 @@
 from typing import Optional
 import httpx
 from inference.options import (
-    ChoiceAnswer, ChoiceOption, IOption, NoulAnswer, NoulOption,
+    ChoiceAnswer, ChoiceOption, IAnswer, IOption, NoulAnswer, NoulOption,
     ScoreAnswer, ScoreOption,
 )
 from inference.decision_engine import IDecisionEngine, IDecisionEngineLayer
@@ -28,14 +28,22 @@ class KevEngine(IDecisionEngine):
             "http://127.0.0.1:8008/v1/systemone",
         ]
 
-    def decide(self, state: str, option: IOption) -> IOption:
+    def decide(self, state: str, option: IOption) -> IAnswer:
         if isinstance(option, ChoiceOption):
             opts = option.options if isinstance(option.options, dict) else {o: o for o in option.options}
             q_spec = {"type": "choice", "criteria": opts}
+            if option.instruction:
+                q_spec["instructions"] = option.instruction
         elif isinstance(option, NoulOption):
-            q_spec = {"type": "noul"}
+            q_spec = {"type": "noul", "instructions": option.instruction}
+            if option.criteria:
+                q_spec["criteria"] = dict(option.criteria)
+        elif isinstance(option, ScoreOption):
+            q_spec = {"type": "score", "criteria": list(option.criteria)}
+            if option.instruction:
+                q_spec["instructions"] = option.instruction
         else:
-            q_spec = {"type": "score", "criteria": [str(option.min_value), str(option.max_value)]}
+            raise ValueError(f"Unsupported option type: {type(option)}")
 
         payload = {"model": self.model, "state": str(state), "questions": {"decision": q_spec}}
         raw, last_err = None, None
@@ -65,22 +73,20 @@ class KevEngine(IDecisionEngine):
             c_data = choices["decision"]
             choice_str = str(c_data.get("choice", ""))
             conf = float(c_data.get("confidence", 1.0))
-            ans = ChoiceAnswer(choice=choice_str, confidence=conf, probabilities=c_data.get("probabilities", {choice_str: conf}))
-            return ChoiceOption(options=option.options, answer=ans)
+            return ChoiceAnswer(choice=choice_str, confidence=conf, probabilities=c_data.get("probabilities", {choice_str: conf}))
         elif isinstance(option, NoulOption) and ("decision" in nouls or "decision" in choices):
             n_data = nouls.get("decision", choices.get("decision", {}))
             val = n_data.get("noul", n_data.get("decision"))
             p = float(n_data.get("probability", 1.0 if val else 0.0))
-            ans = NoulAnswer(decision=bool(val), confidence=p)
-            return NoulOption(answer=ans)
+            noul_val = float(val) if isinstance(val, (int, float)) else (p if val else 1.0 - p)
+            return NoulAnswer(noul=noul_val, decision=bool(val), confidence=p)
         elif isinstance(option, ScoreOption) and ("decision" in scores or "decision" in choices):
             s_data = scores.get("decision", choices.get("decision", {}))
             if "score" in s_data:
                 score_val = float(s_data["score"])
-                ans = ScoreAnswer(score=score_val, confidence=1.0)
-                return ScoreOption(min_value=option.min_value, max_value=option.max_value, answer=ans)
+                return ScoreAnswer(score=score_val, confidence=1.0)
 
-        return option
+        raise ValueError(f"Unsupported option type or missing decision in Kev response: {type(option)}")
 
     def __or__(self, layer: IDecisionEngineLayer) -> IDecisionEngine:
         return layer(self)

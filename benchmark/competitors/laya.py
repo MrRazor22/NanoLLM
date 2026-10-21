@@ -1,6 +1,6 @@
 from typing import Optional
 from inference.options import (
-    ChoiceAnswer, ChoiceOption, IOption, NoulAnswer, NoulOption,
+    ChoiceAnswer, ChoiceOption, IAnswer, IOption, NoulAnswer, NoulOption,
     ScoreAnswer, ScoreOption,
 )
 from inference.decision_engine import IDecisionEngine, IDecisionEngineLayer
@@ -19,7 +19,7 @@ class LayaEngine(IDecisionEngine):
         self._agent = None
         self.last_latency_ms: float = 0.0
 
-    def decide(self, state: str, option: IOption) -> IOption:
+    def decide(self, state: str, option: IOption) -> IAnswer:
         if self._agent is None:
             try:
                 from laya import Agent
@@ -43,21 +43,18 @@ class LayaEngine(IDecisionEngine):
             choice_str = str(ans_raw.get("choice", ""))
             conf = float(ans_raw.get("confidence", 1.0))
             probs = ans_raw.get("probabilities", {choice_str: conf})
-            ans = ChoiceAnswer(choice=choice_str, confidence=conf, probabilities=probs)
-            return ChoiceOption(options=option.options, answer=ans)
+            return ChoiceAnswer(choice=choice_str, confidence=conf, probabilities=probs)
         elif isinstance(option, NoulOption) and "decision" in raw_answers:
             ans_raw = raw_answers["decision"]
             p = float(ans_raw.get("noul", ans_raw.get("probability", 0.0)))
-            ans = NoulAnswer(decision=p >= 0.5, confidence=p if p >= 0.5 else 1.0 - p)
-            return NoulOption(answer=ans)
+            return NoulAnswer(noul=p, decision=p >= 0.5, confidence=p if p >= 0.5 else 1.0 - p)
         elif isinstance(option, ScoreOption) and "decision" in raw_answers:
             ans_raw = raw_answers["decision"]
             if "score" in ans_raw:
                 s = float(ans_raw["score"])
-                ans = ScoreAnswer(score=s, confidence=1.0)
-                return ScoreOption(min_value=option.min_value, max_value=option.max_value, answer=ans)
+                return ScoreAnswer(score=s, confidence=1.0)
 
-        return option
+        raise ValueError(f"Unsupported option type or missing decision in Laya response: {type(option)}")
 
     def __or__(self, layer: IDecisionEngineLayer) -> IDecisionEngine:
         return layer(self)
