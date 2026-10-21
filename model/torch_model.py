@@ -11,12 +11,12 @@ logging.set_verbosity_error()
 from data.case import DecisionCase
 from model.device import resolve_device
 from model.layout import ILayout, MaskedLayout
-from model.weights import DEFAULT_WEIGHTS_PATH, resolve_weights_path
+from model.weights import DEFAULT_WEIGHTS_PATH, WeightInfo, resolve_weights_path
 
 @runtime_checkable
 class IModel(Protocol):
     def forward(self, cases: Sequence[DecisionCase], train: bool = False) -> torch.Tensor: ...
-    def save(self, path: Path = DEFAULT_WEIGHTS_PATH, meta: Optional[dict[str, str]] = None) -> Path: ...
+    def save(self, path: Path = DEFAULT_WEIGHTS_PATH, info: Optional[WeightInfo] = None) -> Path: ...
     def load(self, path: Path = DEFAULT_WEIGHTS_PATH) -> None: ...
 
 class TorchModel(nn.Module, IModel):
@@ -75,11 +75,12 @@ class TorchModel(nn.Module, IModel):
                 batch_scores.append(scores)
             return torch.stack(batch_scores)
 
-    def save(self, path: Path = DEFAULT_WEIGHTS_PATH, meta: Optional[dict[str, str]] = None) -> Path:
+    def save(self, path: Path = DEFAULT_WEIGHTS_PATH, info: Optional[WeightInfo] = None) -> Path:
         out_file = resolve_weights_path(path)
         out_file.parent.mkdir(parents=True, exist_ok=True)
         tensors = {k: v.contiguous() for k, v in self.state_dict().items()}
-        save_file(tensors, str(out_file), metadata=meta or {})
+        resolved_info = info or WeightInfo(name=out_file.stem, path=out_file)
+        save_file(tensors, str(out_file), metadata=resolved_info.to_metadata())
         return out_file
 
     def load(self, path: Path = DEFAULT_WEIGHTS_PATH) -> None:

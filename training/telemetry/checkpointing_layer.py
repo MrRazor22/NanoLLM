@@ -1,10 +1,18 @@
+from dataclasses import dataclass
 from pathlib import Path
 import time
 from typing import Iterator, Optional, Sequence, Union
 
 from data.case import DecisionCase
+from model.weights import WeightInfo
 from training.epoch_trainer import ITrainer, ITrainerLayer
 from training.stats import StepStats
+
+@dataclass(frozen=True, slots=True)
+class CheckpointInfo(WeightInfo):
+    epoch: int = 1
+    train_loss: Optional[float] = None
+    val_loss: Optional[float] = None
 
 class CheckpointingLayer(ITrainer):
     """Layer Decorator (lambda: P -> P): Sovereign saving telemetry at epoch-end."""
@@ -40,21 +48,22 @@ class CheckpointingLayer(ITrainer):
         for s in self.inner.fit(train_cases, epochs=epochs, val_cases=val_cases):
             if self.output_path and model:
                 target = self.output_path
-                meta = {
-                    "epoch": str(s.epoch),
-                    "train_loss": f"{s.loss:.4f}",
-                    "val_loss": f"{s.val_loss:.4f}" if s.val_loss is not None else "",
-                    "saved_at": time.strftime("%Y-%m-%d %H:%M:%S"),
-                }
+                info = CheckpointInfo(
+                    name=target.stem,
+                    epoch=s.epoch,
+                    train_loss=s.loss,
+                    val_loss=s.val_loss,
+                    saved_at=time.strftime("%Y-%m-%d %H:%M:%S"),
+                )
                 p_target = Path(target)
                 if s.val_loss is not None and s.val_loss < self.best_val_loss:
                     self.best_val_loss = s.val_loss
-                    model.save(target, meta=meta)
+                    model.save(target, info=info)
                 if s.batch == s.total_batches:
                     epoch_target = p_target if (p_target.suffix or p_target.parent != Path(".")) else Path(f"{target}_v{s.epoch}")
-                    model.save(epoch_target, meta=meta)
+                    model.save(epoch_target, info=info)
                     if s.val_loss is None:
-                        model.save(target, meta=meta)
+                        model.save(target, info=info)
             yield s
 
     def evaluate(self, cases: Sequence[DecisionCase]) -> float:
