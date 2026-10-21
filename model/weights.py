@@ -6,10 +6,13 @@ from safetensors import safe_open
 DEFAULT_WEIGHTS_DIR = Path(__file__).resolve().parent / "weights"
 DEFAULT_WEIGHTS_PATH = DEFAULT_WEIGHTS_DIR / "piqo.safetensors"
 
-def resolve_weights_path(path: Path | str = DEFAULT_WEIGHTS_PATH) -> Path:
+def resolve_weights_path(path: Path | str = DEFAULT_WEIGHTS_PATH, ensure_parent: bool = False) -> Path:
     target = Path(path)
     file_path = target.with_suffix(".safetensors") if not target.suffix else target
-    return DEFAULT_WEIGHTS_DIR / file_path.name if file_path.parent == Path(".") else file_path
+    resolved = DEFAULT_WEIGHTS_DIR / file_path.name if file_path.parent == Path(".") else file_path
+    if ensure_parent:
+        resolved.parent.mkdir(parents=True, exist_ok=True)
+    return resolved
 
 @dataclass(frozen=True, slots=True)
 class WeightInfo:
