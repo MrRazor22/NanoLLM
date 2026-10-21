@@ -1,40 +1,20 @@
 import time
-from typing import Iterator, Optional, Protocol, Sequence, runtime_checkable
+from typing import Iterator, Optional, Sequence
 from rich.console import Console
+
 from data.case import DecisionCase
-from model.device import resolve_vram_gb
-from training.stats import StepStats
 from training.epoch_trainer import ITrainer, ITrainerLayer
+from training.stats import StepStats
 
-@runtime_checkable
-class ILogSink(Protocol):
-    """Opinion Sub-Primitive: Stream sink for metric log messages."""
-    def write(self, message: str) -> None: ...
-
-class ConsoleSink(ILogSink):
-    """Rich stdout logging sink with markup support."""
-    def __init__(self, console: Optional[Console] = None):
-        self.console = console or Console()
-
-    def write(self, message: str) -> None:
-        self.console.print(message)
+console = Console()
 
 class MetricsLayer(ITrainer):
-    """Layer Decorator (lambda: P -> P): Real-time logging over the StepStats stream."""
+    """Layer Decorator (lambda: P -> P): Sovereign terminal and progress telemetry."""
 
-    def __init__(
-        self,
-        inner: Optional[ITrainer] = None,
-        sink: Optional[ILogSink] = None,
-        log_interval_sec: float = 10.0,
-    ):
+    def __init__(self, inner: Optional[ITrainer] = None, log_interval_sec: float = 2.0):
         self.inner = inner
-        self.sink = sink or ConsoleSink()
         self.log_interval_sec = log_interval_sec
-
-    @property
-    def model(self):
-        return getattr(self.inner, "model", None)
+        self.last_log_time = 0.0
 
     def __call__(self, inner: ITrainer) -> "MetricsLayer":
         self.inner = inner
@@ -43,41 +23,28 @@ class MetricsLayer(ITrainer):
     def fit(
         self,
         train_cases: Sequence[DecisionCase],
+        val_cases: Sequence[DecisionCase],
         epochs: int = 1,
-        val_cases: Optional[Sequence[DecisionCase]] = None,
     ) -> Iterator[StepStats]:
-        if self.inner is None:
+        if not self.inner:
             raise RuntimeError("MetricsLayer has no inner trainer.")
-        start_time = time.perf_counter()
-        last_log = start_time
-        for s in self.inner.fit(train_cases, epochs=epochs, val_cases=val_cases):
+        t_epoch_start = time.perf_counter()
+        for s in self.inner.fit(train_cases, val_cases, epochs=epochs):
             now = time.perf_counter()
-            is_epoch_end = (s.batch == s.total_batches)
-            is_checkpoint = (s.val_loss is not None)
-            is_interval = (now - last_log >= self.log_interval_sec)
-
-            if is_epoch_end or is_checkpoint or is_interval:
-                el_s = int(now - start_time)
-                el_str = f"{el_s // 60:02d}:{el_s % 60:02d}"
-                rem_s = int((el_s / max(1, s.step)) * max(0, s.total_steps - s.step))
-                eta_str = f"{rem_s // 60:02d}:{rem_s % 60:02d}"
-                _v = resolve_vram_gb()
-                vram = f" | VRAM: {_v:.1f}GB" if _v is not None else ""
-                val = f" | [bold green]Val Loss: {s.val_loss:.4f}[/bold green]" if s.val_loss is not None else ""
-
-                if is_epoch_end:
-                    msg = f"[bold cyan]Epoch {s.epoch}/{s.total_epochs} Complete[/bold cyan] | [green]Train Loss: {s.loss:.4f}[/green]{val}{vram} | [dim]{s.elapsed_ms:.0f}ms/step[/dim] | Total: {el_str}"
-                elif is_checkpoint:
-                    pct = int((s.batch / max(1, s.total_batches)) * 100)
-                    msg = f"[cyan]Epoch {s.epoch}/{s.total_epochs}[/cyan] Checkpoint ({pct}%) | [green]Train: {s.loss:.4f}[/green]{val}{vram} | [dim]Elapsed: {el_str} | ETA: {eta_str}[/dim]"
-                else:
-                    pct = int((s.step / max(1, s.total_steps)) * 100)
-                    lr = f" | [cyan]LR: {s.lr:.2e}[/cyan]" if s.lr > 0 else ""
-                    msg = f"[cyan]Epoch {s.epoch}/{s.total_epochs}[/cyan] | Step [bold]{s.step}[/bold]/{s.total_steps} ({pct}%) | [green]Loss: {s.loss:.4f}[/green]{lr}{vram} | [dim]{s.elapsed_ms:.0f}ms/step[/dim] | [dim]Elapsed: {el_str} | ETA: {eta_str}[/dim]"
-
-                self.sink.write(msg)
-                last_log = now
-
+            is_cadence = (now - self.last_log_time >= self.log_interval_sec) or (s.batch == s.total_batches)
+            if is_cadence:
+                self.last_log_time = now
+                val_text = f" | val_loss: [bold red]{s.val_loss:.4f}[/]" if s.val_loss is not None else ""
+                console.print(
+                    f"Epoch {s.epoch}/{s.total_epochs} | "
+                    f"Batch {s.batch}/{s.total_batches} | "
+                    f"Loss: [bold green]{s.loss:.4f}[/] | "
+                    f"LR: {s.lr:.2e} | "
+                    f"Step: {s.elapsed_ms:.1f}ms{val_text}"
+                )
+            if s.batch == s.total_batches:
+                console.print(f"[bold cyan]Epoch {s.epoch} complete[/] (took {time.perf_counter() - t_epoch_start:.1f}s)")
+                t_epoch_start = time.perf_counter()
             yield s
 
     def evaluate(self, cases: Sequence[DecisionCase]) -> float:

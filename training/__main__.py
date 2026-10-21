@@ -87,7 +87,7 @@ def main(
     ]))
     console.print("")
 
-    stats = list(trainer.fit(train_cases, epochs=target_epochs, val_cases=val_cases))
+    stats = list(trainer.fit(train_cases, val_cases, epochs=target_epochs))
 
     res = [("Status", "Completed Successfully")]
     if stats:

@@ -1,3 +1,5 @@
+from dataclasses import dataclass
+from pathlib import Path
 import time
 from typing import Iterator, Optional, Protocol, Sequence, runtime_checkable
 import torch
@@ -19,8 +21,8 @@ class ITrainer(Protocol):
     def fit(
         self,
         train_cases: Sequence[DecisionCase],
+        val_cases: Sequence[DecisionCase],
         epochs: int = 1,
-        val_cases: Optional[Sequence[DecisionCase]] = None,
     ) -> Iterator[StepStats]: ...
 
     def evaluate(self, cases: Sequence[DecisionCase]) -> float: ...
@@ -38,18 +40,16 @@ class EpochTrainer(ITrainer):
         batching: Optional[IBatch] = None,
         eval_batching: Optional[IBatch] = None,
         loss: Optional[ILoss] = None,
-        warmup_ratio: float = 0.05,
     ):
         self.model = model
         self.batch_size = batch_size
         self.base_lr = base_lr
-        self.accum_steps = max(1, accum_steps)
-        self.schedule = schedule or CosineSchedule(warmup_ratio=warmup_ratio)
+        self.accum_steps = accum_steps
+        self.learner = learner or AdamWLearner(model)
+        self.schedule = schedule or CosineSchedule()
         self.batching = batching or BucketedBatch()
         self.eval_batching = eval_batching or SequentialBatch()
         self.loss = loss or CalibratedLoss()
-        params = list(self.model.parameters()) if hasattr(self.model, "parameters") else []
-        self.learner = learner or AdamWLearner(params, lr=base_lr, accum_steps=self.accum_steps)
 
     def evaluate(self, cases: Sequence[DecisionCase]) -> float:
         batches = list(self.eval_batching.batch(cases, batch_size=self.batch_size))
@@ -67,8 +67,8 @@ class EpochTrainer(ITrainer):
     def fit(
         self,
         train_cases: Sequence[DecisionCase],
+        val_cases: Sequence[DecisionCase],
         epochs: int = 1,
-        val_cases: Optional[Sequence[DecisionCase]] = None,
     ) -> Iterator[StepStats]:
         items = list(train_cases)
         total_batches = (len(items) + self.batch_size - 1) // self.batch_size if items else 0
@@ -93,7 +93,7 @@ class EpochTrainer(ITrainer):
                 dt = (time.perf_counter() - t0) * 1000.0
                 total_loss += loss_tensor.item()
 
-                is_val_cadence = val_cases and (n + 1 == total_batches or n + 1 == (total_batches // 2))
+                is_val_cadence = (n + 1 == total_batches or n + 1 == (total_batches // 2))
                 val_loss = self.evaluate(val_cases) if is_val_cadence else None
 
                 yield StepStats(

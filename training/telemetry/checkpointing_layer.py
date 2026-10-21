@@ -37,15 +37,15 @@ class CheckpointingLayer(ITrainer):
     def fit(
         self,
         train_cases: Sequence[DecisionCase],
+        val_cases: Sequence[DecisionCase],
         epochs: int = 1,
-        val_cases: Optional[Sequence[DecisionCase]] = None,
     ) -> Iterator[StepStats]:
         if not self.inner:
             raise RuntimeError("CheckpointingLayer has no inner trainer.")
         model = self.model
         if self.output_path and model is None:
             raise RuntimeError("CheckpointingLayer cannot locate model in trainer pipeline.")
-        for s in self.inner.fit(train_cases, epochs=epochs, val_cases=val_cases):
+        for s in self.inner.fit(train_cases, val_cases, epochs=epochs):
             if self.output_path and model:
                 target = self.output_path
                 info = CheckpointInfo(
@@ -62,8 +62,6 @@ class CheckpointingLayer(ITrainer):
                 if s.batch == s.total_batches:
                     epoch_target = p_target if (p_target.suffix or p_target.parent != Path(".")) else Path(f"{target}_v{s.epoch}")
                     model.save(epoch_target, info=info)
-                    if s.val_loss is None:
-                        model.save(target, info=info)
             yield s
 
     def evaluate(self, cases: Sequence[DecisionCase]) -> float:
