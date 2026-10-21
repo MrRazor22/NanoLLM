@@ -76,7 +76,7 @@ class TorchModel(nn.Module, IModel):
             return torch.stack(batch_scores)
 
     def save(self, path: Path = DEFAULT_WEIGHTS_PATH, info: Optional[WeightInfo] = None) -> None:
-        out_file = resolve_weights_path(path, ensure_parent=True)
+        out_file = resolve_weights_path(path)
         resolved_info = info or WeightInfo(name=out_file.stem, path=out_file)
         save_file(self.state_dict(), str(out_file), metadata=resolved_info.to_metadata())
 
