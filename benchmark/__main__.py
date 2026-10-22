@@ -7,7 +7,7 @@ warnings.filterwarnings("ignore", category=FutureWarning)
 warnings.filterwarnings("ignore", category=UserWarning, module="torch")
 
 from benchmark.benchmark import Benchmark
-from benchmark.playground import Playground
+from inference.playground import Playground
 from benchmark.registry import load_engines, load_suites
 from benchmark.result import BenchmarkResult
 

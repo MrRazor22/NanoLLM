@@ -34,7 +34,7 @@ from data.sources.multichoice_source import MultiChoiceSource
 from benchmark.benchmark import IBenchmark, Benchmark
 from benchmark.result import BenchmarkResult
 from benchmark.policies.scorecard import IScorecardPolicy, ScorecardPolicy
-from benchmark.playground import IPlayground, Playground
+from inference.playground import IPlayground, Playground
 from benchmark.suites.case import BenchmarkCase
 from benchmark.policies.scorer import DecisionMetrics, IScorerPolicy, ScorerPolicy
 

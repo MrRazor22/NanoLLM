@@ -3,7 +3,7 @@ import time
 from typing import Mapping, Protocol
 
 from inference.decision_engine import IDecisionEngine
-from inference.options import ChoiceAnswer, ChoiceOption
+from inference.options import ChoiceOption
 
 logger = logging.getLogger(__name__)
 
@@ -16,8 +16,7 @@ class Playground(IPlayground):
             raise ValueError("No engines provided to playground.")
 
         names = ", ".join(engines.keys())
-        logger.info("Starting multi-engine playground across %d engines", len(engines))
-        print(f"\nPiqo Multi-Engine Playground [{names}]. Enter context (or 'q' to quit):")
+        print(f"\nPiqo Playground [{names}]. Enter context (or 'q' to quit):")
 
         while True:
             try:
@@ -41,11 +40,7 @@ class Playground(IPlayground):
                     t0 = time.perf_counter()
                     ans = eng.decide(ctx, opt)
                     dt_ms = (time.perf_counter() - t0) * 1000.0
-                    match ans:
-                        case ChoiceAnswer(choice=choice, confidence=conf):
-                            print(f"[{name:<10}] Choice: {choice:<20} | Conf: {conf*100:.1f}% | Lat: {dt_ms:.1f}ms")
-                        case _:
-                            print(f"[{name:<10}] Result: {ans} | Lat: {dt_ms:.1f}ms")
+                    print(f"[{name:<10}] {ans} | Lat: {dt_ms:.1f}ms")
                 except Exception as e:
                     print(f"[{name:<10}] Error: {e}")
             print("-" * 60)

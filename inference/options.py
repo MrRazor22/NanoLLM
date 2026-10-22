@@ -11,17 +11,26 @@ class ChoiceAnswer(IAnswer):
     confidence: float
     probabilities: Mapping[str, float]
 
+    def __str__(self) -> str:
+        return f"Choice: {self.choice} ({self.confidence * 100:.1f}%)"
+
 @dataclass(frozen=True, slots=True)
 class NoulAnswer(IAnswer):
     noul: float
     decision: bool
     confidence: float
 
+    def __str__(self) -> str:
+        return f"Noul: {'YES' if self.decision else 'NO'} ({self.confidence * 100:.1f}%)"
+
 @dataclass(frozen=True, slots=True)
 class ScoreAnswer(IAnswer):
     score: float
     confidence: float
     probabilities: Sequence[float] = ()
+
+    def __str__(self) -> str:
+        return f"Score: {self.score:.1f} ({self.confidence * 100:.1f}%)"
 
 @runtime_checkable
 class IOption(Protocol):
