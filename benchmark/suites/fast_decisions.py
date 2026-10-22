@@ -24,7 +24,7 @@ class FastDecisionsSuite(IBenchmarkSuite):
             "JevK5-Lite": 0.587,
         }
 
-    def load_cases(self) -> Sequence[DecisionCase]:
+    def cases(self) -> Sequence[DecisionCase]:
         import json
         content = load_verified_manifest(BENCHMARK_MANIFESTS_DIR / "fast_decisions.jsonl", self.manifest_hash)
         return [adapt_manifest_case(json.loads(line), source=self.name) for line in content.decode("utf-8").splitlines() if line.strip()]

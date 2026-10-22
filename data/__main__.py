@@ -13,7 +13,7 @@ def main() -> None:
     logging.getLogger("data").setLevel(logging.INFO)
     t0 = time.perf_counter()
 
-    splits = Dataset().build()
+    splits = Dataset().prepare()
 
     print(f"\n[data] Built corpus in {time.perf_counter()-t0:.2f}s:")
     print(f"  train: {len(splits.train):,} | val: {len(splits.val):,} | test: {len(splits.test):,}")

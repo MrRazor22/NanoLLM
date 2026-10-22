@@ -50,7 +50,7 @@ class BudgetSplitPolicy(ISplitPolicy):
             # Stream balanced candidates, filter leaks lazily, and take target quota
             pool = [c for c in items if c.split != "test"]
             balanced_stream = self.stratifier.balance(pool, rng)
-            clean_stream = self.leakage.filter(balanced_stream, cat_test)
+            clean_stream = self.leakage.decontaminate(balanced_stream, cat_test)
 
             target_quota = self.max_val + self.max_train
             selected = list(itertools.islice(clean_stream, target_quota))

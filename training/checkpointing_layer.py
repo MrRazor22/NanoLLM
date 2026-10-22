@@ -22,7 +22,7 @@ class CheckpointingLayer(ITrainer):
         self.inner = inner
         return self
 
-    def fit(
+    def train(
         self,
         train_cases: Sequence[DecisionCase],
         val_cases: Sequence[DecisionCase],
@@ -33,7 +33,7 @@ class CheckpointingLayer(ITrainer):
         model = self.model
         if self.output_path and model is None:
             raise RuntimeError("CheckpointingLayer cannot locate model in trainer pipeline.")
-        for s in self.inner.fit(train_cases, val_cases, epochs=epochs):
+        for s in self.inner.train(train_cases, val_cases, epochs=epochs):
             if self.output_path and model:
                 target = self.output_path
                 p_target = Path(target)

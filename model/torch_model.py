@@ -16,7 +16,7 @@ from model.weights import DEFAULT_WEIGHTS_PATH, WeightInfo, resolve_weights_path
 
 @runtime_checkable
 class IModel(Protocol):
-    def forward(self, cases: Sequence[DecisionCase], train: bool = False) -> torch.Tensor: ...
+    def score(self, cases: Sequence[DecisionCase], train: bool = False) -> torch.Tensor: ...
     def save(self, path: Path = DEFAULT_WEIGHTS_PATH, info: Optional[WeightInfo] = None) -> None: ...
     def load(self, path: Path = DEFAULT_WEIGHTS_PATH) -> None: ...
 
@@ -58,6 +58,9 @@ class TorchModel(nn.Module, IModel):
             embeddings = self.backbone(input_ids=batch_tokens.input_ids, attention_mask=batch_tokens.attention_mask).last_hidden_state
             batch_scores = [self.head(embeddings[i, idx, :]).squeeze(-1) for i, idx in enumerate(batch_tokens.candidate_idx)]
             return torch.stack(batch_scores)
+
+    def score(self, cases: Sequence[DecisionCase], train: bool = False) -> torch.Tensor:
+        return self.forward(cases, train=train)
 
     def save(self, path: Path = DEFAULT_WEIGHTS_PATH, info: Optional[WeightInfo] = None) -> None:
         out_file = resolve_weights_path(path)

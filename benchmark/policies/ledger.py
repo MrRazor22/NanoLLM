@@ -11,19 +11,16 @@ LedgerScores = Mapping[str, SuiteScores]
 
 @runtime_checkable
 class ILedgerPolicy(Protocol):
-    """Sovereign opinion sub-primitive: manages storage, retrieval, and caching of benchmark reports."""
-    def get(self, model: str, suite: str = "default", expected_count: Optional[int] = None, expected_hash: Optional[str] = None) -> Optional[Mapping[str, float]]: ...
-    def put(self, report: BenchmarkReport, manifest_hash: Optional[str] = None) -> None: ...
-    def all(self, suite: Optional[str] = None) -> Mapping[str, dict]: ...
+    def lookup(self, model: str, suite: str = "default", expected_count: Optional[int] = None, expected_hash: Optional[str] = None) -> Optional[Mapping[str, float]]: ...
+    def record(self, report: BenchmarkReport, manifest_hash: Optional[str] = None) -> None: ...
+    def entries(self, suite: Optional[str] = None) -> Mapping[str, dict]: ...
 
 class DiskLedgerPolicy(ILedgerPolicy):
-    """Local JSON filesystem ledger policy with per-suite caching."""
-
     def __init__(self, scores_path: Optional[Union[str, Path]] = None):
         self.scores_path = Path(scores_path or DEFAULT_SCORES_FILE)
 
-    def get(self, model: str, suite: str = "default", expected_count: Optional[int] = None, expected_hash: Optional[str] = None) -> Optional[Mapping[str, float]]:
-        suite_data = self.all(suite)
+    def lookup(self, model: str, suite: str = "default", expected_count: Optional[int] = None, expected_hash: Optional[str] = None) -> Optional[Mapping[str, float]]:
+        suite_data = self.entries(suite)
         if expected_count is not None and suite_data.get("count") != expected_count:
             return None
         if expected_hash is not None and suite_data.get("manifest_hash") != expected_hash:
@@ -31,8 +28,8 @@ class DiskLedgerPolicy(ILedgerPolicy):
         scores = {t: entry[model] for t, entry in suite_data.items() if isinstance(entry, dict) and model in entry}
         return scores if scores else None
 
-    def put(self, report: BenchmarkReport, manifest_hash: Optional[str] = None) -> None:
-        data = self.all()
+    def record(self, report: BenchmarkReport, manifest_hash: Optional[str] = None) -> None:
+        data = self.entries()
         suite_data = data.setdefault(report.suite or "default", {})
         suite_data["count"] = report.count
         if manifest_hash is not None:
@@ -54,6 +51,6 @@ class DiskLedgerPolicy(ILedgerPolicy):
 
         self.scores_path.write_bytes(orjson.dumps(data, option=orjson.OPT_INDENT_2))
 
-    def all(self, suite: Optional[str] = None) -> Mapping[str, dict]:
+    def entries(self, suite: Optional[str] = None) -> Mapping[str, dict]:
         data = orjson.loads(self.scores_path.read_bytes()) if self.scores_path.exists() and self.scores_path.stat().st_size > 0 else {}
         return data.get(suite, {}) if suite is not None else data

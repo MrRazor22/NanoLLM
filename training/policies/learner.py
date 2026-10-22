@@ -4,8 +4,8 @@ from model.device import is_cuda, CUDA
 
 @runtime_checkable
 class ILearner(Protocol):
-    def step(self, loss: torch.Tensor, lr: Optional[float] = None) -> None: ...
-    def commit(self) -> None: ...
+    def learn(self, loss: torch.Tensor, lr: Optional[float] = None) -> None: ...
+    def update(self) -> None: ...
 
 class AdamWLearner(ILearner):
     def __init__(
@@ -21,7 +21,7 @@ class AdamWLearner(ILearner):
         self.optimizer = torch.optim.AdamW(param_list, lr=lr, fused=cuda_enabled)
         self.scaler = torch.amp.GradScaler(CUDA, enabled=cuda_enabled)
 
-    def step(self, loss: torch.Tensor, lr: Optional[float] = None) -> None:
+    def learn(self, loss: torch.Tensor, lr: Optional[float] = None) -> None:
         if lr is not None:
             for group in self.optimizer.param_groups:
                 group["lr"] = lr
@@ -35,9 +35,9 @@ class AdamWLearner(ILearner):
 
         self.accumulated += 1
         if self.accumulated >= self.accum_steps:
-            self.commit()
+            self.update()
 
-    def commit(self) -> None:
+    def update(self) -> None:
         if self.accumulated == 0:
             return
         if self.scaler.is_enabled():

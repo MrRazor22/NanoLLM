@@ -8,21 +8,17 @@ LedgerData = Mapping[str, SuiteData]
 
 @runtime_checkable
 class IReporterPolicy(Protocol):
-    """Sovereign opinion sub-primitive: presents benchmark suite and summary leaderboards."""
-    def suite(self, data: SuiteData, suite_name: str) -> None: ...
-    def summary(self, ledger: LedgerData, suites: Optional[Sequence[str]] = None) -> None: ...
+    def render_suite(self, data: SuiteData, suite_name: str) -> None: ...
+    def render_summary(self, ledger: LedgerData, suites: Optional[Sequence[str]] = None) -> None: ...
 
 def order_models(models: Iterable[str]) -> List[str]:
-    """Pure domain transform: sorts model identifiers with Piqo pinned first."""
     return sorted(models, key=lambda m: (m != "Piqo", m))
 
 class ConsoleReporterPolicy(IReporterPolicy):
-    """Rich console presentation policy for formatted benchmark tables and playground."""
-
     def __init__(self, console: Optional[Console] = None):
         self.console = console or Console()
 
-    def suite(self, data: SuiteData, suite_name: str) -> None:
+    def render_suite(self, data: SuiteData, suite_name: str) -> None:
         if not data:
             return
         tracks_data = {k: v for k, v in data.items() if isinstance(v, dict) and k != "count"}
@@ -58,7 +54,7 @@ class ConsoleReporterPolicy(IReporterPolicy):
 
         self.console.print("\n", table, "\n")
 
-    def summary(self, ledger: LedgerData, suites: Optional[Sequence[str]] = None) -> None:
+    def render_summary(self, ledger: LedgerData, suites: Optional[Sequence[str]] = None) -> None:
         if not ledger:
             return
         active_suites = [s for s in suites if s in ledger] if suites else [s for s, d in ledger.items() if isinstance(d, dict)]

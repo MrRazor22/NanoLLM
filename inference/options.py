@@ -1,7 +1,6 @@
 from dataclasses import dataclass, field
 from typing import Mapping, Protocol, Sequence, runtime_checkable
 
-# Sovereign High-Level Contracts: System One Options & Answers
 @runtime_checkable
 class IAnswer(Protocol):
     confidence: float
@@ -26,7 +25,6 @@ class ScoreAnswer(IAnswer):
 
 @runtime_checkable
 class IOption(Protocol):
-    """Decision query specification: represents candidate domains for resolution."""
     instruction: str
 
 @dataclass(frozen=True, slots=True)
@@ -44,7 +42,7 @@ class ScoreOption(IOption):
     instruction: str
     criteria: Sequence[str]
 
-def option_to_candidates(option: IOption) -> Sequence[str]:
+def extract_candidates(option: IOption) -> Sequence[str]:
     match option:
         case ChoiceOption(criteria=crit):
             candidates = tuple(f"{k}: {v}" if v else k for k, v in crit.items())
@@ -58,7 +56,7 @@ def option_to_candidates(option: IOption) -> Sequence[str]:
         raise ValueError("Options require at least 2 candidates.")
     return candidates
 
-def probabilities_to_answer(option: IOption, probs: Sequence[float]) -> IAnswer:
+def resolve_answer(option: IOption, probs: Sequence[float]) -> IAnswer:
     match option:
         case ChoiceOption(criteria=crit):
             keys = tuple(crit)

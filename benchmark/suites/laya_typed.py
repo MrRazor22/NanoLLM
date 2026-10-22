@@ -25,7 +25,7 @@ class LayaTypedDecisionsSuite(IBenchmarkSuite):
             "Laya (Zero-Shot)": 0.362,
         }
 
-    def load_cases(self) -> Sequence[DecisionCase]:
+    def cases(self) -> Sequence[DecisionCase]:
         import pyarrow.parquet as pq
         path = BENCHMARK_MANIFESTS_DIR / "typed_decisions_test.parquet"
         url = "https://huggingface.co/datasets/LocalLLaMA/typed-decisions/resolve/main/all/test-00000-of-00001.parquet"

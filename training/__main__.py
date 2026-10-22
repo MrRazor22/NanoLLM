@@ -61,7 +61,7 @@ def main(
         backbone, epochs, lr, len(splits.train), len(splits.val),
     )
     t0 = time.perf_counter()
-    stats = list(trainer.fit(splits.train, splits.val, epochs=epochs))
+    stats = list(trainer.train(splits.train, splits.val, epochs=epochs))
     total_time = time.perf_counter() - t0
 
     last_val = stats[-1].val_loss if stats and stats[-1].val_loss is not None else 0.0

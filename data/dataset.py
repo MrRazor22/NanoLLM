@@ -11,7 +11,7 @@ logger = logging.getLogger(__name__)
 @runtime_checkable
 class IDataset(Protocol):
     """Sovereign primitive contract: delivers partitioned dataset splits."""
-    def build(self) -> DataSplits: ...
+    def prepare(self) -> DataSplits: ...
     def load(self) -> DataSplits: ...
 
 def default_corpus_source() -> IDataSource:
@@ -56,7 +56,7 @@ class Dataset(IDataset):
         self.storage = storage_policy or DiskStoragePolicy()
         self._splits: Optional[DataSplits] = None
 
-    def build(self) -> DataSplits:
+    def prepare(self) -> DataSplits:
         raw_cases = self.source.cases()
         if not raw_cases:
             raise ValueError("No decision cases available for dataset preparation.")
@@ -72,6 +72,6 @@ class Dataset(IDataset):
             self._splits = self.storage.load()
             return self._splits
         except FileNotFoundError:
-            return self.build()
+            return self.prepare()
 
 __all__ = ["IDataset", "Dataset", "default_corpus_source"]

@@ -36,7 +36,7 @@ class ITrainerLayer(Protocol):
 
 @runtime_checkable
 class ITrainer(Protocol):
-    def fit(
+    def train(
         self,
         train_cases: Sequence[DecisionCase],
         val_cases: Sequence[DecisionCase],
@@ -70,12 +70,12 @@ class EpochTrainer(ITrainer):
         total_loss = 0.0
         with torch.no_grad():
             for batch in batches:
-                scores = self.model.forward(batch, train=False)
+                scores = self.model.score(batch, train=False)
                 targets = torch.as_tensor([c.target_index() for c in batch], device=scores.device)
                 total_loss += self.loss.compute(scores, targets).item()
         return total_loss / len(batches)
 
-    def fit(
+    def train(
         self,
         train_cases: Sequence[DecisionCase],
         val_cases: Sequence[DecisionCase],
@@ -94,15 +94,15 @@ class EpochTrainer(ITrainer):
 
             for batch_index, batch in enumerate(batches, start=1):
                 step += 1
-                cur_lr = self.schedule.get_lr(step, total_steps)
+                cur_lr = self.schedule.rate(step, total_steps)
 
                 t0 = time.perf_counter()
                 training_batch = [self.case_transform.transform(c) for c in batch]
-                scores = self.model.forward(training_batch, train=True)
+                scores = self.model.score(training_batch, train=True)
                 targets = torch.as_tensor([c.target_index() for c in training_batch], device=scores.device)
                 loss_tensor = self.loss.compute(scores, targets)
 
-                self.learner.step(loss_tensor, lr=cur_lr)
+                self.learner.learn(loss_tensor, lr=cur_lr)
                 dt = (time.perf_counter() - t0) * 1000.0
                 total_loss += loss_tensor.item()
                  
@@ -130,7 +130,7 @@ class EpochTrainer(ITrainer):
 
                 yield stats
 
-            self.learner.commit()
+            self.learner.update()
 
     def __or__(self, layer: ITrainerLayer) -> "ITrainer":
         return layer(self)

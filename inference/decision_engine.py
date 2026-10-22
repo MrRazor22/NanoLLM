@@ -3,7 +3,7 @@ from pathlib import Path
 from typing import Optional, Protocol, Union, runtime_checkable
 
 from data.case import DecisionCase
-from inference.options import IAnswer, IOption, option_to_candidates, probabilities_to_answer
+from inference.options import IAnswer, IOption, extract_candidates, resolve_answer
 from model.torch_model import IModel
 import scipy.special as sp
 import torch
@@ -35,11 +35,11 @@ class DecisionEngine(IDecisionEngine):
         self.model = model
 
     def decide(self, state: str, option: IOption) -> IAnswer:
-        candidates = option_to_candidates(option)
+        candidates = extract_candidates(option)
         with torch.no_grad():
-            scores = self.model.forward([DecisionCase(state=state, candidates=candidates, instruction=option.instruction)])[0]
+            scores = self.model.score([DecisionCase(state=state, candidates=candidates, instruction=option.instruction)])[0]
         probs = sp.softmax(scores.tolist())
-        answer = probabilities_to_answer(option, probs)
+        answer = resolve_answer(option, probs)
         logger.info("Decided %s with %.1f%% confidence across %d candidates", type(option).__name__, answer.confidence * 100, len(candidates))
         return answer
 

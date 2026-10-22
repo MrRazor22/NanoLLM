@@ -18,7 +18,7 @@ def jaccard(a: set[str], b: set[str]) -> float:
 @runtime_checkable
 class ILeakagePolicy(Protocol):
     """Sovereign policy contract: filters candidate cases against holdout evaluation suites."""
-    def filter(self, candidates: Iterable[DecisionCase], holdouts: Sequence[DecisionCase]) -> Iterator[DecisionCase]: ...
+    def decontaminate(self, candidates: Iterable[DecisionCase], holdouts: Sequence[DecisionCase]) -> Iterator[DecisionCase]: ...
 
 class JaccardLeakagePolicy(ILeakagePolicy):
     """Filters candidate cases sharing high n-gram Jaccard similarity with holdout evaluation cases."""
@@ -27,7 +27,7 @@ class JaccardLeakagePolicy(ILeakagePolicy):
         self.threshold = threshold
         self.n = n
 
-    def filter(self, candidates: Iterable[DecisionCase], holdouts: Sequence[DecisionCase]) -> Iterator[DecisionCase]:
+    def decontaminate(self, candidates: Iterable[DecisionCase], holdouts: Sequence[DecisionCase]) -> Iterator[DecisionCase]:
         if not holdouts:
             yield from candidates
             return

@@ -43,7 +43,7 @@ class Benchmark(IBenchmark):
         active_names: list[str] = []
         for suite in suites:
             try:
-                items = list(suite.load_cases())
+                items = list(suite.cases())
             except FileNotFoundError as e:
                 print(f"\n[UNAVAILABLE] Suite '{suite.name.upper()}': {e}")
                 continue
@@ -61,7 +61,7 @@ class Benchmark(IBenchmark):
 
             s_hash = getattr(suite, "manifest_hash", None)
             for label, engine in engines.items():
-                if skip_cached and self.ledger.get(label, suite=suite.name, expected_count=len(items), expected_hash=s_hash) is not None:
+                if skip_cached and self.ledger.lookup(label, suite=suite.name, expected_count=len(items), expected_hash=s_hash) is not None:
                     print(f"[{label}] Cached run found for '{suite.name}'. Skipping.")
                     continue
                 try:
@@ -71,20 +71,20 @@ class Benchmark(IBenchmark):
                         model_name=label,
                         suite=suite.name,
                     )
-                    self.ledger.put(report, manifest_hash=s_hash)
+                    self.ledger.record(report, manifest_hash=s_hash)
                 except Exception as e:
                     print(f"Skipping run for '{label}': {e}")
 
-            self.reporter.suite(self.ledger.all(suite.name), suite.name)
+            self.reporter.render_suite(self.ledger.entries(suite.name), suite.name)
 
         if len(active_names) > 1:
-            self.reporter.summary(self.ledger.all(), suites=active_names)
+            self.reporter.render_summary(self.ledger.entries(), suites=active_names)
 
     def report(self, suites: Optional[Sequence[IBenchmarkSuite]] = None) -> None:
-        suite_names = list(dict.fromkeys(s.name for s in suites)) if suites else list(dict.fromkeys(s for s, d in self.ledger.all().items() if isinstance(d, dict)))
+        suite_names = list(dict.fromkeys(s.name for s in suites)) if suites else list(dict.fromkeys(s for s, d in self.ledger.entries().items() if isinstance(d, dict)))
         for s_name in suite_names:
-            self.reporter.suite(self.ledger.all(s_name), s_name)
+            self.reporter.render_suite(self.ledger.entries(s_name), s_name)
 
         if len(suite_names) > 1:
-            self.reporter.summary(self.ledger.all(), suites=suite_names)
+            self.reporter.render_summary(self.ledger.entries(), suites=suite_names)
 
