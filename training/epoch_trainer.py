@@ -2,6 +2,7 @@ from dataclasses import dataclass
 import itertools
 import logging
 from pathlib import Path
+import random
 import time
 from typing import Iterator, Optional, Protocol, Sequence, runtime_checkable
 import torch
@@ -12,6 +13,7 @@ from model.weights import WeightInfo
 from training.policies.learner import AdamWLearner, ILearner
 from training.policies.loss import CalibratedLoss, ILoss
 from training.policies.schedule import CosineSchedule, ISchedule
+from training.policies.transform import ICaseTransform, ShuffleCandidates
 
 logger = logging.getLogger("piqo.training")
 
@@ -49,19 +51,17 @@ class EpochTrainer(ITrainer):
         self,
         model: Optional[TorchModel] = None,
         batch_size: int = 16,
-        base_lr: float = 2e-5,
-        accum_steps: int = 1,
         learner: Optional[ILearner] = None,
         schedule: Optional[ISchedule] = None,
         loss: Optional[ILoss] = None,
+        case_transform: Optional[ICaseTransform] = None,
     ):
         self.model = model or TorchModel()
         self.batch_size = batch_size
-        self.base_lr = base_lr
-        self.accum_steps = accum_steps
         self.learner = learner or AdamWLearner(self.model.parameters())
         self.schedule = schedule or CosineSchedule()
         self.loss = loss or CalibratedLoss()
+        self.case_transform = case_transform or ShuffleCandidates()
 
     def evaluate(self, cases: Sequence[DecisionCase]) -> float:
         batches = list(itertools.batched(cases, self.batch_size))
@@ -82,53 +82,55 @@ class EpochTrainer(ITrainer):
         epochs: int = 1,
     ) -> Iterator[TrainingStats]:
         items = list(train_cases)
-        total_batches = (len(items) + self.batch_size - 1) // self.batch_size if items else 0
+        total_batches = (len(items) + self.batch_size - 1) // self.batch_size if self.batch_size else 0
         total_steps = epochs * total_batches
+        step = 0
 
         for ep in range(1, epochs + 1):
             total_loss = 0.0
-            batches = list(itertools.batched(items, self.batch_size))
+            epoch_items = list(items)
+            random.shuffle(epoch_items)
+            batches = list(itertools.batched(epoch_items, self.batch_size))
 
-            for n, batch in enumerate(batches):
-                step = (ep - 1) * total_batches + (n + 1)
-                cur_lr = self.schedule.get_lr(step, total_steps, self.base_lr)
+            for batch_index, batch in enumerate(batches, start=1):
+                step += 1
+                cur_lr = self.schedule.get_lr(step, total_steps)
 
                 t0 = time.perf_counter()
-                training_batch = [c.shuffled() for c in batch]
+                training_batch = [self.case_transform.transform(c) for c in batch]
                 scores = self.model.forward(training_batch, train=True)
                 targets = torch.as_tensor([c.target_index() for c in training_batch], device=scores.device)
                 loss_tensor = self.loss.compute(scores, targets)
 
-                should_commit = ((n + 1) % self.accum_steps == 0) or (n + 1 == total_batches)
-                self.learner.step(loss_tensor, lr=cur_lr, commit=should_commit)
+                self.learner.step(loss_tensor, lr=cur_lr)
                 dt = (time.perf_counter() - t0) * 1000.0
                 total_loss += loss_tensor.item()
-
-                is_val_cadence = (n + 1 == total_batches or n + 1 == (total_batches // 2))
-                val_loss = self.evaluate(val_cases) if is_val_cadence else None
+                 
+                val_loss = self.evaluate(val_cases) if batch_index in (total_batches // 2, total_batches) else None 
 
                 stats = TrainingStats(
                     epoch=ep,
                     total_epochs=epochs,
                     step=step,
                     total_steps=total_steps,
-                    train_loss=total_loss / (n + 1),
+                    train_loss=total_loss / batch_index,
                     val_loss=val_loss,
                     lr=cur_lr,
                     elapsed_ms=dt,
-                    batch=n + 1,
+                    batch=batch_index,
                     total_batches=total_batches,
                 )
 
-                if is_val_cadence or (n + 1 == total_batches):
-                    logger.info(
-                        "Epoch %d/%d | Batch %d/%d | Train Loss: %.4f%s | LR: %.2e | %.1fms",
-                        ep, epochs, n + 1, total_batches, stats.train_loss,
-                        f" | Val Loss: {val_loss:.4f}" if val_loss is not None else "",
-                        cur_lr, dt,
-                    )
+                logger.info(
+                    "Epoch %d/%d | Batch %d/%d | Train Loss: %.4f%s | LR: %.2e | %.1fms",
+                    ep, epochs, batch_index, total_batches, stats.train_loss,
+                    f" | Val Loss: {val_loss:.4f}" if val_loss is not None else "",
+                    cur_lr, dt,
+                )
 
                 yield stats
+
+            self.learner.commit()
 
     def __or__(self, layer: ITrainerLayer) -> "ITrainer":
         return layer(self)

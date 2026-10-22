@@ -1,6 +1,5 @@
 from dataclasses import dataclass, field
-import random
-from typing import Mapping, Optional, Sequence
+from typing import Mapping, Optional, Self, Sequence
 
 @dataclass(frozen=True, slots=True)
 class CaseMeta:
@@ -53,18 +52,6 @@ class DecisionCase:
         c = self.choice()
         return self.candidates.index(c) if c in self.candidates else 0
 
-    def shuffled(self, rng: Optional[random.Random] = None) -> "DecisionCase":
-        if len(self.candidates) <= 1:
-            return self
-        perm = list(range(len(self.candidates)))
-        (rng or random).shuffle(perm)
-        return DecisionCase(
-            state=self.state,
-            candidates=tuple(self.candidates[p] for p in perm),
-            probabilities=self.probabilities,
-            meta=self.meta,
-        )
-
     def to_dict(self) -> dict:
         res = {
             "state": self.state,
@@ -78,7 +65,7 @@ class DecisionCase:
         return res
 
     @classmethod
-    def from_dict(cls, d: dict) -> "DecisionCase":
+    def from_dict(cls, d: dict) -> Self:
         return cls(
             state=str(d["state"]),
             candidates=tuple(d["candidates"]),

@@ -10,7 +10,9 @@ from model.device import seed_device
 from model.torch_model import TorchModel
 from training.checkpointing_layer import CheckpointingLayer
 from training.epoch_trainer import EpochTrainer, ITrainer
+from training.policies.learner import AdamWLearner
 from training.policies.schedule import CosineSchedule
+from training.policies.transform import ShuffleCandidates
 
 app = typer.Typer(add_completion=False, help="Piqo Model Trainer CLI")
 logger = logging.getLogger("piqo.training")
@@ -40,14 +42,16 @@ def main(
         model = torch.compile(model)
 
     splits = Dataset().load()
-    schedule_policy = CosineSchedule(warmup_ratio=warmup_ratio)
+    schedule_policy = CosineSchedule(base_lr=lr, warmup_ratio=warmup_ratio)
+    learner_policy = AdamWLearner(model.parameters(), lr=lr, accum_steps=accum_steps)
+    transform_policy = ShuffleCandidates(seed=seed)
     trainer: ITrainer = (
         EpochTrainer(
             model=model,
             batch_size=batch_size,
-            base_lr=lr,
-            accum_steps=accum_steps,
+            learner=learner_policy,
             schedule=schedule_policy,
+            case_transform=transform_policy,
         )
         | CheckpointingLayer(output_path=name)
     )
