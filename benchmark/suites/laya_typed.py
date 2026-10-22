@@ -20,34 +20,17 @@ class LayaTypedDecisionsSuite(IBenchmarkSuite):
         for record in self._manifest.load("typed_decisions_test.parquet", EXPECTED_SHA, url=SOURCE_URL):
             state = str(record.get("state", ""))
 
-            questions = json.loads(record["questions"]) if isinstance(record.get("questions"), str) else record["questions"]
-            q_name, spec = next(iter(questions.items()))
+            questions = json.loads(record["questions"])
+            gold = json.loads(record["gold"])
 
-            criteria = spec.get("options") or spec.get("criteria") or ("false", "true")
-            candidates = tuple(str(key) for key in (criteria.keys() if isinstance(criteria, dict) else criteria))
+            q_name, spec = next(iter(questions.items()))
+            gold_spec = gold[q_name]
+
+            candidates = tuple(str(key) for key in gold_spec["probabilities"].keys())
 
             instruction = str(spec.get("instructions") or spec.get("instruction") or "")
 
-            gold = json.loads(record["gold"]) if isinstance(record.get("gold"), str) else (record.get("gold") or {})
-            gold_item = gold.get(q_name) or {}
-            raw_probs = gold_item.get("probabilities") if isinstance(gold_item, dict) else None
-
-            probabilities: dict[str, float] = {}
-            if raw_probs and isinstance(raw_probs, dict):
-                probabilities = {
-                    candidate: float(raw_probs.get(candidate, raw_probs.get(str(i), 0.0)))
-                    for i, candidate in enumerate(candidates)
-                }
-
-            if sum(probabilities.values()) == 0.0:
-                raw_label = (gold_item.get("label") if isinstance(gold_item, dict) else gold_item) if gold_item else spec.get("label")
-                label = str(raw_label or "").strip()
-                if label.isdigit() and 0 <= int(label) < len(candidates) and label not in candidates:
-                    label = candidates[int(label)]
-                probabilities = {candidate: (1.0 if candidate == label or candidate.lower() == label.lower() else 0.0) for candidate in candidates}
-
-            if sum(probabilities.values()) == 0.0:
-                raise ValueError(f"Target label not found in candidates {candidates}")
+            probabilities = {candidate: float(gold_spec["probabilities"][candidate]) for candidate in candidates}
 
             category = str(record.get("category") or record.get("workflow") or "benchmark")
             split = record.get("split")
