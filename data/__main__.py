@@ -18,9 +18,9 @@ def main() -> None:
     print(f"\n[data] Built corpus in {time.perf_counter()-t0:.2f}s:")
     print(f"  train: {len(splits.train):,} | val: {len(splits.val):,} | test: {len(splits.test):,}")
 
-    tr_by_cat = Counter(c.category for c in splits.train)
-    va_by_cat = Counter(c.category for c in splits.val)
-    te_by_cat = Counter(c.category for c in splits.test)
+    tr_by_cat = Counter(c.meta.category for c in splits.train)
+    va_by_cat = Counter(c.meta.category for c in splits.val)
+    te_by_cat = Counter(c.meta.category for c in splits.test)
     all_cats = sorted(set(tr_by_cat) | set(va_by_cat) | set(te_by_cat))
 
     print("\n--- Corpus Category Composition ---", flush=True)

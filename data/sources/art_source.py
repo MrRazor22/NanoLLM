@@ -1,6 +1,6 @@
 from typing import List, Optional, Sequence
 
-from data.case import DecisionCase
+from data.case import CaseMeta, DecisionCase
 from data.sources.source import IDataSource
 from data.sources.hf_cache import HFCache, IRawCachePolicy
 
@@ -51,9 +51,11 @@ class ARTSource(IDataSource):
                         state=state,
                         candidates=options,
                         probabilities=probs,
-                        category="abductive_reasoning",
-                        split="test" if is_test else "train",
-                        source="allenai_art",
+                        meta=CaseMeta(
+                            category="abductive_reasoning",
+                            split="test" if is_test else "train",
+                            source="allenai_art",
+                        ),
                     )
                 )
 

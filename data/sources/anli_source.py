@@ -1,6 +1,6 @@
 from typing import List, Optional, Sequence
 
-from data.case import DecisionCase
+from data.case import CaseMeta, DecisionCase
 from data.sources.source import IDataSource
 from data.sources.hf_cache import HFCache, IRawCachePolicy
 
@@ -45,9 +45,11 @@ class ANLISource(IDataSource):
                             state=state,
                             candidates=NLI_OPTIONS,
                             probabilities=probs,
-                            category="adversarial_reasoning",
-                            split="test" if is_test else "train",
-                            source="facebook_anli",
+                            meta=CaseMeta(
+                                category="adversarial_reasoning",
+                                split="test" if is_test else "train",
+                                source="facebook_anli",
+                            ),
                         )
                     )
 

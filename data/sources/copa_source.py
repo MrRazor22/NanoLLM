@@ -1,11 +1,11 @@
 from typing import List, Optional, Sequence
 
-from data.case import DecisionCase
+from data.case import CaseMeta, DecisionCase
 from data.sources.source import IDataSource
 from data.sources.hf_cache import HFCache, IRawCachePolicy
 
 class COPASource(IDataSource):
-    """Choice of Plausible Alternatives (COPA) Source: causal directionality and root cause deduction."""
+    name = "superglue_copa"
 
     def __init__(
         self,
@@ -19,14 +19,15 @@ class COPASource(IDataSource):
 
     def cases(self) -> Sequence[DecisionCase]:
         cases: List[DecisionCase] = []
-        for split_name, is_test in [("train", False), ("validation", True)]:
-            limit = self.test_limit if is_test else self.train_limit
+        for split_name in ("train", "test"):
+            limit = self.test_limit if split_name == "test" else self.train_limit
             rows = self.cache.load("aps/super_glue", split=split_name, subset="copa", limit=limit)
+            is_test = split_name == "test"
             for r in rows:
                 premise = str(r.get("premise", "")).strip()
-                question = str(r.get("question", "")).strip()
                 choice1 = str(r.get("choice1", "")).strip()
                 choice2 = str(r.get("choice2", "")).strip()
+                question = str(r.get("question", "")).strip()
                 label_raw = r.get("label")
 
                 if not premise or not choice1 or not choice2 or label_raw is None:
@@ -50,9 +51,11 @@ class COPASource(IDataSource):
                         state=state,
                         candidates=options,
                         probabilities=probs,
-                        category="causal_reasoning",
-                        split="test" if is_test else "train",
-                        source="superglue_copa",
+                        meta=CaseMeta(
+                            category="causal_reasoning",
+                            split="test" if is_test else "train",
+                            source="superglue_copa",
+                        ),
                     )
                 )
 

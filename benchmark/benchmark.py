@@ -1,28 +1,23 @@
 from pathlib import Path
-from typing import Mapping, Optional, Protocol, Sequence, Union, runtime_checkable
+from typing import Mapping, Optional, Protocol, Sequence, Union
 from benchmark.policies.ledger import DiskLedgerPolicy, ILedgerPolicy
 from benchmark.policies.reporter import ConsoleReporterPolicy, IReporterPolicy
 from benchmark.policies.scorer import IScorerPolicy, ScorerPolicy
 from benchmark.suites.suite import IBenchmarkSuite
 from inference.decision_engine import IDecisionEngine
 
-@runtime_checkable
 class IBenchmark(Protocol):
-    """Core Primitive Contract: Sovereign operational boundary for benchmark evaluation and reporting."""
-
     def run(
         self,
-        suites: Sequence[IBenchmarkSuite],
+        suites: Mapping[str, IBenchmarkSuite],
         engines: Mapping[str, IDecisionEngine],
         limit: Optional[int] = None,
         skip_cached: bool = False,
     ) -> None: ...
 
-    def report(self, suites: Optional[Sequence[IBenchmarkSuite]] = None) -> None: ...
+    def report(self, suite_names: Optional[Sequence[str]] = None) -> None: ...
 
 class Benchmark(IBenchmark):
-    """Core Primitive Implementation: Sovereign coordinator of benchmark suites, engines, and policies."""
-
     def __init__(
         self,
         scorer: Optional[IScorerPolicy] = None,
@@ -35,56 +30,50 @@ class Benchmark(IBenchmark):
 
     def run(
         self,
-        suites: Sequence[IBenchmarkSuite],
+        suites: Mapping[str, IBenchmarkSuite],
         engines: Mapping[str, IDecisionEngine],
         limit: Optional[int] = None,
         skip_cached: bool = False,
     ) -> None:
         active_names: list[str] = []
-        for suite in suites:
+        for suite_name, suite in suites.items():
             try:
-                items = list(suite.cases())
+                items = list(suite.test_cases())
             except FileNotFoundError as e:
-                print(f"\n[UNAVAILABLE] Suite '{suite.name.upper()}': {e}")
+                print(f"\n[UNAVAILABLE] Suite '{suite_name.upper()}': {e}")
                 continue
 
-            active_names.append(suite.name)
+            active_names.append(suite_name)
             if limit:
                 items = items[:limit]
 
-            print(f"\n{'=' * 65}\nEvaluating Suite: {suite.name.upper()} ({len(items)} items)")
-            if suite.published_baselines:
-                print("Published Baselines:")
-                for b_name, b_score in suite.published_baselines.items():
-                    print(f"  {b_name:<24}: {b_score * 100:.1f}%")
+            print(f"\n{'=' * 65}\nEvaluating Suite: {suite_name.upper()} ({len(items)} items)")
             print(f"{'=' * 65}")
 
-            s_hash = getattr(suite, "manifest_hash", None)
             for label, engine in engines.items():
-                if skip_cached and self.ledger.lookup(label, suite=suite.name, expected_count=len(items), expected_hash=s_hash) is not None:
-                    print(f"[{label}] Cached run found for '{suite.name}'. Skipping.")
+                if skip_cached and self.ledger.lookup(label, suite=suite_name, expected_count=len(items)) is not None:
+                    print(f"[{label}] Cached run found for '{suite_name}'. Skipping.")
                     continue
                 try:
                     report = self.scorer.score(
                         engine,
                         items,
                         model_name=label,
-                        suite=suite.name,
+                        suite=suite_name,
                     )
-                    self.ledger.record(report, manifest_hash=s_hash)
+                    self.ledger.record(report)
                 except Exception as e:
                     print(f"Skipping run for '{label}': {e}")
 
-            self.reporter.render_suite(self.ledger.entries(suite.name), suite.name)
+            self.reporter.render_suite(self.ledger.entries(suite_name), suite_name)
 
         if len(active_names) > 1:
             self.reporter.render_summary(self.ledger.entries(), suites=active_names)
 
-    def report(self, suites: Optional[Sequence[IBenchmarkSuite]] = None) -> None:
-        suite_names = list(dict.fromkeys(s.name for s in suites)) if suites else list(dict.fromkeys(s for s, d in self.ledger.entries().items() if isinstance(d, dict)))
-        for s_name in suite_names:
+    def report(self, suite_names: Optional[Sequence[str]] = None) -> None:
+        names = list(dict.fromkeys(suite_names)) if suite_names else list(dict.fromkeys(s for s, d in self.ledger.entries().items() if isinstance(d, dict)))
+        for s_name in names:
             self.reporter.render_suite(self.ledger.entries(s_name), s_name)
 
-        if len(suite_names) > 1:
-            self.reporter.render_summary(self.ledger.entries(), suites=suite_names)
-
+        if len(names) > 1:
+            self.reporter.render_summary(self.ledger.entries(), suites=names)

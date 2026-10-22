@@ -58,11 +58,11 @@ class ScorerPolicy(IScorerPolicy):
         last_log = start_time
 
         for idx, item in enumerate(cases, 1):
-            cat = item.category or "general"
+            cat = item.meta.category or "general"
             t_call = time.perf_counter()
 
-            if hasattr(item, "candidates") and item.candidates:
-                ans = engine.decide(item.state, ChoiceOption(instruction=getattr(item, "instruction", ""), criteria={c: "" for c in item.candidates}))
+            if item.candidates:
+                ans = engine.decide(item.state, ChoiceOption(instruction=item.instruction, criteria={c: "" for c in item.candidates}))
                 dt_ms = getattr(engine, "last_latency_ms", 0.0) or (time.perf_counter() - t_call) * 1000.0
                 latencies.append(dt_ms)
                 cat_total[cat] = cat_total.get(cat, 0) + 1

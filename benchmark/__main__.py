@@ -16,16 +16,15 @@ from inference.profiling_layer import ProfilingLayer
 
 app = typer.Typer(add_completion=False, help="Piqo Sovereign Benchmark CLI")
 
-def resolve_suites(suite_arg: str) -> Sequence[IBenchmarkSuite]:
-    """Resolves CLI suite argument into sovereign IBenchmarkSuite primitives."""
+def resolve_suites(suite_arg: str) -> Mapping[str, IBenchmarkSuite]:
     arg = suite_arg.strip().lower()
     if arg in ("all", "all_suites", "official"):
-        return [cls() for cls in BENCHMARK_SUITES.values()]
+        return {key: cls() for key, cls in BENCHMARK_SUITES.items()}
     queries = [s.strip().lower() for s in suite_arg.split(",") if s.strip()]
-    matched = [cls for key, cls in BENCHMARK_SUITES.items() if any(q in key for q in queries)]
+    matched = {key: cls() for key, cls in BENCHMARK_SUITES.items() if any(q in key for q in queries)}
     if not matched:
         raise typer.BadParameter(f"No benchmark suites matched '{suite_arg}'. Available: {list(BENCHMARK_SUITES.keys())}")
-    return [cls() for cls in dict.fromkeys(matched)]
+    return matched
 
 def resolve_engines(
     model_arg: str,
@@ -102,7 +101,7 @@ def main(
     active_suites = resolve_suites(suite)
 
     if report:
-        bench.report(suites=active_suites)
+        bench.report(suite_names=list(active_suites.keys()))
         return
 
     active_engines = resolve_engines(model, device=device, checkpoint=checkpoint)

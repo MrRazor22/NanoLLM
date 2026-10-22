@@ -1,13 +1,12 @@
 from dataclasses import dataclass
 from typing import List, Optional, Sequence
 
-from data.case import DecisionCase
+from data.case import CaseMeta, DecisionCase
 from data.sources.source import IDataSource
 from data.sources.hf_cache import HFCache, IRawCachePolicy
 
 @dataclass(frozen=True, slots=True)
 class TextClassificationSpec:
-    """Core Domain DTO: Declarative schema mapping for fixed-label text classification datasets."""
     dataset: str
     category: str
     text_field: str = "text"
@@ -28,8 +27,6 @@ STANDARD_CLASSIFICATIONS: Sequence[TextClassificationSpec] = (
 )
 
 class ClassificationSource(IDataSource):
-    """Declarative benchmark dataset adapter for fixed-label text classification datasets."""
-
     def __init__(
         self,
         spec: Optional[TextClassificationSpec] = None,
@@ -89,9 +86,11 @@ class ClassificationSource(IDataSource):
                     state=text,
                     candidates=cands_tuple,
                     probabilities=probs,
-                    category=self.spec.category,
-                    source=source_tag,
-                    split="test" if is_test else "train",
+                    meta=CaseMeta(
+                        category=self.spec.category,
+                        source=source_tag,
+                        split="test" if is_test else "train",
+                    ),
                 )
                 cases.append(case)
 

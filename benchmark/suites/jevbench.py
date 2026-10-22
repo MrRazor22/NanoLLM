@@ -1,32 +1,59 @@
-from pathlib import Path
-from typing import Mapping, Sequence
-from data.case import DecisionCase
-from benchmark.suites.suite import IBenchmarkSuite, load_verified_manifest, adapt_manifest_case
+import json
+from typing import Optional, Sequence
+from benchmark.suites.manifest import IManifestPolicy, VerifiedManifestPolicy
+from benchmark.suites.suite import IBenchmarkSuite
+from data.case import CaseMeta, DecisionCase
 
-BENCHMARK_MANIFESTS_DIR = Path(__file__).resolve().parent / "manifests"
+EXPECTED_SHA = "d2677f4d6f1e2063657183a36f4dbd92c0383136c050084701e2ee3d6ccc49a6"
 
 class JevBenchSuite(IBenchmarkSuite):
-    """TypeSafe AI / JevBench official 231 public evaluation tasks (Easy 48, Standard 72, Hard 111)."""
+    def __init__(self, manifest: Optional[IManifestPolicy] = None):
+        self._manifest = manifest or VerifiedManifestPolicy()
+        self._cases: Optional[Sequence[DecisionCase]] = None
 
-    @property
-    def name(self) -> str:
-        return "jevbench_231"
+    def test_cases(self) -> Sequence[DecisionCase]:
+        if self._cases is None:
+            raw_records = self._manifest.load("jevbench_231.jsonl", EXPECTED_SHA)
+            self._cases = [self._adapt(record) for record in raw_records]
+        return self._cases
 
-    @property
-    def manifest_hash(self) -> str:
-        return "d2677f4d6f1e2063657183a36f4dbd92c0383136c050084701e2ee3d6ccc49a6"
+    def _adapt(self, record: dict) -> DecisionCase:
+        state = str(record.get("state", ""))
+        category = str(record.get("category") or record.get("workflow") or "benchmark")
+        split = record.get("split")
 
-    @property
-    def published_baselines(self) -> Mapping[str, float]:
-        return {
-            "Jev-1.13": 0.845,
-            "SemIf (Qwen3.5)": 0.732,
-            "Verdict v1.4": 0.646,
-            "JevK5-Lite": 0.628,
-            "Laya (Zero-Shot)": 0.584,
-        }
+        questions = json.loads(record["questions"]) if isinstance(record.get("questions"), str) else record["questions"]
+        gold = json.loads(record["gold"]) if isinstance(record.get("gold"), str) else (record.get("gold") or {})
 
-    def cases(self) -> Sequence[DecisionCase]:
-        import json
-        content = load_verified_manifest(BENCHMARK_MANIFESTS_DIR / "jevbench_231.jsonl", "d2677f4d6f1e2063657183a36f4dbd92c0383136c050084701e2ee3d6ccc49a6")
-        return [adapt_manifest_case(json.loads(line), source=self.name) for line in content.decode("utf-8").splitlines() if line.strip()]
+        _, spec = next(iter(questions.items()))
+        criteria = spec.get("options") or spec.get("criteria") or ("false", "true")
+        candidates = tuple(str(key) for key in (criteria.keys() if isinstance(criteria, dict) else criteria))
+        instruction = str(spec.get("instructions") or spec.get("instruction") or "")
+
+        gold_item = next(iter(gold.values())) if isinstance(gold, dict) and gold else gold
+        raw_probs = gold_item.get("probabilities") if isinstance(gold_item, dict) else None
+
+        probabilities: dict[str, float] = {}
+        if raw_probs and isinstance(raw_probs, dict):
+            probabilities = {
+                candidate: float(raw_probs.get(candidate, raw_probs.get(str(i), 0.0)))
+                for i, candidate in enumerate(candidates)
+            }
+
+        if sum(probabilities.values()) == 0.0:
+            raw_label = (gold_item.get("label") if isinstance(gold_item, dict) else gold_item) if gold_item else spec.get("label")
+            label = str(raw_label or "").strip()
+            if label.isdigit() and 0 <= int(label) < len(candidates) and label not in candidates:
+                label = candidates[int(label)]
+            probabilities = {candidate: (1.0 if candidate == label or candidate.lower() == label.lower() else 0.0) for candidate in candidates}
+
+        if sum(probabilities.values()) == 0.0:
+            raise ValueError(f"Target label not found in candidates {candidates}")
+
+        return DecisionCase(
+            state=state,
+            candidates=candidates,
+            instruction=instruction,
+            probabilities=probabilities,
+            meta=CaseMeta(category=category, source="jevbench_231", split=split),
+        )

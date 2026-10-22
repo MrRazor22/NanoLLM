@@ -1,11 +1,11 @@
 from typing import List, Optional, Sequence
 
-from data.case import DecisionCase
+from data.case import CaseMeta, DecisionCase
 from data.sources.source import IDataSource
 from data.sources.hf_cache import HFCache, IRawCachePolicy
 
 class SciQSource(IDataSource):
-    """Scientific Mechanism & Distractor Elimination Source: scientific reasoning with negative distractors."""
+    name = "allenai_sciq"
 
     def __init__(
         self,
@@ -19,9 +19,10 @@ class SciQSource(IDataSource):
 
     def cases(self) -> Sequence[DecisionCase]:
         cases: List[DecisionCase] = []
-        for split_name, is_test in [("train", False), ("validation", True)]:
-            limit = self.test_limit if is_test else self.train_limit
+        for split_name in ("train", "test"):
+            limit = self.test_limit if split_name == "test" else self.train_limit
             rows = self.cache.load("allenai/sciq", split=split_name, limit=limit)
+            is_test = split_name == "test"
             for r in rows:
                 question = str(r.get("question", "")).strip()
                 correct = str(r.get("correct_answer", "")).strip()
@@ -44,9 +45,11 @@ class SciQSource(IDataSource):
                         state=question,
                         candidates=options,
                         probabilities=probs,
-                        category="scientific_reasoning",
-                        split="test" if is_test else "train",
-                        source="allenai_sciq",
+                        meta=CaseMeta(
+                            category="scientific_reasoning",
+                            split="test" if is_test else "train",
+                            source="allenai_sciq",
+                        ),
                     )
                 )
 

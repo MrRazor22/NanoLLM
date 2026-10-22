@@ -1,11 +1,11 @@
 from typing import List, Optional, Sequence
 
-from data.case import DecisionCase
+from data.case import CaseMeta, DecisionCase
 from data.sources.source import IDataSource
 from data.sources.hf_cache import HFCache, IRawCachePolicy
 
 class MedQASource(IDataSource):
-    """Differential Elimination Source: extracts multi-variable clinical elimination decisions."""
+    name = "gbaker_medqa"
 
     def __init__(
         self,
@@ -42,9 +42,11 @@ class MedQASource(IDataSource):
                         state=state,
                         candidates=options_tuple,
                         probabilities=probs,
-                        category="differential_elimination",
-                        split="test" if is_test else "train",
-                        source="gbaker_medqa",
+                        meta=CaseMeta(
+                            category="differential_elimination",
+                            split="test" if is_test else "train",
+                            source="gbaker_medqa",
+                        ),
                     )
                 )
 

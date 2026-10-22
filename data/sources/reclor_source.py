@@ -1,11 +1,11 @@
 from typing import List, Optional, Sequence
 
-from data.case import DecisionCase
+from data.case import CaseMeta, DecisionCase
 from data.sources.source import IDataSource
 from data.sources.hf_cache import HFCache, IRawCachePolicy
 
 class ReClorSource(IDataSource):
-    """ReClor Logical Reasoning Source: LSAT multi-constraint argument analysis and fallacy elimination."""
+    name = "reclor"
 
     def __init__(
         self,
@@ -19,16 +19,17 @@ class ReClorSource(IDataSource):
 
     def cases(self) -> Sequence[DecisionCase]:
         cases: List[DecisionCase] = []
-        for split_name, is_test in [("train", False), ("validation", True)]:
-            limit = self.test_limit if is_test else self.train_limit
+        for split_name in ("train", "test"):
+            limit = self.test_limit if split_name == "test" else self.train_limit
             rows = self.cache.load("metaeval/reclor", split=split_name, limit=limit)
+            is_test = split_name == "test"
             for r in rows:
                 context = str(r.get("context", "")).strip()
                 question = str(r.get("question", "")).strip()
-                answers = r.get("answers", [])
+                answers = [str(a).strip() for a in r.get("answers", [])]
                 label = r.get("label")
 
-                if not context or not answers or len(answers) < 2 or label is None:
+                if not context or not answers or label is None or len(answers) < 2:
                     continue
 
                 try:
@@ -49,9 +50,11 @@ class ReClorSource(IDataSource):
                         state=state,
                         candidates=cands_tuple,
                         probabilities=probs,
-                        category="logical_reasoning",
-                        split="test" if is_test else "train",
-                        source="reclor",
+                        meta=CaseMeta(
+                            category="logical_reasoning",
+                            split="test" if is_test else "train",
+                            source="reclor",
+                        ),
                     )
                 )
 

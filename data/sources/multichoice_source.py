@@ -1,12 +1,11 @@
 from dataclasses import dataclass
 from typing import List, Optional, Sequence
-from data.case import DecisionCase
+from data.case import CaseMeta, DecisionCase
 from data.sources.source import IDataSource
 from data.sources.hf_cache import HFCache, IRawCachePolicy
 
 @dataclass(frozen=True, slots=True)
 class MultiChoiceSpec:
-    """Core Domain DTO: Declarative specification for multi-choice reasoning datasets."""
     dataset: str
     category: str
     subset: Optional[str] = None
@@ -23,8 +22,6 @@ STANDARD_MULTICHOICE: Sequence[MultiChoiceSpec] = (
 )
 
 class MultiChoiceSource(IDataSource):
-    """Universal source adapter for multi-choice decision benchmarks (ARC, OpenBookQA)."""
-
     def __init__(
         self,
         spec: Optional[MultiChoiceSpec] = None,
@@ -40,33 +37,35 @@ class MultiChoiceSource(IDataSource):
     def cases(self) -> Sequence[DecisionCase]:
         source_tag = f"{self.spec.dataset.replace('/', '_')}_{self.spec.subset}" if self.spec.subset else self.spec.dataset.replace("/", "_")
         cases: List[DecisionCase] = []
+
         for split_name in self.spec.splits:
             limit = self.test_limit if split_name == "test" else self.train_limit
+            is_test = split_name == "test"
             rows = self.cache.load(
                 self.spec.dataset,
                 split=split_name,
                 subset=self.spec.subset,
                 limit=limit,
             )
-            is_test = split_name == "test"
+
             for r in rows:
-                state = str(r.get(self.spec.question_field) or "").strip()
-                choices_raw = r.get(self.spec.choices_field) or {}
-                ans_key = str(r.get(self.spec.answer_field) or "").strip()
+                state = str(r.get(self.spec.question_field, "")).strip()
+                choices_raw = r.get(self.spec.choices_field, {})
+                ans_key = str(r.get(self.spec.answer_field, "")).strip()
 
-                if not state or not isinstance(choices_raw, dict) or not ans_key:
+                if not state or not choices_raw:
                     continue
 
-                texts = [str(t).strip() for t in choices_raw.get("text", []) if str(t).strip()]
-                labels = [str(lbl).strip() for lbl in choices_raw.get("label", [])]
-                if len(texts) < 2:
+                texts = [str(t).strip() for t in choices_raw.get("text", [])]
+                labels = [str(l).strip() for l in choices_raw.get("label", [])]
+                if not texts or len(texts) < 2:
                     continue
 
-                target_idx: Optional[int] = None
+                target_idx = None
                 if ans_key in labels:
                     target_idx = labels.index(ans_key)
                 elif ans_key.isdigit():
-                    num_idx = int(ans_key) - 1
+                    num_idx = int(ans_key)
                     if 0 <= num_idx < len(texts):
                         target_idx = num_idx
 
@@ -80,9 +79,11 @@ class MultiChoiceSource(IDataSource):
                     state=state,
                     candidates=cands_tuple,
                     probabilities=probs,
-                    category=self.spec.category,
-                    split="test" if is_test else "train",
-                    source=source_tag,
+                    meta=CaseMeta(
+                        category=self.spec.category,
+                        split="test" if is_test else "train",
+                        source=source_tag,
+                    ),
                 )
                 cases.append(case)
 

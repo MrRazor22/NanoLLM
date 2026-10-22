@@ -1,12 +1,10 @@
 import re
 from typing import List, Optional, Sequence
-from data.case import DecisionCase
+from data.case import CaseMeta, DecisionCase
 from data.sources.source import IDataSource
 from data.sources.hf_cache import HFCache, IRawCachePolicy
 
 class GlaiveSource(IDataSource):
-    """Real Glaive function-calling extractor: parses tool calls and yields tagged source records."""
-
     def __init__(self, train_limit: Optional[int] = None, cache: Optional[IRawCachePolicy] = None):
         self.train_limit = train_limit
         self.cache = cache or HFCache()
@@ -33,9 +31,11 @@ class GlaiveSource(IDataSource):
                 state=user_query,
                 candidates=cands_tuple,
                 probabilities=probs,
-                category="function_calling",
-                source="glaive_tools",
-                split="train",
+                meta=CaseMeta(
+                    category="function_calling",
+                    source="glaive_tools",
+                    split="train",
+                ),
             )
             cases.append(case)
         return cases

@@ -1,12 +1,11 @@
 import json
 from typing import Optional, Sequence
 
-from data.case import DecisionCase
+from data.case import CaseMeta, DecisionCase
 from data.sources.source import IDataSource
 from data.sources.hf_cache import HFCache, IRawCachePolicy
 
 class TypedDecisionsSource(IDataSource):
-    """Source adapter for LocalLLaMA/typed-decisions multi-decision benchmark dataset."""
     name = "typed_decisions"
 
     def __init__(
@@ -59,13 +58,14 @@ class TypedDecisionsSource(IDataSource):
                         DecisionCase(
                             state=full_state,
                             candidates=candidates,
+                            instruction=str(instr or ""),
                             probabilities=probs,
-                            category=cat,
-                            source=self.name,
-                            split=split,
+                            meta=CaseMeta(
+                                category=cat,
+                                source=self.name,
+                                split=split,
+                            ),
                         )
                     )
 
         return cases
-
-__all__ = ["TypedDecisionsSource"]

@@ -11,12 +11,9 @@ logger = logging.getLogger(__name__)
 
 @runtime_checkable
 class ISplitPolicy(Protocol):
-    """Sovereign policy contract: partitions source records into train, val, and test splits."""
     def partition(self, cases: Sequence[DecisionCase]) -> DataSplits: ...
 
 class BudgetSplitPolicy(ISplitPolicy):
-    """Partitions cases per-category with balanced stratification and lazy leakage decontamination."""
-
     def __init__(
         self,
         max_train: int = 1500,
@@ -37,27 +34,26 @@ class BudgetSplitPolicy(ISplitPolicy):
         rng = random.Random(self.seed)
         by_cat: dict[str, list[DecisionCase]] = {}
         for c in cases:
-            by_cat.setdefault(c.category, []).append(c)
+            by_cat.setdefault(c.meta.category, []).append(c)
 
         train_all: list[DecisionCase] = []
         val_all: list[DecisionCase] = []
         test_all: list[DecisionCase] = []
 
         for cat, items in by_cat.items():
-            tests = [c for c in items if c.split == "test"]
+            tests = [c for c in items if c.meta.split == "test"]
             cat_test = list(itertools.islice(self.stratifier.balance(tests, rng), self.max_test)) if tests else []
 
-            # Stream balanced candidates, filter leaks lazily, and take target quota
-            pool = [c for c in items if c.split != "test"]
+            pool = [c for c in items if c.meta.split != "test"]
             balanced_stream = self.stratifier.balance(pool, rng)
             clean_stream = self.leakage.decontaminate(balanced_stream, cat_test)
 
             target_quota = self.max_val + self.max_train
             selected = list(itertools.islice(clean_stream, target_quota))
 
-            test_all.extend(replace(c, split="test") for c in cat_test)
-            val_all.extend(replace(c, split="val") for c in selected[:self.max_val])
-            train_all.extend(replace(c, split="train") for c in selected[self.max_val:])
+            test_all.extend(replace(c, meta=replace(c.meta, split="test")) for c in cat_test)
+            val_all.extend(replace(c, meta=replace(c.meta, split="val")) for c in selected[:self.max_val])
+            train_all.extend(replace(c, meta=replace(c.meta, split="train")) for c in selected[self.max_val:])
 
         logger.info("Budget partition: %d train, %d val, %d test across %d categories", len(train_all), len(val_all), len(test_all), len(by_cat))
         return DataSplits(train=train_all, val=val_all, test=test_all)

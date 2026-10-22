@@ -9,31 +9,26 @@ SuiteEntry = Mapping[str, Union[float, int, str]]
 SuiteScores = Mapping[str, SuiteEntry]
 LedgerScores = Mapping[str, SuiteScores]
 
-@runtime_checkable
 class ILedgerPolicy(Protocol):
-    def lookup(self, model: str, suite: str = "default", expected_count: Optional[int] = None, expected_hash: Optional[str] = None) -> Optional[Mapping[str, float]]: ...
-    def record(self, report: BenchmarkReport, manifest_hash: Optional[str] = None) -> None: ...
+    def lookup(self, model: str, suite: str = "default", expected_count: Optional[int] = None) -> Optional[Mapping[str, float]]: ...
+    def record(self, report: BenchmarkReport) -> None: ...
     def entries(self, suite: Optional[str] = None) -> Mapping[str, dict]: ...
 
 class DiskLedgerPolicy(ILedgerPolicy):
     def __init__(self, scores_path: Optional[Union[str, Path]] = None):
         self.scores_path = Path(scores_path or DEFAULT_SCORES_FILE)
 
-    def lookup(self, model: str, suite: str = "default", expected_count: Optional[int] = None, expected_hash: Optional[str] = None) -> Optional[Mapping[str, float]]:
+    def lookup(self, model: str, suite: str = "default", expected_count: Optional[int] = None) -> Optional[Mapping[str, float]]:
         suite_data = self.entries(suite)
         if expected_count is not None and suite_data.get("count") != expected_count:
-            return None
-        if expected_hash is not None and suite_data.get("manifest_hash") != expected_hash:
             return None
         scores = {t: entry[model] for t, entry in suite_data.items() if isinstance(entry, dict) and model in entry}
         return scores if scores else None
 
-    def record(self, report: BenchmarkReport, manifest_hash: Optional[str] = None) -> None:
+    def record(self, report: BenchmarkReport) -> None:
         data = self.entries()
         suite_data = data.setdefault(report.suite or "default", {})
         suite_data["count"] = report.count
-        if manifest_hash is not None:
-            suite_data["manifest_hash"] = manifest_hash
 
         for cat, acc in report.slices.items():
             entry = suite_data.setdefault(cat, {})

@@ -1,30 +1,59 @@
-from pathlib import Path
-from typing import Mapping, Sequence
-from data.case import DecisionCase
-from benchmark.suites.suite import IBenchmarkSuite, load_verified_manifest, adapt_manifest_case
+import json
+from typing import Optional, Sequence
+from benchmark.suites.manifest import IManifestPolicy, VerifiedManifestPolicy
+from benchmark.suites.suite import IBenchmarkSuite
+from data.case import CaseMeta, DecisionCase
 
-BENCHMARK_MANIFESTS_DIR = Path(__file__).resolve().parent / "manifests"
+EXPECTED_SHA = "af9543ad6fb1607b010296151b32454154623ca9d1a92a7240fd02924c9e9931"
 
 class FastDecisionsSuite(IBenchmarkSuite):
-    """Fastino Labs / Liquid AI Fast Decisions 17-task operational benchmark (1,700 cases)."""
+    def __init__(self, manifest: Optional[IManifestPolicy] = None):
+        self._manifest = manifest or VerifiedManifestPolicy()
+        self._cases: Optional[Sequence[DecisionCase]] = None
 
-    @property
-    def name(self) -> str:
-        return "fast_decisions"
+    def test_cases(self) -> Sequence[DecisionCase]:
+        if self._cases is None:
+            raw_records = self._manifest.load("fast_decisions.jsonl", EXPECTED_SHA)
+            self._cases = [self._adapt(record) for record in raw_records]
+        return self._cases
 
-    @property
-    def manifest_hash(self) -> str:
-        return "af9543ad6fb1607b010296151b32454154623ca9d1a92a7240fd02924c9e9931"
+    def _adapt(self, record: dict) -> DecisionCase:
+        state = str(record.get("state", ""))
+        category = str(record.get("category") or record.get("workflow") or "benchmark")
+        split = record.get("split")
 
-    @property
-    def published_baselines(self) -> Mapping[str, float]:
-        return {
-            "d1-omni-600M": 0.769,
-            "GLiNER2.5-Decide": 0.637,
-            "JevK5-Lite": 0.587,
-        }
+        questions = json.loads(record["questions"]) if isinstance(record.get("questions"), str) else record["questions"]
+        gold = json.loads(record["gold"]) if isinstance(record.get("gold"), str) else (record.get("gold") or {})
 
-    def cases(self) -> Sequence[DecisionCase]:
-        import json
-        content = load_verified_manifest(BENCHMARK_MANIFESTS_DIR / "fast_decisions.jsonl", self.manifest_hash)
-        return [adapt_manifest_case(json.loads(line), source=self.name) for line in content.decode("utf-8").splitlines() if line.strip()]
+        _, spec = next(iter(questions.items()))
+        criteria = spec.get("options") or spec.get("criteria") or ("false", "true")
+        candidates = tuple(str(key) for key in (criteria.keys() if isinstance(criteria, dict) else criteria))
+        instruction = str(spec.get("instructions") or spec.get("instruction") or "")
+
+        gold_item = next(iter(gold.values())) if isinstance(gold, dict) and gold else gold
+        raw_probs = gold_item.get("probabilities") if isinstance(gold_item, dict) else None
+
+        probabilities: dict[str, float] = {}
+        if raw_probs and isinstance(raw_probs, dict):
+            probabilities = {
+                candidate: float(raw_probs.get(candidate, raw_probs.get(str(i), 0.0)))
+                for i, candidate in enumerate(candidates)
+            }
+
+        if sum(probabilities.values()) == 0.0:
+            raw_label = (gold_item.get("label") if isinstance(gold_item, dict) else gold_item) if gold_item else spec.get("label")
+            label = str(raw_label or "").strip()
+            if label.isdigit() and 0 <= int(label) < len(candidates) and label not in candidates:
+                label = candidates[int(label)]
+            probabilities = {candidate: (1.0 if candidate == label or candidate.lower() == label.lower() else 0.0) for candidate in candidates}
+
+        if sum(probabilities.values()) == 0.0:
+            raise ValueError(f"Target label not found in candidates {candidates}")
+
+        return DecisionCase(
+            state=state,
+            candidates=candidates,
+            instruction=instruction,
+            probabilities=probabilities,
+            meta=CaseMeta(category=category, source="fast_decisions", split=split),
+        )
