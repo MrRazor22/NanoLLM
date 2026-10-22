@@ -1,31 +1,45 @@
 from collections import defaultdict
+import logging
 import random
-from typing import Iterator, Protocol, Sequence, runtime_checkable
+from typing import Protocol, Sequence, runtime_checkable
 
 from data.case import DecisionCase
 
+logger = logging.getLogger(__name__)
+
 @runtime_checkable
 class IStratificationPolicy(Protocol):
-    """Sub-Primitive Contract: Yields balanced cases evenly across label classes."""
-    def balance(self, cases: Sequence[DecisionCase], rng: random.Random) -> Iterator[DecisionCase]: ...
+    def balance(self, cases: Sequence[DecisionCase], quota: int, rng: random.Random) -> Sequence[DecisionCase]: ...
 
 class RoundRobinStratification(IStratificationPolicy):
-    """Fair round-robin class stratification ensuring balanced representation."""
-
-    def balance(self, cases: Sequence[DecisionCase], rng: random.Random) -> Iterator[DecisionCase]:
-        if not cases:
-            return
+    def balance(self, cases: Sequence[DecisionCase], quota: int, rng: random.Random) -> Sequence[DecisionCase]:
+        if not cases or quota <= 0:
+            raise ValueError("Stratification requires non-empty cases and a positive quota.")
 
         buckets = defaultdict(list)
-        for c in cases:
-            buckets[c.choice()].append(c)
+        for case in cases:
+            buckets[(len(case.candidates), case.target_index())].append(case)
 
-        for b in buckets.values():
-            rng.shuffle(b)
+        groups = list(buckets.values())
+        for group in groups:
+            rng.shuffle(group)
 
-        while any(buckets.values()):
-            for b in buckets.values():
-                if b:
-                    yield b.pop()
+        selected: list[DecisionCase] = []
+        while len(selected) < quota and groups:
+            for bucket in list(groups):
+                if len(selected) >= quota:
+                    break
+                selected.append(bucket.pop())
+                if not bucket:
+                    groups.remove(bucket)
+
+        logger.info(
+            "Stratified %d cases into %d balanced across %d slots (%s)",
+            len(cases),
+            len(selected),
+            len(buckets),
+            ", ".join(f"{k[0]}c-idx{k[1]}:{len([c for c in selected if (len(c.candidates), c.target_index()) == k])}" for k in sorted(buckets.keys())),
+        )
+        return selected
 
 __all__ = ["IStratificationPolicy", "RoundRobinStratification"]
