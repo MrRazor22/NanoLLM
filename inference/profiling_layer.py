@@ -1,5 +1,6 @@
 import logging
 import time
+from typing import Self
 
 from inference.decision_engine import IDecisionEngine, IDecisionEngineLayer
 from inference.options import IAnswer, IOption
@@ -12,7 +13,7 @@ class ProfilingLayer(IDecisionEngine):
         self.inner = inner
         self.last_latency_ms: float = 0.0
 
-    def __call__(self, inner: IDecisionEngine) -> "ProfilingLayer":
+    def __call__(self, inner: IDecisionEngine) -> Self:
         self.inner = inner
         return self
 

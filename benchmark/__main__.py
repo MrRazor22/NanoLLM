@@ -43,12 +43,17 @@ def resolve_engines(
         keys = requested
     engines: dict[str, IDecisionEngine] = {}
     for k in keys:
-        cls = AVAILABLE_ENGINES[k]
-        kwargs = {"device": device}
-        if k == "piqo" and checkpoint is not None:
-            kwargs["checkpoint"] = checkpoint
         try:
-            engines[k.title()] = cls(**kwargs) | ProfilingLayer()
+            if k == "piqo":
+                from model.torch_model import TorchModel
+                target_model = TorchModel(device=device)
+                if checkpoint is not None:
+                    target_model.load(checkpoint)
+                engine = DecisionEngine(target_model)
+            else:
+                cls = AVAILABLE_ENGINES[k]
+                engine = cls(device=device)
+            engines[k.title()] = engine | ProfilingLayer()
         except Exception as e:
             print(f"[{k.title()}] Skipping: could not initialize ({e})")
     if not engines:

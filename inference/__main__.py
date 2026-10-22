@@ -8,6 +8,7 @@ from inference.options import (
 )
 from inference.decision_engine import IDecisionEngine, DecisionEngine
 from inference.profiling_layer import ProfilingLayer
+from model.torch_model import TorchModel
 from model.weights import list_weights
 
 app = typer.Typer(add_completion=False, help="Piqo Decision Engine CLI")
@@ -51,7 +52,10 @@ def main(
 
     profiler = ProfilingLayer()
     try:
-        engine: IDecisionEngine = DecisionEngine(checkpoint=model, device=device) | profiler
+        target_model = TorchModel(device=device)
+        if model:
+            target_model.load(model)
+        engine: IDecisionEngine = DecisionEngine(target_model) | profiler
     except FileNotFoundError as e:
         print(f"Model Error: {e}")
         available = [w.name for w in list_weights()]
