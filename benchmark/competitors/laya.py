@@ -1,59 +1,52 @@
+import sys
+from pathlib import Path
 from typing import Optional
+
+from inference.decision_engine import IDecisionEngine, IDecisionEngineLayer
 from inference.options import (
     ChoiceAnswer, ChoiceOption, IAnswer, IOption, NoulAnswer, NoulOption,
     ScoreAnswer, ScoreOption,
 )
-from inference.decision_engine import IDecisionEngine, IDecisionEngineLayer
 from model.device import resolve_device
 
-class LayaEngine(IDecisionEngine):
-    """Sovereign competitor adapter: wraps Convai Innovations' Laya decision router."""
+LOCAL_LAYA_DIR = Path(__file__).resolve().parents[2] / "spec" / "competitors" / "laya"
 
-    def __init__(
-        self,
-        model_variant: str = "convaiinnovations/laya",
-        device: Optional[str] = None,
-    ):
+class LayaEngine(IDecisionEngine):
+    def __init__(self, model_variant: str = "convaiinnovations/laya", device: Optional[str] = None):
         self.model_variant = model_variant
         self.device = resolve_device(device)
-        self._agent = None
-        self.last_latency_ms: float = 0.0
+        self._model = None
 
     def decide(self, state: str, option: IOption) -> IAnswer:
-        if self._agent is None:
-            try:
-                from laya import Agent
-                self._agent = Agent(self.model_variant, device=self.device)
-            except ImportError:
-                raise ImportError("Laya is not installed. To run live: pip install laya")
+        if self._model is None:
+            if str(LOCAL_LAYA_DIR) not in sys.path and LOCAL_LAYA_DIR.exists():
+                sys.path.insert(0, str(LOCAL_LAYA_DIR))
+            from laya import Agent
+            self._model = Agent(self.model_variant, device=self.device)
 
-        if isinstance(option, ChoiceOption):
-            q_spec = {"type": "choice", "instructions": option.instruction or "Select the best option.", "criteria": dict(option.criteria)}
-        elif isinstance(option, NoulOption):
-            q_spec = {"type": "noul", "instructions": option.instruction or "Make a binary decision.", "criteria": dict(option.criteria)}
-        else:
-            q_spec = {"type": "score", "instructions": option.instruction or "Assign a score.", "criteria": list(option.criteria)}
+        match option:
+            case ChoiceOption(instruction=inst, criteria=crit):
+                spec = {"type": "choice", "instructions": inst, "criteria": {str(k): str(v or k) for k, v in crit.items()}}
+            case NoulOption(instruction=inst, criteria=crit):
+                spec = {"type": "noul", "instructions": inst, "criteria": {str(k): str(v or k) for k, v in crit.items()}}
+            case ScoreOption(instruction=inst, criteria=crit):
+                spec = {"type": "score", "instructions": inst, "criteria": list(crit)}
+            case _:
+                raise ValueError(f"Unsupported option type: {type(option)}")
 
-        raw = self._agent.system_one(str(state), {"decision": q_spec})
-        raw_answers = raw.get("answers", {})
+        results = self._model.system_one(str(state), {"decision": spec})
+        raw = results.get("answers", {}).get("decision", results.get("decision", {}))
 
-        if isinstance(option, ChoiceOption) and "decision" in raw_answers:
-            ans_raw = raw_answers["decision"]
-            choice_str = str(ans_raw.get("choice", ""))
-            conf = float(ans_raw.get("confidence", 1.0))
-            probs = ans_raw.get("probabilities", {choice_str: conf})
-            return ChoiceAnswer(choice=choice_str, confidence=conf, probabilities=probs)
-        elif isinstance(option, NoulOption) and "decision" in raw_answers:
-            ans_raw = raw_answers["decision"]
-            p = float(ans_raw.get("noul", ans_raw.get("probability", 0.0)))
-            return NoulAnswer(noul=p, decision=p >= 0.5, confidence=p if p >= 0.5 else 1.0 - p)
-        elif isinstance(option, ScoreOption) and "decision" in raw_answers:
-            ans_raw = raw_answers["decision"]
-            if "score" in ans_raw:
-                s = float(ans_raw["score"])
-                return ScoreAnswer(score=s, confidence=1.0)
-
-        raise ValueError(f"Unsupported option type or missing decision in Laya response: {type(option)}")
+        match option:
+            case ChoiceOption():
+                choice = str(raw.get("choice", ""))
+                conf = float(raw.get("confidence", 1.0))
+                return ChoiceAnswer(choice=choice, confidence=conf, probabilities=raw.get("probabilities", {choice: conf}))
+            case NoulOption():
+                prob = float(raw.get("noul", raw.get("probability", 0.0)))
+                return NoulAnswer(noul=prob, decision=prob >= 0.5, confidence=max(prob, 1.0 - prob))
+            case ScoreOption():
+                return ScoreAnswer(score=float(raw.get("score", 0.0)), confidence=float(raw.get("confidence", 1.0)))
 
     def __or__(self, layer: IDecisionEngineLayer) -> IDecisionEngine:
         return layer(self)

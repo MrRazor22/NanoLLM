@@ -66,12 +66,11 @@
 - **Heavy Compute Gated:** NEVER run heavy dataset builds (`python -m data`), full training (`python -m training`), or long benchmark evaluation (`python -m benchmark`) automatically without an explicit user command; delegate them with ready-to-run snippets.
 - **Fast, Lightweight Verification Permitted:** If a test or verification check is fast and small (e.g. quick unit tests, import checks, smoke validation), run it directly and swiftly to confirm correctness without stalling dialogue.
 
-## 5. Competitor Reference Architectures (External)
-- Competitor open-source codebases are isolated externally at `D:\CodeBase\systemonemodels/` (outside Piqo's git tree to maintain repository cleanliness and zero IP/dependency pollution):
-  - `D:\CodeBase\systemonemodels\gliner` (GLiNER / Fastino)
-  - `D:\CodeBase\systemonemodels\laya` (Laya router)
-  - `D:\CodeBase\systemonemodels\openJev-verdict-2.0` (Verdict 2.0 / openJev)
-- Consult these external source trees when verifying competitor API protocols, contract parity, or benchmark input/output compatibility.
+## 5. Competitor Reference Architectures & Protocol Parity
+- **Authoritative Reference Codebases:** Competitor reference implementations reside in authoritative repositories under `spec/competitors/`.
+- **Meticulous Author Protocol Parity:** Competitor adapters must faithfully replicate the exact execution protocol, input/output contracts, prompt schemas, and candidate label representations authored in their respective authoritative repositories. Never degrade inputs to bare machine keys or dummy identifiers.
+- **Zero Prompt Fabrication or Pollution:** Never invent artificial fallback sentences, hardcoded filler instructions, or synthetic prompts when instructions are omitted. Pass domain instructions and candidate descriptions faithfully as provided.
+- **Fair Benchmarking Grounding:** Every competitor must be evaluated strictly under its own author's native execution specifications and contracts, guaranteeing zero evaluation bias, absolute empirical parity, and faithful comparative integrity.
 
 ## 6. Sober, High-Signal UI (Zero Decorative Noise & Zero Idle Moments)
 - **Calculated Clarity Over Aesthetics:** Terminal and CLI outputs exist solely to convey essential operational signal (live progress, errors, verifiable metrics) with maximum readability.

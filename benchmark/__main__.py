@@ -12,6 +12,7 @@ from benchmark.registry import AVAILABLE_ENGINES, BENCHMARK_SUITES
 from benchmark.suites.suite import IBenchmarkSuite
 from inference.decision_engine import IDecisionEngine
 from inference.options import ChoiceOption
+from inference.profiling_layer import ProfilingLayer
 
 app = typer.Typer(add_completion=False, help="Piqo Sovereign Benchmark CLI")
 
@@ -48,7 +49,7 @@ def resolve_engines(
         if k == "piqo" and checkpoint is not None:
             kwargs["checkpoint"] = checkpoint
         try:
-            engines[k.title()] = cls(**kwargs)
+            engines[k.title()] = cls(**kwargs) | ProfilingLayer()
         except Exception as e:
             print(f"[{k.title()}] Skipping: could not initialize ({e})")
     if not engines:
