@@ -43,7 +43,7 @@ def main(
 
     splits = Dataset().load()
     schedule_policy = CosineSchedule(base_lr=lr, warmup_ratio=warmup_ratio)
-    learner_policy = AdamWLearner(model.parameters(), lr=lr, accum_steps=accum_steps)
+    learner_policy = AdamWLearner(model.parameters(), accum_steps=accum_steps)
     transform_policy = ShuffleCandidates(seed=seed)
     trainer: ITrainer = (
         EpochTrainer(
