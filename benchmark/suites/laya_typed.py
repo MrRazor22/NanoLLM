@@ -19,17 +19,15 @@ class LayaTypedDecisionsSuite(IBenchmarkSuite):
         cases: list[DecisionCase] = []
         for record in self._manifest.load("typed_decisions_test.parquet", EXPECTED_SHA, url=SOURCE_URL):
             state = str(record.get("state", ""))
-            category = str(record.get("category") or record.get("workflow") or "benchmark")
-            split = record.get("split")
 
             questions = json.loads(record["questions"]) if isinstance(record.get("questions"), str) else record["questions"]
-            gold = json.loads(record["gold"]) if isinstance(record.get("gold"), str) else (record.get("gold") or {})
-
             _, spec = next(iter(questions.items()))
             criteria = spec.get("options") or spec.get("criteria") or ("false", "true")
             candidates = tuple(str(key) for key in (criteria.keys() if isinstance(criteria, dict) else criteria))
+
             instruction = str(spec.get("instructions") or spec.get("instruction") or "")
 
+            gold = json.loads(record["gold"]) if isinstance(record.get("gold"), str) else (record.get("gold") or {})
             gold_item = next(iter(gold.values())) if isinstance(gold, dict) and gold else gold
             raw_probs = gold_item.get("probabilities") if isinstance(gold_item, dict) else None
 
@@ -50,13 +48,17 @@ class LayaTypedDecisionsSuite(IBenchmarkSuite):
             if sum(probabilities.values()) == 0.0:
                 raise ValueError(f"Target label not found in candidates {candidates}")
 
+            category = str(record.get("category") or record.get("workflow") or "benchmark")
+            split = record.get("split")
+            meta = CaseMeta(category=category, source="laya_typed_decisions", split=split)
+
             cases.append(
                 DecisionCase(
                     state=state,
                     candidates=candidates,
                     instruction=instruction,
                     probabilities=probabilities,
-                    meta=CaseMeta(category=category, source="laya_typed_decisions", split=split),
+                    meta=meta,
                 )
             )
 
