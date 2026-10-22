@@ -19,10 +19,10 @@ class HellaSwagSource(IDataSource):
 
     def cases(self) -> Sequence[DecisionCase]:
         cases: List[DecisionCase] = []
-        for split_name in ("train", "test"):
-            limit = self.test_limit if split_name == "test" else self.train_limit
+        for split_name, is_test in [("train", False), ("validation", True)]:
+            limit = self.test_limit if is_test else self.train_limit
             rows = self.cache.load("Rowan/hellaswag", split=split_name, limit=limit)
-            is_test = split_name == "test"
+
             for r in rows:
                 ctx_a = str(r.get("ctx_a", "")).strip()
                 ctx_b = str(r.get("ctx_b", "")).strip()

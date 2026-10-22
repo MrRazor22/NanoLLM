@@ -17,8 +17,8 @@ class MultiChoiceSpec:
 STANDARD_MULTICHOICE: Sequence[MultiChoiceSpec] = (
     MultiChoiceSpec("allenai/ai2_arc", "deductive_reasoning", subset="ARC-Challenge"),
     MultiChoiceSpec("allenai/openbookqa", "causal_reasoning", subset="main", question_field="question_stem"),
-    MultiChoiceSpec("tau/commonsense_qa", "commonsense_reasoning"),
-    MultiChoiceSpec("allenai/qasc", "multihop_reasoning"),
+    MultiChoiceSpec("tau/commonsense_qa", "commonsense_reasoning", splits=("train", "validation")),
+    MultiChoiceSpec("allenai/qasc", "multihop_reasoning", splits=("train", "validation")),
 )
 
 class MultiChoiceSource(IDataSource):
@@ -39,8 +39,8 @@ class MultiChoiceSource(IDataSource):
         cases: List[DecisionCase] = []
 
         for split_name in self.spec.splits:
-            limit = self.test_limit if split_name == "test" else self.train_limit
-            is_test = split_name == "test"
+            is_test = split_name in ("test", "validation", "val")
+            limit = self.test_limit if is_test else self.train_limit
             rows = self.cache.load(
                 self.spec.dataset,
                 split=split_name,

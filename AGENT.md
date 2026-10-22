@@ -42,8 +42,8 @@
   ```
 - **Pristine Reset / Clean Slate Workflow:**
   ```powershell
-  # Wipe stale corpus splits, weights, and scores (preserves data/raw/ cache)
-  Get-ChildItem data\corpus, model\weights -File -Recurse | Remove-Item -Force
+  # Full pristine reset (corpus splits, raw downloads cache, weights, and scorecard)
+  Get-ChildItem data\corpus, data\raw, model\weights -File -Recurse -ErrorAction SilentlyContinue | Remove-Item -Force
   if (Test-Path benchmark\scorecard.json) { Remove-Item -Force benchmark\scorecard.json }
   ```
 - **Run Training (Self-Wiring Defaults):**

@@ -2,6 +2,9 @@ import json
 import logging
 from pathlib import Path
 from typing import List, Optional, Protocol, Sequence, runtime_checkable
+import os
+
+os.environ.setdefault("HF_HUB_VERBOSITY", "error")
 from datasets import load_dataset
 
 logger = logging.getLogger(__name__)
