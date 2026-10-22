@@ -2,7 +2,6 @@ import logging
 from pathlib import Path
 from typing import Optional, Protocol, Union, runtime_checkable
 import scipy.special as sp
-import torch
 
 from data.case import DecisionCase
 from inference.options import (
@@ -50,8 +49,7 @@ class DecisionEngine(IDecisionEngine):
             case _:
                 raise ValueError(f"Unsupported option: {type(option)}")
 
-        with torch.no_grad():
-            scores = self.model.score([DecisionCase(state=state, candidates=candidates, instruction=inst)])[0]
+        scores = self.model.score([DecisionCase(state=state, candidates=candidates, instruction=inst)])[0]
         probs = sp.softmax(scores.tolist())
 
         match option:
