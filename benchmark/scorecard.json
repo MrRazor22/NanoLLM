@@ -1,204 +1,158 @@
 {
   "laya_typed_decisions": {
-    "count": 2000,
-    "agent_trace_observability": {
-      "count": 500,
-      "Piqo": 0.362,
-      "Gliner": 0.442,
-      "Laya": 0.388,
-      "Verdict": 0.292
+    "Laya": {
+      "accuracy": 0.365,
+      "latency_p50_ms": 113.53,
+      "brier_score": 0.8085,
+      "category_accuracy": {
+        "agent_trace_observability": 0.388,
+        "customer_service": 0.388,
+        "invoice_processing": 0.366,
+        "security_incidents": 0.318
+      },
+      "count": 2000
     },
-    "OVERALL": {
-      "count": 2000,
-      "Piqo": 0.477,
-      "Gliner": 0.4795,
-      "Laya": 0.365,
-      "Verdict": 0.3505
+    "Piqo": {
+      "accuracy": 0.477,
+      "latency_p50_ms": 38.92,
+      "brier_score": 0.6541,
+      "category_accuracy": {
+        "agent_trace_observability": 0.362,
+        "customer_service": 0.604,
+        "invoice_processing": 0.424,
+        "security_incidents": 0.518
+      },
+      "count": 2000
     },
-    "LATENCY_P50_MS": {
-      "count": "-",
-      "Piqo": 38.92,
-      "Gliner": 298.12,
-      "Laya": 113.53,
-      "Verdict": 133.03
+    "Gliner": {
+      "accuracy": 0.4795,
+      "latency_p50_ms": 298.12,
+      "brier_score": 1.041,
+      "category_accuracy": {
+        "agent_trace_observability": 0.442,
+        "customer_service": 0.596,
+        "invoice_processing": 0.382,
+        "security_incidents": 0.498
+      },
+      "count": 2000
     },
-    "BRIER_SCORE": {
-      "count": "-",
-      "Piqo": 0.6541,
-      "Gliner": 1.041,
-      "Laya": 0.8085,
-      "Verdict": 1.0232
-    },
-    "customer_service": {
-      "count": 500,
-      "Piqo": 0.604,
-      "Gliner": 0.596,
-      "Laya": 0.388,
-      "Verdict": 0.396
-    },
-    "invoice_processing": {
-      "count": 500,
-      "Piqo": 0.424,
-      "Gliner": 0.382,
-      "Laya": 0.366,
-      "Verdict": 0.346
-    },
-    "security_incidents": {
-      "count": 500,
-      "Piqo": 0.518,
-      "Gliner": 0.498,
-      "Laya": 0.318,
-      "Verdict": 0.368
+    "Verdict": {
+      "accuracy": 0.3505,
+      "latency_p50_ms": 133.03,
+      "brier_score": 1.0232,
+      "category_accuracy": {
+        "agent_trace_observability": 0.292,
+        "customer_service": 0.396,
+        "invoice_processing": 0.346,
+        "security_incidents": 0.368
+      },
+      "count": 2000
     }
   },
   "jevbench_231": {
-    "count": 231,
-    "intent": {
-      "count": 24,
-      "Piqo": 0.7083,
-      "Gliner": 0.9583,
-      "Laya": 0.8333,
-      "Verdict": 0.7083
+    "Laya": {
+      "accuracy": 0.5325,
+      "latency_p50_ms": 46.46,
+      "brier_score": 0.5685,
+      "category_accuracy": {
+        "intent": 0.8333,
+        "fact": 1.0,
+        "extraction": 0.8333,
+        "tool_selection": 1.0,
+        "policy": 0.8333,
+        "ordinal": 0.0,
+        "adequacy": 0.6667,
+        "routing": 0.5,
+        "long_policy": 0.1579,
+        "probability": 0.5,
+        "temporal_numeric": 0.2667,
+        "ambiguous": 0.1429,
+        "multi_hop": 0.3333,
+        "tradeoff": 0.8333,
+        "adversarial": 0.3333,
+        "trap": 0.0,
+        "judge_hard": 0.4706,
+        "routing_hard": 0.2
+      },
+      "count": 231
     },
-    "OVERALL": {
-      "count": 231,
-      "Piqo": 0.5065,
-      "Gliner": 0.4935,
-      "Laya": 0.5325,
-      "Verdict": 0.4069
+    "Piqo": {
+      "accuracy": 0.5065,
+      "latency_p50_ms": 34.36,
+      "brier_score": 0.5452,
+      "category_accuracy": {
+        "intent": 0.7083,
+        "fact": 0.6667,
+        "extraction": 0.8333,
+        "tool_selection": 1.0,
+        "policy": 0.6667,
+        "ordinal": 0.0,
+        "adequacy": 0.4167,
+        "routing": 0.75,
+        "long_policy": 0.4737,
+        "probability": 0.4,
+        "temporal_numeric": 0.2667,
+        "ambiguous": 0.2857,
+        "multi_hop": 0.1667,
+        "tradeoff": 0.5,
+        "adversarial": 0.3333,
+        "trap": 0.0,
+        "judge_hard": 0.4118,
+        "routing_hard": 0.8
+      },
+      "count": 231
     },
-    "LATENCY_P50_MS": {
-      "count": "-",
-      "Piqo": 34.36,
-      "Gliner": 51.88,
-      "Laya": 46.46,
-      "Verdict": 35.99
+    "Gliner": {
+      "accuracy": 0.4935,
+      "latency_p50_ms": 51.88,
+      "brier_score": 0.8571,
+      "category_accuracy": {
+        "intent": 0.9583,
+        "fact": 1.0,
+        "extraction": 0.6667,
+        "tool_selection": 1.0,
+        "policy": 0.5,
+        "ordinal": 0.0,
+        "adequacy": 0.5833,
+        "routing": 0.5,
+        "long_policy": 0.1053,
+        "probability": 0.3,
+        "temporal_numeric": 0.2667,
+        "ambiguous": 0.1429,
+        "multi_hop": 0.2222,
+        "tradeoff": 0.1667,
+        "adversarial": 0.6667,
+        "trap": 0.375,
+        "judge_hard": 0.4706,
+        "routing_hard": 0.4
+      },
+      "count": 231
     },
-    "BRIER_SCORE": {
-      "count": "-",
-      "Piqo": 0.5452,
-      "Laya": 0.5685,
-      "Verdict": 0.8351,
-      "Gliner": 0.8571
-    },
-    "fact": {
-      "count": 12,
-      "Piqo": 0.6667,
-      "Gliner": 1.0,
-      "Laya": 1.0,
-      "Verdict": 0.5
-    },
-    "extraction": {
-      "count": 24,
-      "Piqo": 0.8333,
-      "Gliner": 0.6667,
-      "Laya": 0.8333,
-      "Verdict": 0.5417
-    },
-    "tool_selection": {
-      "count": 12,
-      "Piqo": 1.0,
-      "Gliner": 1.0,
-      "Laya": 1.0,
-      "Verdict": 1.0
-    },
-    "policy": {
-      "count": 12,
-      "Piqo": 0.6667,
-      "Gliner": 0.5,
-      "Laya": 0.8333,
-      "Verdict": 0.3333
-    },
-    "ordinal": {
-      "count": 12,
-      "Piqo": 0.0,
-      "Gliner": 0.0,
-      "Laya": 0.0,
-      "Verdict": 0.0
-    },
-    "adequacy": {
-      "count": 12,
-      "Piqo": 0.4167,
-      "Gliner": 0.5833,
-      "Laya": 0.6667,
-      "Verdict": 0.4167
-    },
-    "routing": {
-      "count": 12,
-      "Piqo": 0.75,
-      "Gliner": 0.5,
-      "Laya": 0.5,
-      "Verdict": 0.4167
-    },
-    "long_policy": {
-      "count": 19,
-      "Piqo": 0.4737,
-      "Gliner": 0.1053,
-      "Laya": 0.1579,
-      "Verdict": 0.2632
-    },
-    "probability": {
-      "count": 10,
-      "Piqo": 0.4,
-      "Gliner": 0.3,
-      "Laya": 0.5,
-      "Verdict": 0.3
-    },
-    "temporal_numeric": {
-      "count": 15,
-      "Piqo": 0.2667,
-      "Gliner": 0.2667,
-      "Laya": 0.2667,
-      "Verdict": 0.1333
-    },
-    "ambiguous": {
-      "count": 7,
-      "Piqo": 0.2857,
-      "Gliner": 0.1429,
-      "Laya": 0.1429,
-      "Verdict": 0.4286
-    },
-    "multi_hop": {
-      "count": 18,
-      "Piqo": 0.1667,
-      "Gliner": 0.2222,
-      "Laya": 0.3333,
-      "Verdict": 0.3889
-    },
-    "tradeoff": {
-      "count": 6,
-      "Piqo": 0.5,
-      "Gliner": 0.1667,
-      "Laya": 0.8333,
-      "Verdict": 0.1667
-    },
-    "adversarial": {
-      "count": 6,
-      "Piqo": 0.3333,
-      "Gliner": 0.6667,
-      "Laya": 0.3333,
-      "Verdict": 0.1667
-    },
-    "trap": {
-      "count": 8,
-      "Piqo": 0.0,
-      "Gliner": 0.375,
-      "Laya": 0.0,
-      "Verdict": 0.5
-    },
-    "judge_hard": {
-      "count": 17,
-      "Piqo": 0.4118,
-      "Gliner": 0.4706,
-      "Laya": 0.4706,
-      "Verdict": 0.3529
-    },
-    "routing_hard": {
-      "count": 5,
-      "Piqo": 0.8,
-      "Gliner": 0.4,
-      "Laya": 0.2,
-      "Verdict": 0.0
+    "Verdict": {
+      "accuracy": 0.4069,
+      "latency_p50_ms": 35.99,
+      "brier_score": 0.8351,
+      "category_accuracy": {
+        "intent": 0.7083,
+        "fact": 0.5,
+        "extraction": 0.5417,
+        "tool_selection": 1.0,
+        "policy": 0.3333,
+        "ordinal": 0.0,
+        "adequacy": 0.4167,
+        "routing": 0.4167,
+        "long_policy": 0.2632,
+        "probability": 0.3,
+        "temporal_numeric": 0.1333,
+        "ambiguous": 0.4286,
+        "multi_hop": 0.3889,
+        "tradeoff": 0.1667,
+        "adversarial": 0.1667,
+        "trap": 0.5,
+        "judge_hard": 0.3529,
+        "routing_hard": 0.0
+      },
+      "count": 231
     }
   }
 }

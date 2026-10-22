@@ -9,8 +9,9 @@
   2. **Inference:** [`inference/`](file:///d:/CodeBase/Piqo/inference) — [`IDecisionEngine`](file:///d:/CodeBase/Piqo/inference/decision_engine.py), [`DecisionEngine`](file:///d:/CodeBase/Piqo/inference/decision_engine.py)
   3. **Training:** [`training/`](file:///d:/CodeBase/Piqo/training) — [`ITrainer`](file:///d:/CodeBase/Piqo/training/epoch_trainer.py), [`EpochTrainer`](file:///d:/CodeBase/Piqo/training/epoch_trainer.py), [`ILearner`](file:///d:/CodeBase/Piqo/training/policies/learner.py), [`AdamWLearner`](file:///d:/CodeBase/Piqo/training/policies/learner.py), [`ILoss`](file:///d:/CodeBase/Piqo/training/policies/loss.py), [`CalibratedLoss`](file:///d:/CodeBase/Piqo/training/policies/loss.py), [`ISchedule`](file:///d:/CodeBase/Piqo/training/policies/schedule.py), [`CosineSchedule`](file:///d:/CodeBase/Piqo/training/policies/schedule.py)
   4. **Data:** [`data/`](file:///d:/CodeBase/Piqo/data) — [`IDataset`](file:///d:/CodeBase/Piqo/data/dataset.py), [`Dataset`](file:///d:/CodeBase/Piqo/data/dataset.py)
-  5. **Benchmark:** [`benchmark/`](file:///d:/CodeBase/Piqo/benchmark) — [`IBenchmark`](file:///d:/CodeBase/Piqo/benchmark/benchmark.py), [`Benchmark`](file:///d:/CodeBase/Piqo/benchmark/benchmark.py), [`IScorerPolicy`](file:///d:/CodeBase/Piqo/benchmark/policies/scorer.py), [`IScorecardPolicy`](file:///d:/CodeBase/Piqo/benchmark/policies/scorecard.py), [`IReporterPolicy`](file:///d:/CodeBase/Piqo/benchmark/policies/reporter.py)
+  5. **Benchmark:** [`benchmark/`](file:///d:/CodeBase/Piqo/benchmark) — [`IBenchmark`](file:///d:/CodeBase/Piqo/benchmark/benchmark.py), [`Benchmark`](file:///d:/CodeBase/Piqo/benchmark/benchmark.py), [`IScorerPolicy`](file:///d:/CodeBase/Piqo/benchmark/policies/scorer.py), [`IScorecardPolicy`](file:///d:/CodeBase/Piqo/benchmark/policies/scorecard.py)
 - **Zero Meta-Buckets & Zero Nesting:** Root commands the sovereign domains directly as siblings with 1:1 disk topology.
+- **Zero Reflection Backdoor Invariant:** Never use runtime reflection (`getattr`, `hasattr`, `setattr`, private variable inspection, or monkey-patching) to peek into concrete object internals or bypass interface contracts. Callers must interact strictly through declared contract signatures and pure DTO properties.
 - **Zero Code Comments:** Never write comments in code. Code must be completely self-explanatory through clean architecture and plain domain naming.
 - **Plain Domain Naming:** Variable names must describe what the data actually represents in plain domain English rather than obscure library jargon or framework-specific slang.
 - **Centralized Device Resolution Invariant (`model/device.py`):** All compute device resolution, backend configuration, seed generation, execution synchronization, and VRAM inspection are strictly centralized in `model/device.py` (`resolve_device`, `seed_device`, `synchronize_device`, `resolve_vram_gb`). Never introduce ad-hoc device branching, raw substrate checks (`torch.cuda.is_available()`), or fragmented device handling across callers, models, layouts, or training policies.
@@ -53,7 +54,7 @@
 - **Run Evaluation Benchmarks:**
   ```bash
   python -m benchmark
-  python -m benchmark --play
+  python -m benchmark --report
   ```
 - **Self-Wiring Defaults Invariant:** All command-line interfaces and primitives must resolve sensible operational defaults out of the box without requiring manual flag specifications. Never require callers to pass arguments that the command can deterministically resolve.
 

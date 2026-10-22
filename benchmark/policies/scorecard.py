@@ -1,43 +1,51 @@
-import orjson
+from dataclasses import asdict
+import logging
 from pathlib import Path
-from typing import Mapping, Optional, Protocol, Union
-from benchmark.policies.scorer import BenchmarkReport
+from typing import Optional, Protocol, Sequence, Union
+import orjson
 
-DEFAULT_SCORECARD_FILE = Path(__file__).resolve().parent.parent / "scorecard.json"
+from benchmark.policies.scorer import DecisionMetrics
+from benchmark.result import BenchmarkResult
 
-SuiteEntry = Mapping[str, Union[float, int, str]]
-SuiteScores = Mapping[str, SuiteEntry]
-ScorecardScores = Mapping[str, SuiteScores]
+logger = logging.getLogger(__name__)
+
+DEFAULT_SCORECARD_FILE = Path(__file__).resolve().parents[1] / "scorecard.json"
 
 class IScorecardPolicy(Protocol):
-    def save(self, report: BenchmarkReport) -> None: ...
-    def load(self, suite: Optional[str] = None) -> Mapping[str, dict]: ...
+    def record(self, result: BenchmarkResult) -> None: ...
+    def load(self, suites: Optional[Sequence[str]] = None) -> Sequence[BenchmarkResult]: ...
 
-class DiskScorecardPolicy(IScorecardPolicy):
-    def __init__(self, scorecard_path: Optional[Union[str, Path]] = None):
-        self.scorecard_path = Path(scorecard_path or DEFAULT_SCORECARD_FILE)
+class ScorecardPolicy(IScorecardPolicy):
+    def __init__(self, path: Optional[Union[str, Path]] = None):
+        self.path = Path(path or DEFAULT_SCORECARD_FILE)
 
-    def save(self, report: BenchmarkReport) -> None:
-        data = self.load()
-        suite_data = data.setdefault(report.suite or "default", {})
-        suite_data["count"] = report.count
+    def record(self, result: BenchmarkResult) -> None:
+        data = self._read_json()
+        data.setdefault(result.suite, {})[result.engine] = asdict(result.metrics)
+        self.path.write_bytes(orjson.dumps(data, option=orjson.OPT_INDENT_2))
+        logger.info("Recorded scorecard entry for '%s' [%s]", result.suite, result.engine)
 
-        for cat, acc in report.slices.items():
-            entry = suite_data.setdefault(cat, {})
-            entry["count"], entry[report.model] = report.counts.get(cat, 0), round(acc, 4)
-        overall = suite_data.setdefault("OVERALL", {})
-        overall["count"], overall[report.model] = report.count, round(report.overall, 4)
-        lat = suite_data.setdefault("LATENCY_P50_MS", {})
-        lat["count"], lat[report.model] = "-", round(report.p50_ms, 2)
-        if report.brier_score > 0:
-            brier_entry = suite_data.setdefault("BRIER_SCORE", {})
-            brier_entry["count"], brier_entry[report.model] = "-", round(report.brier_score, 4)
-        if report.regression_mse > 0:
-            reg_entry = suite_data.setdefault("REGRESSION_MSE", {})
-            reg_entry["count"], reg_entry[report.model] = "-", round(report.regression_mse, 4)
+    def load(self, suites: Optional[Sequence[str]] = None) -> Sequence[BenchmarkResult]:
+        data = self._read_json()
+        active_suites = set(suites) if suites else set(data.keys())
+        results: list[BenchmarkResult] = []
 
-        self.scorecard_path.write_bytes(orjson.dumps(data, option=orjson.OPT_INDENT_2))
+        for s_name, entries in data.items():
+            if s_name not in active_suites or not isinstance(entries, dict):
+                continue
+            for eng_name, m in entries.items():
+                if not isinstance(m, dict):
+                    continue
+                metrics = DecisionMetrics(
+                    accuracy=float(m.get("accuracy", 0.0)),
+                    latency_p50_ms=float(m.get("latency_p50_ms", 0.0)),
+                    brier_score=float(m.get("brier_score", 0.0)),
+                    category_accuracy={str(k): float(v) for k, v in m.get("category_accuracy", {}).items()},
+                    category_counts={str(k): int(v) for k, v in m.get("category_counts", {}).items()},
+                    count=int(m.get("count", 0)),
+                )
+                results.append(BenchmarkResult(suite=s_name, engine=eng_name, metrics=metrics))
+        return results
 
-    def load(self, suite: Optional[str] = None) -> Mapping[str, dict]:
-        data = orjson.loads(self.scorecard_path.read_bytes()) if self.scorecard_path.exists() and self.scorecard_path.stat().st_size > 0 else {}
-        return data.get(suite, {}) if suite is not None else data
+    def _read_json(self) -> dict:
+        return orjson.loads(self.path.read_bytes()) if self.path.exists() and self.path.stat().st_size > 0 else {}

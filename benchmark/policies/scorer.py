@@ -1,98 +1,91 @@
-from dataclasses import dataclass, field
+import logging
 import statistics
 import time
+from dataclasses import dataclass
 from typing import Dict, Mapping, Protocol, Sequence, runtime_checkable
 
-from data.case import DecisionCase
+from benchmark.suites.case import BenchmarkCase
 from inference.decision_engine import IDecisionEngine
-from inference.options import ChoiceAnswer, ChoiceOption, IOption
+from inference.options import ChoiceAnswer, NoulAnswer, ScoreAnswer
+
+logger = logging.getLogger(__name__)
 
 @dataclass(frozen=True, slots=True)
-class BenchmarkReport:
-    """Pure domain DTO: verified evaluation report for a decision engine on a benchmark suite."""
-    model: str
-    overall: float
+class DecisionMetrics:
+    accuracy: float
+    latency_p50_ms: float
+    brier_score: float
+    category_accuracy: Mapping[str, float]
+    category_counts: Mapping[str, int]
     count: int
-    p50_ms: float = 0.0
-    brier_score: float = 0.0
-    regression_mse: float = 0.0
-    slices: Mapping[str, float] = field(default_factory=dict)
-    counts: Mapping[str, int] = field(default_factory=dict)
-    suite: str = "default"
-    omissions: int = 0
 
 @runtime_checkable
 class IScorerPolicy(Protocol):
-    """Opinion sub-primitive: scores decisions against ground truth to produce a report."""
     def score(
         self,
         engine: IDecisionEngine,
-        cases: Sequence[DecisionCase],
-        model_name: str = "Piqo",
-        suite: str = "default",
-    ) -> BenchmarkReport: ...
+        cases: Sequence[BenchmarkCase],
+    ) -> DecisionMetrics: ...
 
 class ScorerPolicy(IScorerPolicy):
-    """Concrete evaluation policy: runs live engine inference, tracks metrics, and computes scores."""
-
-    def __init__(self, show_progress: bool = True, log_interval_sec: float = 3.0):
-        self.show_progress = show_progress
-        self.log_interval_sec = log_interval_sec
-
     def score(
         self,
         engine: IDecisionEngine,
-        cases: Sequence[DecisionCase],
-        model_name: str = "Piqo",
-        suite: str = "default",
-    ) -> BenchmarkReport:
+        cases: Sequence[BenchmarkCase],
+    ) -> DecisionMetrics:
         cat_correct: Dict[str, int] = {}
         cat_total: Dict[str, int] = {}
         latencies: list[float] = []
         hits: list[float] = []
         brier_diffs: list[float] = []
-        regression_diffs: list[float] = []
-        omissions = 0
         total_items = len(cases)
-        start_time = time.perf_counter()
-        last_log = start_time
+        engine_name = engine.__class__.__name__
 
         for idx, item in enumerate(cases, 1):
-            cat = item.meta.category or "general"
-            t_call = time.perf_counter()
+            t0 = time.perf_counter()
+            ans = engine.decide(item.state, item.option)
+            latencies.append((time.perf_counter() - t0) * 1000.0)
+            cat_total[item.category] = cat_total.get(item.category, 0) + 1
 
-            if item.candidates:
-                ans = engine.decide(item.state, ChoiceOption(instruction=item.instruction, criteria={c: "" for c in item.candidates}))
-                dt_ms = getattr(engine, "last_latency_ms", 0.0) or (time.perf_counter() - t_call) * 1000.0
-                latencies.append(dt_ms)
-                cat_total[cat] = cat_total.get(cat, 0) + 1
-                pred_choice = ans.choice if isinstance(ans, ChoiceAnswer) else ""
-                gold_choice = item.choice()
-                is_hit = (pred_choice == gold_choice)
-                hits.append(1.0 if is_hit else 0.0)
-                if is_hit:
-                    cat_correct[cat] = cat_correct.get(cat, 0) + 1
-                probs = ans.probabilities if isinstance(ans, ChoiceAnswer) else {}
-                b_val = sum((float(probs.get(c, 0.0)) - float(item.probabilities.get(c, 0.0))) ** 2 for c in item.candidates)
-                brier_diffs.append(b_val)
+            match (ans, item.expected):
+                case (ChoiceAnswer() as a, ChoiceAnswer() as e):
+                    is_hit = (a.choice == e.choice)
+                    hits.append(1.0 if is_hit else 0.0)
+                    if is_hit:
+                        cat_correct[item.category] = cat_correct.get(item.category, 0) + 1
+                    if e.probabilities:
+                        brier_diffs.append(sum((float(a.probabilities.get(c, 0.0)) - float(e.probabilities[c])) ** 2 for c in e.probabilities))
+                case (NoulAnswer() as a, NoulAnswer() as e):
+                    is_hit = (a.decision == e.decision)
+                    hits.append(1.0 if is_hit else 0.0)
+                    if is_hit:
+                        cat_correct[item.category] = cat_correct.get(item.category, 0) + 1
+                    brier_diffs.append((a.noul - e.noul) ** 2)
+                case (ScoreAnswer() as a, ScoreAnswer() as e):
+                    is_hit = (abs(a.score - e.score) < 0.5)
+                    hits.append(1.0 if is_hit else 0.0)
+                    if is_hit:
+                        cat_correct[item.category] = cat_correct.get(item.category, 0) + 1
+                case _:
+                    hits.append(0.0)
 
-            now = time.perf_counter()
-            if self.show_progress and (now - last_log >= self.log_interval_sec or idx == total_items):
-                p50 = float(statistics.median(latencies)) if latencies else 0.0
-                acc = (sum(hits) / max(1, len(hits))) * 100.0
-                speed = idx / max(0.001, now - start_time)
-                print(f"[{model_name}] {idx}/{total_items} ({idx*100.0/total_items:.1f}%) | Acc: {acc:.1f}% | P50: {p50:.1f}ms | {speed:.1f} it/s", flush=True)
-                last_log = now
+            if total_items >= 250 and (idx % 250 == 0 or idx == total_items):
+                p50 = float(statistics.median(latencies))
+                running_acc = (sum(hits) / idx) * 100.0
+                logger.info("[%s] %d/%d (%.0f%%) | Running Acc: %.1f%% | P50: %.1fms", engine_name, idx, total_items, idx * 100 / total_items, running_acc, p50)
 
-        return BenchmarkReport(
-            model=model_name,
-            overall=sum(hits) / max(1, len(hits)),
+        acc = sum(hits) / max(1, len(hits))
+        p50 = float(statistics.median(latencies)) if latencies else 0.0
+        brier = float(sum(brier_diffs) / max(1, len(brier_diffs))) if brier_diffs else 0.0
+        cat_acc = {c: cat_correct.get(c, 0) / cat_total[c] for c in cat_total}
+
+        logger.info("Completed %s: accuracy=%.2f%%, P50=%.2fms, brier=%.4f across %d cases", engine_name, acc * 100, p50, brier, len(hits))
+
+        return DecisionMetrics(
+            accuracy=acc,
+            latency_p50_ms=p50,
+            brier_score=brier,
+            category_accuracy=cat_acc,
+            category_counts=cat_total,
             count=len(hits),
-            p50_ms=float(statistics.median(latencies)) if latencies else 0.0,
-            brier_score=float(sum(brier_diffs) / max(1, len(brier_diffs))) if brier_diffs else 0.0,
-            regression_mse=float(sum(regression_diffs) / max(1, len(regression_diffs))) if regression_diffs else 0.0,
-            slices={c: cat_correct.get(c, 0) / cat_total[c] for c in cat_total},
-            counts=cat_total,
-            suite=suite,
-            omissions=omissions,
         )

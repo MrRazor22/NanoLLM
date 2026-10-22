@@ -1,80 +1,57 @@
-from pathlib import Path
-from typing import Mapping, Optional, Protocol, Sequence, Union
-from benchmark.policies.reporter import ConsoleReporterPolicy, IReporterPolicy
-from benchmark.policies.scorecard import DiskScorecardPolicy, IScorecardPolicy
-from benchmark.policies.scorer import IScorerPolicy, ScorerPolicy
+import logging
+from typing import Mapping, Optional, Protocol, Sequence
+from benchmark.policies.scorecard import IScorecardPolicy, ScorecardPolicy
+from benchmark.policies.scorer import DecisionMetrics, IScorerPolicy, ScorerPolicy
+from benchmark.result import BenchmarkResult
 from benchmark.suites.suite import IBenchmarkSuite
 from inference.decision_engine import IDecisionEngine
+
+logger = logging.getLogger(__name__)
 
 class IBenchmark(Protocol):
     def run(
         self,
         suites: Mapping[str, IBenchmarkSuite],
         engines: Mapping[str, IDecisionEngine],
-        limit: Optional[int] = None,
-        skip_cached: bool = False,
-    ) -> None: ...
-
-    def report(self, suite_names: Optional[Sequence[str]] = None) -> None: ...
+    ) -> Sequence[BenchmarkResult]: ...
 
 class Benchmark(IBenchmark):
     def __init__(
         self,
         scorer: Optional[IScorerPolicy] = None,
         scorecard: Optional[IScorecardPolicy] = None,
-        reporter: Optional[IReporterPolicy] = None,
+        limit: Optional[int] = None,
+        force: bool = False,
     ):
-        self.scorecard = scorecard or DiskScorecardPolicy()
+        self.scorecard = scorecard or ScorecardPolicy()
         self.scorer = scorer or ScorerPolicy()
-        self.reporter = reporter or ConsoleReporterPolicy()
+        self.limit = limit
+        self.force = force
 
     def run(
         self,
         suites: Mapping[str, IBenchmarkSuite],
         engines: Mapping[str, IDecisionEngine],
-        limit: Optional[int] = None,
-        skip_cached: bool = False,
-    ) -> None:
-        active_names: list[str] = []
+    ) -> Sequence[BenchmarkResult]:
+        results: list[BenchmarkResult] = []
+
         for suite_name, suite in suites.items():
-            try:
-                items = list(suite.test_cases())
-            except FileNotFoundError as e:
-                print(f"\n[UNAVAILABLE] Suite '{suite_name.upper()}': {e}")
-                continue
+            items = list(suite.test_cases())
+            if self.limit:
+                items = items[:self.limit]
 
-            active_names.append(suite_name)
-            if limit:
-                items = items[:limit]
+            cached_map = {r.engine: r.metrics for r in self.scorecard.load(suites=[suite_name])}
 
-            print(f"\n{'=' * 65}\nEvaluating Suite: {suite_name.upper()} ({len(items)} items)")
-            print(f"{'=' * 65}")
-
-            suite_data = self.scorecard.load(suite_name)
             for label, engine in engines.items():
-                if skip_cached and suite_data.get("count") == len(items) and any(label in entry for entry in suite_data.values() if isinstance(entry, dict)):
-                    print(f"[{label}] Cached run found for '{suite_name}'. Skipping.")
-                    continue
-                try:
-                    report = self.scorer.score(
-                        engine,
-                        items,
-                        model_name=label,
-                        suite=suite_name,
-                    )
-                    self.scorecard.save(report)
-                except Exception as e:
-                    print(f"Skipping run for '{label}': {e}")
+                if not self.force and label in cached_map and cached_map[label].count == len(items):
+                    logger.info("Using cached scorecard entry for '%s' [%s]", suite_name, label)
+                    metrics = cached_map[label]
+                else:
+                    metrics = self.scorer.score(engine, items)
+                    self.scorecard.record(BenchmarkResult(suite=suite_name, engine=label, metrics=metrics))
 
-            self.reporter.render_suite(self.scorecard.load(suite_name), suite_name)
+                results.append(BenchmarkResult(suite=suite_name, engine=label, metrics=metrics))
 
-        if len(active_names) > 1:
-            self.reporter.render_summary(self.scorecard.load(), suites=active_names)
+            logger.info("Suite '%s' evaluated across %d engines (%d cases)", suite_name, len(engines), len(items))
 
-    def report(self, suite_names: Optional[Sequence[str]] = None) -> None:
-        names = list(dict.fromkeys(suite_names)) if suite_names else list(dict.fromkeys(s for s, d in self.scorecard.load().items() if isinstance(d, dict)))
-        for s_name in names:
-            self.reporter.render_suite(self.scorecard.load(s_name), s_name)
-
-        if len(names) > 1:
-            self.reporter.render_summary(self.scorecard.load(), suites=names)
+        return results

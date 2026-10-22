@@ -1,5 +1,5 @@
 from typing import Protocol, Sequence
-from data.case import DecisionCase
+from benchmark.suites.case import BenchmarkCase
 
 class IBenchmarkSuite(Protocol):
-    def test_cases(self) -> Sequence[DecisionCase]: ...
+    def test_cases(self) -> Sequence[BenchmarkCase]: ...

@@ -32,9 +32,11 @@ from data.sources.classification_source import ClassificationSource
 from data.sources.multichoice_source import MultiChoiceSource
 
 from benchmark.benchmark import IBenchmark, Benchmark
-from benchmark.policies.scorer import BenchmarkReport, IScorerPolicy, ScorerPolicy
-from benchmark.policies.scorecard import IScorecardPolicy, DiskScorecardPolicy
-from benchmark.policies.reporter import IReporterPolicy, ConsoleReporterPolicy
+from benchmark.result import BenchmarkResult
+from benchmark.policies.scorecard import IScorecardPolicy, ScorecardPolicy
+from benchmark.playground import IPlayground, Playground
+from benchmark.suites.case import BenchmarkCase
+from benchmark.policies.scorer import DecisionMetrics, IScorerPolicy, ScorerPolicy
 
 __all__ = [
     # Core Primitives
@@ -43,6 +45,7 @@ __all__ = [
     "ITrainer", "EpochTrainer",
     "IDataset", "Dataset",
     "IBenchmark", "Benchmark",
+    "IPlayground", "Playground",
     # Inference Options & Answers
     "IOption", "ChoiceOption", "NoulOption", "ScoreOption",
     "IAnswer", "ChoiceAnswer", "NoulAnswer", "ScoreAnswer",
@@ -59,12 +62,11 @@ __all__ = [
     "IStratificationPolicy", "RoundRobinStratification",
     "ILeakagePolicy", "JaccardLeakagePolicy",
     "IRawCachePolicy", "HFCache",
-    "IScorecardPolicy", "DiskScorecardPolicy",
+    "IScorecardPolicy", "ScorecardPolicy",
     "IScorerPolicy", "ScorerPolicy",
-    "IReporterPolicy", "ConsoleReporterPolicy",
     # Layers (Lambda: P -> P)
     "ProfilingLayer", "CheckpointingLayer",
     # Inspection & DTOs
-    "WeightInfo", "TrainingStats", "BenchmarkReport",
+    "WeightInfo", "TrainingStats", "DecisionMetrics", "BenchmarkCase", "BenchmarkResult",
     "list_weights", "resolve_device",
 ]

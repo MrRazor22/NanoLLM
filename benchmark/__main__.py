@@ -1,6 +1,5 @@
 import os, warnings
-from pathlib import Path
-from typing import Mapping, Optional, Sequence
+from typing import Optional, Sequence
 import typer
 
 os.environ["HF_HUB_DISABLE_PROGRESS_BARS"] = "1"
@@ -8,125 +7,42 @@ warnings.filterwarnings("ignore", category=FutureWarning)
 warnings.filterwarnings("ignore", category=UserWarning, module="torch")
 
 from benchmark.benchmark import Benchmark
-from benchmark.registry import AVAILABLE_ENGINES, BENCHMARK_SUITES
-from benchmark.suites.suite import IBenchmarkSuite
-from inference.decision_engine import IDecisionEngine
-from inference.options import ChoiceOption
-from inference.profiling_layer import ProfilingLayer
+from benchmark.playground import Playground
+from benchmark.registry import load_engines, load_suites
+from benchmark.result import BenchmarkResult
 
-app = typer.Typer(add_completion=False, help="Piqo Sovereign Benchmark CLI")
+app = typer.Typer(add_completion=False, help="Piqo Benchmark CLI")
 
-def resolve_suites(suite_arg: str) -> Mapping[str, IBenchmarkSuite]:
-    arg = suite_arg.strip().lower()
-    if arg in ("all", "all_suites", "official"):
-        return {key: cls() for key, cls in BENCHMARK_SUITES.items()}
-    queries = [s.strip().lower() for s in suite_arg.split(",") if s.strip()]
-    matched = {key: cls() for key, cls in BENCHMARK_SUITES.items() if any(q in key for q in queries)}
-    if not matched:
-        raise typer.BadParameter(f"No benchmark suites matched '{suite_arg}'. Available: {list(BENCHMARK_SUITES.keys())}")
-    return matched
+def print_results(results: Sequence[BenchmarkResult]) -> None:
+    if not results:
+        print("No benchmark results to display.")
+        return
 
-def resolve_engines(
-    model_arg: str,
-    device: Optional[str] = None,
-    checkpoint: Optional[str] = None,
-) -> Mapping[str, IDecisionEngine]:
-    """Resolves CLI model argument into instantiated IDecisionEngine primitives."""
-    arg = model_arg.strip().lower()
-    if arg == "all":
-        keys = list(AVAILABLE_ENGINES.keys())
-    else:
-        requested = [k.strip() for k in arg.split(",") if k.strip()]
-        invalid = [k for k in requested if k not in AVAILABLE_ENGINES]
-        if invalid:
-            raise typer.BadParameter(f"Unrecognized engine(s): {invalid}. Available: {list(AVAILABLE_ENGINES.keys())}")
-        keys = requested
-    engines: dict[str, IDecisionEngine] = {}
-    for k in keys:
-        try:
-            if k == "piqo":
-                from model.torch_model import TorchModel
-                target_model = TorchModel(device=device)
-                if checkpoint is not None:
-                    target_model.load(checkpoint)
-                engine = DecisionEngine(target_model)
-            else:
-                cls = AVAILABLE_ENGINES[k]
-                engine = cls(device=device)
-            engines[k.title()] = engine | ProfilingLayer()
-        except Exception as e:
-            print(f"[{k.title()}] Skipping: could not initialize ({e})")
-    if not engines:
-        raise typer.BadParameter(f"No engines could be initialized for '{model_arg}'.")
-    return engines
-
-def run_playground(engines: Sequence[tuple[str, IDecisionEngine]]) -> None:
-    names = ", ".join(n for n, _ in engines)
-    print(f"\nPiqo Benchmark Playground [{names}]. Enter query (or 'q' to quit):")
-    while True:
-        try:
-            ctx = input("\nContext (or 'q' to quit): ").strip()
-        except (EOFError, KeyboardInterrupt):
-            break
-        if ctx.lower() in ("q", "quit", "exit") or not ctx:
-            if not ctx: continue
-            break
-        try:
-            raw_choices = input("Choices (comma-separated): ").strip()
-        except (EOFError, KeyboardInterrupt):
-            break
-        opts = [o.strip() for o in raw_choices.split(",") if o.strip()]
-        if not opts:
-            continue
-        opt = ChoiceOption(instruction=ctx, criteria={o: "" for o in opts})
-        print(f"\nState: {ctx}\n" + "-" * 55)
-        for m_name, eng in engines:
-            try:
-                ans = eng.decide(ctx, opt)
-                val = getattr(ans, "choice", "-")
-                conf = getattr(ans, "confidence", 1.0)
-                lat = getattr(eng, "last_latency_ms", 0.0)
-                print(f"[{m_name:<10}] Choice: {val:<20} | Conf: {conf*100:.1f}% | Lat: {lat:.1f}ms")
-            except Exception as e:
-                print(f"[{m_name:<10}] Error: {e}")
-        print("-" * 55)
+    print(f"\n{'Suite':<22} | {'Engine':<12} | {'Accuracy':>8} | {'Latency':>10} | {'Brier':>7} | {'Count':>6}")
+    print("-" * 77)
+    for r in sorted(results, key=lambda x: (x.suite, -x.metrics.accuracy)):
+        print(
+            f"{r.suite:<22} | {r.engine:<12} | {r.metrics.accuracy * 100:>7.1f}% | "
+            f"{r.metrics.latency_p50_ms:>7.1f} ms | {r.metrics.brier_score:>7.4f} | {r.metrics.count:>6}"
+        )
+    print()
 
 @app.command()
 def main(
-    suite: str = typer.Option("all", "--suite", "-s", help="Benchmark suite(s): all, laya, fast, jev (comma-separated)"),
-    model: str = typer.Option("all", "--model", "-m", help="Model(s) to evaluate: all, piqo, gliner, laya, verdict, d1_omni, jevk5_lite (comma-separated)"),
-    report: bool = typer.Option(False, "--report", "-r", help="Show leaderboard report without running models"),
+    suite: str = typer.Option("all", "--suite", "-s", help="Benchmark suite(s) to evaluate"),
+    model: str = typer.Option("all", "--model", "-m", help="Engine(s) to evaluate"),
     limit: Optional[int] = typer.Option(None, help="Item limit per suite"),
-    device: Optional[str] = typer.Option(None, help="Target compute device (cpu, cuda, mps)"),
-    checkpoint: Optional[str] = typer.Option(None, help="Model checkpoint path for Piqo"),
-    skip_cached: bool = typer.Option(False, "--skip-cached", help="Skip models that already have scores in scorecard"),
+    force: bool = typer.Option(False, "--force", "-f", help="Force re-evaluation, ignoring cache"),
     play: bool = typer.Option(False, "--play", "-p", help="Playground mode"),
 ) -> None:
-    bench = Benchmark()
-    active_suites = resolve_suites(suite)
-
-    if report:
-        bench.report(suite_names=list(active_suites.keys()))
-        return
-
-    active_engines = resolve_engines(model, device=device, checkpoint=checkpoint)
-
+    active_engines = load_engines(model)
     if play:
-        live_engines = []
-        for name, eng in active_engines.items():
-            try:
-                profiled = eng | ProfilingLayer()
-                profiled.decide("warmup", ChoiceOption(instruction="warmup", criteria={"warm": ""}))
-                live_engines.append((name, profiled))
-            except Exception as e:
-                print(f"[{name}] Skipping playground: {e}")
-        if not live_engines:
-            print("No active engines available for playground.")
-            return
-        run_playground(live_engines)
+        Playground().start(active_engines)
         return
 
-    bench.run(active_suites, active_engines, limit=limit, skip_cached=skip_cached)
+    active_suites = load_suites(suite)
+    results = Benchmark(limit=limit, force=force).run(active_suites, active_engines)
+    print_results(results)
 
 if __name__ == "__main__":
     app()
