@@ -9,7 +9,7 @@
   2. **Inference:** [`inference/`](file:///d:/CodeBase/Piqo/inference) — [`IDecisionEngine`](file:///d:/CodeBase/Piqo/inference/decision_engine.py), [`DecisionEngine`](file:///d:/CodeBase/Piqo/inference/decision_engine.py)
   3. **Training:** [`training/`](file:///d:/CodeBase/Piqo/training) — [`ITrainer`](file:///d:/CodeBase/Piqo/training/epoch_trainer.py), [`EpochTrainer`](file:///d:/CodeBase/Piqo/training/epoch_trainer.py), [`ILearner`](file:///d:/CodeBase/Piqo/training/policies/learner.py), [`AdamWLearner`](file:///d:/CodeBase/Piqo/training/policies/learner.py), [`ILoss`](file:///d:/CodeBase/Piqo/training/policies/loss.py), [`CalibratedLoss`](file:///d:/CodeBase/Piqo/training/policies/loss.py), [`ISchedule`](file:///d:/CodeBase/Piqo/training/policies/schedule.py), [`CosineSchedule`](file:///d:/CodeBase/Piqo/training/policies/schedule.py)
   4. **Data:** [`data/`](file:///d:/CodeBase/Piqo/data) — [`IDataset`](file:///d:/CodeBase/Piqo/data/dataset.py), [`Dataset`](file:///d:/CodeBase/Piqo/data/dataset.py)
-  5. **Benchmark:** [`benchmark/`](file:///d:/CodeBase/Piqo/benchmark) — [`IBenchmark`](file:///d:/CodeBase/Piqo/benchmark/benchmark.py), [`Benchmark`](file:///d:/CodeBase/Piqo/benchmark/benchmark.py), [`IScorerPolicy`](file:///d:/CodeBase/Piqo/benchmark/policies/scorer.py), [`ILedgerPolicy`](file:///d:/CodeBase/Piqo/benchmark/policies/ledger.py), [`IReporterPolicy`](file:///d:/CodeBase/Piqo/benchmark/policies/reporter.py)
+  5. **Benchmark:** [`benchmark/`](file:///d:/CodeBase/Piqo/benchmark) — [`IBenchmark`](file:///d:/CodeBase/Piqo/benchmark/benchmark.py), [`Benchmark`](file:///d:/CodeBase/Piqo/benchmark/benchmark.py), [`IScorerPolicy`](file:///d:/CodeBase/Piqo/benchmark/policies/scorer.py), [`IScorecardPolicy`](file:///d:/CodeBase/Piqo/benchmark/policies/scorecard.py), [`IReporterPolicy`](file:///d:/CodeBase/Piqo/benchmark/policies/reporter.py)
 - **Zero Meta-Buckets & Zero Nesting:** Root commands the sovereign domains directly as siblings with 1:1 disk topology.
 - **Zero Code Comments:** Never write comments in code. Code must be completely self-explanatory through clean architecture and plain domain naming.
 - **Plain Domain Naming:** Variable names must describe what the data actually represents in plain domain English rather than obscure library jargon or framework-specific slang.
@@ -43,7 +43,7 @@
   ```powershell
   # Wipe stale corpus splits, weights, and scores (preserves data/raw/ cache)
   Get-ChildItem data\corpus, model\weights -File -Recurse | Remove-Item -Force
-  if (Test-Path benchmark\scores.json) { Remove-Item -Force benchmark\scores.json }
+  if (Test-Path benchmark\scorecard.json) { Remove-Item -Force benchmark\scorecard.json }
   ```
 - **Run Training (Self-Wiring Defaults):**
   ```bash

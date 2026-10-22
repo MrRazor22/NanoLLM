@@ -94,7 +94,7 @@ def main(
     limit: Optional[int] = typer.Option(None, help="Item limit per suite"),
     device: Optional[str] = typer.Option(None, help="Target compute device (cpu, cuda, mps)"),
     checkpoint: Optional[str] = typer.Option(None, help="Model checkpoint path for Piqo"),
-    skip_cached: bool = typer.Option(False, "--skip-cached", help="Skip models that already have scores in ledger"),
+    skip_cached: bool = typer.Option(False, "--skip-cached", help="Skip models that already have scores in scorecard"),
     play: bool = typer.Option(False, "--play", "-p", help="Playground mode"),
 ) -> None:
     bench = Benchmark()

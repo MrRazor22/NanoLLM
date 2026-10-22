@@ -4,12 +4,12 @@ from rich.console import Console
 from rich.table import Table
 
 SuiteData = Mapping[str, Mapping[str, Union[float, int, str]]]
-LedgerData = Mapping[str, SuiteData]
+ScorecardData = Mapping[str, SuiteData]
 
 @runtime_checkable
 class IReporterPolicy(Protocol):
     def render_suite(self, data: SuiteData, suite_name: str) -> None: ...
-    def render_summary(self, ledger: LedgerData, suites: Optional[Sequence[str]] = None) -> None: ...
+    def render_summary(self, scorecard: ScorecardData, suites: Optional[Sequence[str]] = None) -> None: ...
 
 def order_models(models: Iterable[str]) -> List[str]:
     return sorted(models, key=lambda m: (m != "Piqo", m))
@@ -54,14 +54,14 @@ class ConsoleReporterPolicy(IReporterPolicy):
 
         self.console.print("\n", table, "\n")
 
-    def render_summary(self, ledger: LedgerData, suites: Optional[Sequence[str]] = None) -> None:
-        if not ledger:
+    def render_summary(self, scorecard: ScorecardData, suites: Optional[Sequence[str]] = None) -> None:
+        if not scorecard:
             return
-        active_suites = [s for s in suites if s in ledger] if suites else [s for s, d in ledger.items() if isinstance(d, dict)]
+        active_suites = [s for s in suites if s in scorecard] if suites else [s for s, d in scorecard.items() if isinstance(d, dict)]
         if not active_suites:
             return
         all_models = {
-            m for s_name in active_suites if isinstance(s_data := ledger.get(s_name), dict)
+            m for s_name in active_suites if isinstance(s_data := scorecard.get(s_name), dict)
             for entry in s_data.values() if isinstance(entry, dict)
             for m in entry if m != "count"
         }
@@ -80,7 +80,7 @@ class ConsoleReporterPolicy(IReporterPolicy):
             table.add_column(m, justify="right", style="bold green" if m == "Piqo" else "white")
 
         for s_name in sorted(active_suites):
-            overall = ledger[s_name].get("OVERALL", {})
+            overall = scorecard[s_name].get("OVERALL", {})
             row = [f"{score*100:.1f}%" if isinstance(score := overall.get(m), (int, float)) else "-" for m in sorted_models]
             table.add_row(s_name, *row)
 

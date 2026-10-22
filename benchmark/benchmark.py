@@ -1,7 +1,7 @@
 from pathlib import Path
 from typing import Mapping, Optional, Protocol, Sequence, Union
-from benchmark.policies.ledger import DiskLedgerPolicy, ILedgerPolicy
 from benchmark.policies.reporter import ConsoleReporterPolicy, IReporterPolicy
+from benchmark.policies.scorecard import DiskScorecardPolicy, IScorecardPolicy
 from benchmark.policies.scorer import IScorerPolicy, ScorerPolicy
 from benchmark.suites.suite import IBenchmarkSuite
 from inference.decision_engine import IDecisionEngine
@@ -21,10 +21,10 @@ class Benchmark(IBenchmark):
     def __init__(
         self,
         scorer: Optional[IScorerPolicy] = None,
-        ledger: Optional[ILedgerPolicy] = None,
+        scorecard: Optional[IScorecardPolicy] = None,
         reporter: Optional[IReporterPolicy] = None,
     ):
-        self.ledger = ledger or DiskLedgerPolicy()
+        self.scorecard = scorecard or DiskScorecardPolicy()
         self.scorer = scorer or ScorerPolicy()
         self.reporter = reporter or ConsoleReporterPolicy()
 
@@ -50,8 +50,9 @@ class Benchmark(IBenchmark):
             print(f"\n{'=' * 65}\nEvaluating Suite: {suite_name.upper()} ({len(items)} items)")
             print(f"{'=' * 65}")
 
+            suite_data = self.scorecard.load(suite_name)
             for label, engine in engines.items():
-                if skip_cached and self.ledger.lookup(label, suite=suite_name, expected_count=len(items)) is not None:
+                if skip_cached and suite_data.get("count") == len(items) and any(label in entry for entry in suite_data.values() if isinstance(entry, dict)):
                     print(f"[{label}] Cached run found for '{suite_name}'. Skipping.")
                     continue
                 try:
@@ -61,19 +62,19 @@ class Benchmark(IBenchmark):
                         model_name=label,
                         suite=suite_name,
                     )
-                    self.ledger.record(report)
+                    self.scorecard.save(report)
                 except Exception as e:
                     print(f"Skipping run for '{label}': {e}")
 
-            self.reporter.render_suite(self.ledger.entries(suite_name), suite_name)
+            self.reporter.render_suite(self.scorecard.load(suite_name), suite_name)
 
         if len(active_names) > 1:
-            self.reporter.render_summary(self.ledger.entries(), suites=active_names)
+            self.reporter.render_summary(self.scorecard.load(), suites=active_names)
 
     def report(self, suite_names: Optional[Sequence[str]] = None) -> None:
-        names = list(dict.fromkeys(suite_names)) if suite_names else list(dict.fromkeys(s for s, d in self.ledger.entries().items() if isinstance(d, dict)))
+        names = list(dict.fromkeys(suite_names)) if suite_names else list(dict.fromkeys(s for s, d in self.scorecard.load().items() if isinstance(d, dict)))
         for s_name in names:
-            self.reporter.render_suite(self.ledger.entries(s_name), s_name)
+            self.reporter.render_suite(self.scorecard.load(s_name), s_name)
 
         if len(names) > 1:
-            self.reporter.render_summary(self.ledger.entries(), suites=names)
+            self.reporter.render_summary(self.scorecard.load(), suites=names)
