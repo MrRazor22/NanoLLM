@@ -12,48 +12,52 @@ class FastDecisionsSuite(IBenchmarkSuite):
         self._cases: Optional[Sequence[DecisionCase]] = None
 
     def test_cases(self) -> Sequence[DecisionCase]:
-        if self._cases is None:
-            raw_records = self._manifest.load("fast_decisions.jsonl", EXPECTED_SHA)
-            self._cases = [self._adapt(record) for record in raw_records]
+        if self._cases is not None:
+            return self._cases
+
+        cases: list[DecisionCase] = []
+        for record in self._manifest.load("fast_decisions.jsonl", EXPECTED_SHA):
+            state = str(record.get("state", ""))
+            category = str(record.get("category") or record.get("workflow") or "benchmark")
+            split = record.get("split")
+
+            questions = json.loads(record["questions"]) if isinstance(record.get("questions"), str) else record["questions"]
+            gold = json.loads(record["gold"]) if isinstance(record.get("gold"), str) else (record.get("gold") or {})
+
+            _, spec = next(iter(questions.items()))
+            criteria = spec.get("options") or spec.get("criteria") or ("false", "true")
+            candidates = tuple(str(key) for key in (criteria.keys() if isinstance(criteria, dict) else criteria))
+            instruction = str(spec.get("instructions") or spec.get("instruction") or "")
+
+            gold_item = next(iter(gold.values())) if isinstance(gold, dict) and gold else gold
+            raw_probs = gold_item.get("probabilities") if isinstance(gold_item, dict) else None
+
+            probabilities: dict[str, float] = {}
+            if raw_probs and isinstance(raw_probs, dict):
+                probabilities = {
+                    candidate: float(raw_probs.get(candidate, raw_probs.get(str(i), 0.0)))
+                    for i, candidate in enumerate(candidates)
+                }
+
+            if sum(probabilities.values()) == 0.0:
+                raw_label = (gold_item.get("label") if isinstance(gold_item, dict) else gold_item) if gold_item else spec.get("label")
+                label = str(raw_label or "").strip()
+                if label.isdigit() and 0 <= int(label) < len(candidates) and label not in candidates:
+                    label = candidates[int(label)]
+                probabilities = {candidate: (1.0 if candidate == label or candidate.lower() == label.lower() else 0.0) for candidate in candidates}
+
+            if sum(probabilities.values()) == 0.0:
+                raise ValueError(f"Target label not found in candidates {candidates}")
+
+            cases.append(
+                DecisionCase(
+                    state=state,
+                    candidates=candidates,
+                    instruction=instruction,
+                    probabilities=probabilities,
+                    meta=CaseMeta(category=category, source="fast_decisions", split=split),
+                )
+            )
+
+        self._cases = cases
         return self._cases
-
-    def _adapt(self, record: dict) -> DecisionCase:
-        state = str(record.get("state", ""))
-        category = str(record.get("category") or record.get("workflow") or "benchmark")
-        split = record.get("split")
-
-        questions = json.loads(record["questions"]) if isinstance(record.get("questions"), str) else record["questions"]
-        gold = json.loads(record["gold"]) if isinstance(record.get("gold"), str) else (record.get("gold") or {})
-
-        _, spec = next(iter(questions.items()))
-        criteria = spec.get("options") or spec.get("criteria") or ("false", "true")
-        candidates = tuple(str(key) for key in (criteria.keys() if isinstance(criteria, dict) else criteria))
-        instruction = str(spec.get("instructions") or spec.get("instruction") or "")
-
-        gold_item = next(iter(gold.values())) if isinstance(gold, dict) and gold else gold
-        raw_probs = gold_item.get("probabilities") if isinstance(gold_item, dict) else None
-
-        probabilities: dict[str, float] = {}
-        if raw_probs and isinstance(raw_probs, dict):
-            probabilities = {
-                candidate: float(raw_probs.get(candidate, raw_probs.get(str(i), 0.0)))
-                for i, candidate in enumerate(candidates)
-            }
-
-        if sum(probabilities.values()) == 0.0:
-            raw_label = (gold_item.get("label") if isinstance(gold_item, dict) else gold_item) if gold_item else spec.get("label")
-            label = str(raw_label or "").strip()
-            if label.isdigit() and 0 <= int(label) < len(candidates) and label not in candidates:
-                label = candidates[int(label)]
-            probabilities = {candidate: (1.0 if candidate == label or candidate.lower() == label.lower() else 0.0) for candidate in candidates}
-
-        if sum(probabilities.values()) == 0.0:
-            raise ValueError(f"Target label not found in candidates {candidates}")
-
-        return DecisionCase(
-            state=state,
-            candidates=candidates,
-            instruction=instruction,
-            probabilities=probabilities,
-            meta=CaseMeta(category=category, source="fast_decisions", split=split),
-        )
