@@ -21,14 +21,15 @@ class LayaTypedDecisionsSuite(IBenchmarkSuite):
             state = str(record.get("state", ""))
 
             questions = json.loads(record["questions"]) if isinstance(record.get("questions"), str) else record["questions"]
-            _, spec = next(iter(questions.items()))
+            q_name, spec = next(iter(questions.items()))
+
             criteria = spec.get("options") or spec.get("criteria") or ("false", "true")
             candidates = tuple(str(key) for key in (criteria.keys() if isinstance(criteria, dict) else criteria))
 
             instruction = str(spec.get("instructions") or spec.get("instruction") or "")
 
             gold = json.loads(record["gold"]) if isinstance(record.get("gold"), str) else (record.get("gold") or {})
-            gold_item = next(iter(gold.values())) if isinstance(gold, dict) and gold else gold
+            gold_item = gold.get(q_name) or {}
             raw_probs = gold_item.get("probabilities") if isinstance(gold_item, dict) else None
 
             probabilities: dict[str, float] = {}
