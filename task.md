@@ -1,33 +1,28 @@
-# System One 1-to-1 Alignment Task Plan
+# Data Balancer & Decision Case Alignment Task Plan
 
-## 1. Documentation & Competitor Assets
-- [x] Download authoritative TypeSafe AI System One specification docs (`docs/spec/systemone/`)
-- [x] Move `d:\CodeBase\systemonemodels` into `Piqo/systemonemodels/`
-- [x] Add `systemonemodels/` to `.gitignore`
-- [x] Add authoritative System One reference note to `AGENT.md`
+## 1. Domain Modeling (`data/case.py`)
+- [x] Align `CaseMeta`: `category`, `source`, `option_type` (`choice`, `noul`, `score`), `split`.
+- [x] Invariant stripping: `DecisionCase` guarantees `state`, `instruction`, `candidates`, and `probabilities` keys are stripped at initialization.
+- [x] Clean serialization: `to_dict` and `from_dict` include `instruction` and `option_type`. Zero backward-compatibility shims.
 
-## 2. Decision Case & Layout (Instruction Support)
-- [x] Update `DecisionCase` in `data/case.py` to support `instruction: str = ""`
-- [x] Update `MaskedLayout` in `model/layout.py` to cleanly encode `instruction` when present
+## 2. Case Balancer Policy (`data/split/policies/balancer.py`)
+- [x] Define `ICaseBalancer` protocol with `balance(cases: Sequence[DecisionCase], quota: int, rng: random.Random) -> Sequence[DecisionCase]`.
+- [x] Implement `RoundRobinCaseBalancer` with 7-dimension compound slot key:
+  1. `meta.category`
+  2. `meta.source`
+  3. `meta.option_type`
+  4. `simhash16(instruction)`
+  5. `len(candidates)`
+  6. `target_index()`
+  7. Per-source choice signature (`c.choice()` if `source_choice_counts[(source, choice)] >= 2` else `""`)
+- [x] Remove obsolete `data/split/policies/stratification.py`.
 
-## 3. Inference Layer (System One 1-to-1 Spec)
-- [x] Update `inference/options.py`:
-  - `ChoiceOption(instruction: str, criteria: Mapping[str, str])`
-  - `NoulOption(instruction: str, criteria: Mapping[str, str] = {"false": "false", "true": "true"})`
-  - `ScoreOption(instruction: str, criteria: Sequence[str])`
-  - `NoulAnswer(noul: float, decision: bool, confidence: float)`
-  - `ChoiceAnswer(choice: str, confidence: float, probabilities: Mapping[str, float])`
-  - `ScoreAnswer(score: float, confidence: float, probabilities: Sequence[float])`
-  - `option_to_candidates(option: IOption) -> Sequence[str]`
-  - `probabilities_to_answer(option: IOption, probs: Sequence[float]) -> IAnswer`
-- [x] Update `inference/decision_engine.py` to pass `state`, `instruction`, and `candidates` to `DecisionCase`
-- [x] Update `inference/profiling_layer.py` for signature consistency
+## 3. Split Pipeline Integration (`data/split/split.py`)
+- [x] Update `BudgetSplitPolicy` to depend on `ICaseBalancer` and default to `RoundRobinCaseBalancer`.
+- [x] Align `piqo.py` root exports.
 
-## 4. Competitor Adapters & Callers
-- [x] Align competitor adapters (`gliner_decide.py`, `jev.py`, `kev.py`, `laya.py`, `verdict.py`)
-- [x] Align CLI (`inference/__main__.py`) and benchmark scorer (`benchmark/policies/scorer.py`)
-- [x] Verify exports in `piqo.py`
+## 4. Documentation & Guidelines (`AGENT.md`)
+- [x] Document data balancing architecture, 7-dimension slot invariants, and `option_type` domain symmetry with inference options.
 
-## 5. Verification & Clean Commit
-- [x] Run fast import/syntax check
-- [x] Commit changes cleanly (`1681879`)
+## 5. Verification
+- [x] Run fast import/syntax check and test runs on dataset samples.

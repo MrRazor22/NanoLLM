@@ -3,8 +3,8 @@ import logging
 import random
 from typing import Optional, Protocol, Sequence, runtime_checkable
 from data.case import DataSplits, DecisionCase
+from data.split.policies.balancer import ICaseBalancer, RoundRobinCaseBalancer
 from data.split.policies.leakage import ILeakagePolicy, JaccardLeakagePolicy
-from data.split.policies.stratification import IStratificationPolicy, RoundRobinStratification
 
 logger = logging.getLogger(__name__)
 
@@ -18,14 +18,14 @@ class BudgetSplitPolicy(ISplitPolicy):
         max_train: int = 1500,
         max_val: int = 150,
         max_test: int = 400,
-        stratifier: Optional[IStratificationPolicy] = None,
+        balancer: Optional[ICaseBalancer] = None,
         leakage: Optional[ILeakagePolicy] = None,
         seed: int = 42,
     ):
         self.max_train = max_train
         self.max_val = max_val
         self.max_test = max_test
-        self.stratifier = stratifier or RoundRobinStratification()
+        self.balancer = balancer or RoundRobinCaseBalancer()
         self.leakage = leakage or JaccardLeakagePolicy()
         self.seed = seed
 
@@ -41,11 +41,11 @@ class BudgetSplitPolicy(ISplitPolicy):
 
         for cat, items in by_cat.items():
             tests = [c for c in items if c.meta.split == "test"]
-            cat_test = list(self.stratifier.balance(tests, self.max_test, rng)) if tests else []
+            cat_test = list(self.balancer.balance(tests, self.max_test, rng)) if tests else []
 
             pool = [c for c in items if c.meta.split != "test"]
-            stratified_pool = self.stratifier.balance(pool, len(pool), rng)
-            clean_pool = self.leakage.decontaminate(stratified_pool, cat_test)
+            balanced_pool = self.balancer.balance(pool, len(pool), rng)
+            clean_pool = self.leakage.decontaminate(balanced_pool, cat_test)
 
             target_quota = self.max_val + self.max_train
             selected = clean_pool[:target_quota]

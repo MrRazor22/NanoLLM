@@ -22,7 +22,7 @@ from data.dataset import IDataset, Dataset
 from data.case import DecisionCase
 from data.storage import IStoragePolicy, DiskStoragePolicy
 from data.split.split import ISplitPolicy, BudgetSplitPolicy
-from data.split.policies.stratification import IStratificationPolicy, RoundRobinStratification
+from data.split.policies.balancer import ICaseBalancer, RoundRobinCaseBalancer
 from data.split.policies.leakage import ILeakagePolicy, JaccardLeakagePolicy
 from data.sources.source import IDataSource, MultiSource
 from data.sources.hf_cache import IRawCachePolicy, HFCache
@@ -59,7 +59,7 @@ __all__ = [
     "ISchedule", "CosineSchedule",
     "IStoragePolicy", "DiskStoragePolicy",
     "ISplitPolicy", "BudgetSplitPolicy",
-    "IStratificationPolicy", "RoundRobinStratification",
+    "ICaseBalancer", "RoundRobinCaseBalancer",
     "ILeakagePolicy", "JaccardLeakagePolicy",
     "IRawCachePolicy", "HFCache",
     "IScorecardPolicy", "ScorecardPolicy",

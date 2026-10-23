@@ -17,7 +17,19 @@
 - **Centralized Device Resolution Invariant (`model/device.py`):** All compute device resolution, backend configuration, seed generation, execution synchronization, and VRAM inspection are strictly centralized in `model/device.py` (`resolve_device`, `seed_device`, `synchronize_device`, `resolve_vram_gb`). Never introduce ad-hoc device branching, raw substrate checks (`torch.cuda.is_available()`), or fragmented device handling across callers, models, layouts, or training policies.
 - **System One Unified Candidate Decision Doctrine:**
   - **Single Universal Model Primitive:** Model boundary evaluates only $\text{Context} \to \text{Candidates} \to \mathbf{p} \in \Delta^{K-1}$. The neural backbone has zero awareness of question types.
-  - **Pure Data Primitive:** `DecisionCase` in `data/case.py` contains strictly `(state, candidates, probabilities, category, source)`. Zero option or answer types exist in the data layer. `case_choice()` and `case_confidence()` are pure derived projections.
+  - **Pure Data Primitive:** `DecisionCase` in `data/case.py` contains strictly `(state, candidates, instruction, probabilities, meta)` where `meta` is `CaseMeta(category, source, option_type, split)`. `option_type` aligns directly with inference options: `"choice"`, `"noul"`, `"score"`. Invariant: `state`, `instruction`, `candidates`, and `probabilities` keys are cleanly stripped at initialization. `case.choice()` and `case.target_index()` are pure derived projections.
+  - **Case Balancer Doctrine (`data/split/policies/balancer.py`):**
+    - **Single Universal Balancer Primitive:** `ICaseBalancer` protocol implemented by `RoundRobinCaseBalancer`.
+    - **7-Dimension Compound Slot Invariant:** Groups cases into balanced round-robin slots via:
+      1. `meta.category` (domain category)
+      2. `meta.source` (dataset origin)
+      3. `meta.option_type` (`choice`, `noul`, `score`)
+      4. `simhash16(instruction)` (16-bit prompt template signature)
+      5. `len(candidates)` (candidate topology)
+      6. `target_index()` (positional ground-truth balance)
+      7. `choice` signature (per-source repetition invariant: retains choice string iff it appears $\ge 2$ times within `(source, choice)`, else `""`).
+    - **Zero Nano-Buckets & Zero Singletons:** Narrative, open-ended sentence choices merge into the baseline structural slot `""`, eliminating 1-item bucket explosion while preserving strict balance for repeated domain labels and tool APIs.
+    - **Fail-Fast Invariant:** Non-empty sequence and positive quota strictly required (`ValueError`).
   - **Fail-Fast Invariant (Zero Silent Fallbacks):** Never write defensive fallback branches, magical `0` defaults, or sneaky swallowing of missing candidates. If a derived choice is not present in `candidates`, throw immediately (`ValueError`). If a state or category is missing, abort. Defensive fallbacks corrupt training data and mask upstream pipeline bugs.
   - **High-Level Ergonomic Layer (System One Specification):**
     - `ChoiceOption(instruction: str, criteria: Mapping[str, str])` $\to$ `ChoiceAnswer(choice: str, confidence: float, probabilities: Mapping[str, float])`.
