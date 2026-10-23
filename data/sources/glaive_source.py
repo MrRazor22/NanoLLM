@@ -30,11 +30,12 @@ class GlaiveSource(IDataSource):
             case = DecisionCase(
                 state=user_query,
                 candidates=cands_tuple,
+                instruction="",
                 probabilities=probs,
                 meta=CaseMeta(
-                                candidate_type='choice',
                     category="function_calling",
                     source="glaive_tools",
+                    candidate_type="choice",
                     split="train",
                 ),
             )

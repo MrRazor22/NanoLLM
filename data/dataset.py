@@ -50,7 +50,10 @@ class Dataset(IDataset):
 
         for cat, cat_train_pool in train_by_category.items():
             cat_test_cases = test_by_category.get(cat, [])
-            active_buckets = set(self.balancer_policy.bucket(c) for c in cat_train_pool)
+            cat_inst_counts = Counter((c.meta.source, c.instruction) for c in cat_train_pool if c.instruction)
+            cat_choice_counts = Counter((c.meta.source, c.choice()) for c in cat_train_pool if c.choice())
+
+            active_buckets = set(self.balancer_policy.bucket(c, cat_inst_counts, cat_choice_counts) for c in cat_train_pool)
             if not active_buckets:
                 continue
 
@@ -72,7 +75,7 @@ class Dataset(IDataset):
                 )
 
                 for c in clean_chunk:
-                    b = self.balancer_policy.bucket(c)
+                    b = self.balancer_policy.bucket(c, cat_inst_counts, cat_choice_counts)
                     if b in pending_buckets:
                         category_buckets[b].append(c)
                         if len(category_buckets[b]) >= target_per_bucket:
