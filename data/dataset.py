@@ -81,9 +81,7 @@ class Dataset(IDataset):
             else:
                 pool_by_category[cat].append(c)
 
-        prepared_train: list[DecisionCase] = []
-        prepared_val: list[DecisionCase] = []
-
+        train_cases: list[DecisionCase] = []
         for cat, cat_pool in pool_by_category.items():
             cat_holdouts = holdouts_by_category.get(cat, [])
             clean_collected: list[DecisionCase] = []
@@ -105,44 +103,11 @@ class Dataset(IDataset):
                 clean_collected.extend(clean_chunk)
 
             final_clean = self.balancer_policy.balance(clean_collected, limit=self.quota_per_category)
-            if not final_clean:
-                continue
+            train_cases.extend(final_clean)
 
-            val_count = max(1, int(len(final_clean) * self.val_ratio)) if len(final_clean) > 1 else 0
-            val_cases = final_clean[:val_count]
-            train_cases = final_clean[val_count:]
-
-            for c in val_cases:
-                prepared_val.append(
-                    DecisionCase(
-                        state=c.state,
-                        candidates=c.candidates,
-                        probabilities=c.probabilities,
-                        instruction=c.instruction,
-                        meta=CaseMeta(
-                            category=c.meta.category,
-                            source=c.meta.source,
-                            candidate_type=c.meta.candidate_type,
-                            split="val",
-                        ),
-                    )
-                )
-
-            for c in train_cases:
-                prepared_train.append(
-                    DecisionCase(
-                        state=c.state,
-                        candidates=c.candidates,
-                        probabilities=c.probabilities,
-                        instruction=c.instruction,
-                        meta=CaseMeta(
-                            category=c.meta.category,
-                            source=c.meta.source,
-                            candidate_type=c.meta.candidate_type,
-                            split="train",
-                        ),
-                    )
-                )
+        val_count = max(1, int(len(train_cases) * self.val_ratio)) if len(train_cases) > 1 else 0
+        prepared_val = [c.with_split("val") for c in train_cases[:val_count]]
+        prepared_train = [c.with_split("train") for c in train_cases[val_count:]]
 
         all_cases = [*holdouts, *prepared_train, *prepared_val]
         self.storage_policy.save(all_cases)

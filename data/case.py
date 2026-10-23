@@ -37,6 +37,22 @@ class DecisionCase:
         c = self.choice()
         return self.candidates.index(c) if c in self.candidates else 0
 
+    def with_split(self, split: str) -> "DecisionCase":
+        if self.meta is None:
+            raise ValueError("Cannot assign split to DecisionCase without CaseMeta.")
+        return DecisionCase(
+            state=self.state,
+            candidates=self.candidates,
+            instruction=self.instruction,
+            probabilities=self.probabilities,
+            meta=CaseMeta(
+                category=self.meta.category,
+                source=self.meta.source,
+                candidate_type=self.meta.candidate_type,
+                split=split,
+            ),
+        )
+
     def to_dict(self) -> dict:
         if self.meta is None:
             raise ValueError("DecisionCase must contain CaseMeta for serialization.")
