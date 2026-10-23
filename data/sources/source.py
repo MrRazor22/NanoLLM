@@ -1,19 +1,43 @@
 import logging
-from typing import List, Protocol, Sequence, runtime_checkable
+from typing import List, Optional, Protocol, Sequence, runtime_checkable
 from data.case import DecisionCase
 
 logger = logging.getLogger(__name__)
 
 @runtime_checkable
 class IDataSource(Protocol):
-    """Sovereign policy contract: yields domain records from external data origins."""
     def cases(self) -> Sequence[DecisionCase]: ...
 
-class MultiSource(IDataSource):
-    """Composite data source combining multiple independent sources."""
+def get_available_sources() -> Sequence[IDataSource]:
+    from data.sources.anli_source import ANLISource
+    from data.sources.art_source import ARTSource
+    from data.sources.copa_source import COPASource
+    from data.sources.typed_decisions_source import TypedDecisionsSource
+    from data.sources.glaive_source import GlaiveSource
+    from data.sources.hellaswag_source import HellaSwagSource
+    from data.sources.classification_source import ClassificationSource, STANDARD_CLASSIFICATIONS
+    from data.sources.medqa_source import MedQASource
+    from data.sources.multichoice_source import MultiChoiceSource, STANDARD_MULTICHOICE
+    from data.sources.sciq_source import SciQSource
+    from data.sources.reclor_source import ReClorSource
 
-    def __init__(self, sources: Sequence[IDataSource]):
-        self.sources = list(sources)
+    return [
+        GlaiveSource(),
+        TypedDecisionsSource(),
+        ANLISource(),
+        HellaSwagSource(),
+        MedQASource(),
+        ARTSource(),
+        COPASource(),
+        SciQSource(),
+        ReClorSource(),
+        *(ClassificationSource(s) for s in STANDARD_CLASSIFICATIONS),
+        *(MultiChoiceSource(s) for s in STANDARD_MULTICHOICE),
+    ]
+
+class MultiSource(IDataSource):
+    def __init__(self, sources: Optional[Sequence[IDataSource]] = None):
+        self.sources = list(sources) if sources is not None else list(get_available_sources())
 
     def cases(self) -> Sequence[DecisionCase]:
         cases: List[DecisionCase] = []
@@ -24,4 +48,4 @@ class MultiSource(IDataSource):
         logger.info("Consolidated %d decision cases across %d sources", len(cases), len(self.sources))
         return cases
 
-__all__ = ["IDataSource", "MultiSource"]
+__all__ = ["IDataSource", "MultiSource", "get_available_sources"]

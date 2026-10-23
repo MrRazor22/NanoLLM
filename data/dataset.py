@@ -15,33 +15,6 @@ class IDataset(Protocol):
     def prepare(self, source: Optional[IDataSource] = None) -> Sequence[DecisionCase]: ...
     def load(self, split: Optional[str] = None) -> Sequence[DecisionCase]: ...
 
-def default_corpus_source() -> IDataSource:
-    from data.sources.anli_source import ANLISource
-    from data.sources.art_source import ARTSource
-    from data.sources.copa_source import COPASource
-    from data.sources.typed_decisions_source import TypedDecisionsSource
-    from data.sources.glaive_source import GlaiveSource
-    from data.sources.hellaswag_source import HellaSwagSource
-    from data.sources.classification_source import ClassificationSource, STANDARD_CLASSIFICATIONS
-    from data.sources.medqa_source import MedQASource
-    from data.sources.multichoice_source import MultiChoiceSource, STANDARD_MULTICHOICE
-    from data.sources.sciq_source import SciQSource
-    from data.sources.reclor_source import ReClorSource
-
-    return MultiSource([
-        GlaiveSource(),
-        TypedDecisionsSource(),
-        ANLISource(),
-        HellaSwagSource(),
-        MedQASource(),
-        ARTSource(),
-        COPASource(),
-        SciQSource(),
-        ReClorSource(),
-        *(ClassificationSource(s) for s in STANDARD_CLASSIFICATIONS),
-        *(MultiChoiceSource(s) for s in STANDARD_MULTICHOICE),
-    ])
-
 class Dataset(IDataset):
     def __init__(
         self,
@@ -53,7 +26,7 @@ class Dataset(IDataset):
         val_ratio: float = 0.10,
         chunk_factor: int = 2,
     ):
-        self.source = source or default_corpus_source()
+        self.source = source or MultiSource()
         self.leakage_policy = leakage_policy or JaccardLeakagePolicy()
         self.balancer_policy = balancer_policy or RoundRobinCaseBalancer()
         self.storage_policy = storage_policy or DiskStoragePolicy()
