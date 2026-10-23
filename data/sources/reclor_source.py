@@ -50,6 +50,7 @@ class ReClorSource(IDataSource):
                         candidates=cands_tuple,
                         probabilities=probs,
                         meta=CaseMeta(
+                                option_type='choice',
                             category="logical_reasoning",
                             split="test" if is_test else "train",
                             source="reclor",

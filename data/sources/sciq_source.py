@@ -46,6 +46,7 @@ class SciQSource(IDataSource):
                         candidates=options,
                         probabilities=probs,
                         meta=CaseMeta(
+                                option_type='choice',
                             category="scientific_reasoning",
                             split="test" if is_test else "train",
                             source="allenai_sciq",

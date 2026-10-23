@@ -61,6 +61,7 @@ class TypedDecisionsSource(IDataSource):
                             instruction=str(instr or ""),
                             probabilities=probs,
                             meta=CaseMeta(
+                                option_type='choice',
                                 category=cat,
                                 source=self.name,
                                 split=split,

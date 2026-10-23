@@ -41,7 +41,8 @@ def main(
     if compile:
         model = torch.compile(model)
 
-    splits = Dataset().load()
+    train_cases = Dataset().load("train")
+    val_cases = Dataset().load("val")
     schedule_policy = CosineSchedule(base_lr=lr, warmup_ratio=warmup_ratio)
     learner_policy = AdamWLearner(model.parameters(), accum_steps=accum_steps)
     transform_policy = ShuffleCandidates(seed=seed)
@@ -58,15 +59,16 @@ def main(
 
     logger.info(
         "Starting training: %s | %d epochs | lr: %.2e | %d train, %d val cases",
-        backbone, epochs, lr, len(splits.train), len(splits.val),
+        backbone, epochs, lr, len(train_cases), len(val_cases),
     )
     t0 = time.perf_counter()
-    stats = list(trainer.train(splits.train, splits.val, epochs=epochs))
+    stats = list(trainer.train(train_cases, val_cases, epochs=epochs))
     total_time = time.perf_counter() - t0
 
     last_val = stats[-1].val_loss if stats and stats[-1].val_loss is not None else 0.0
     logger.info("Training completed in %.1fs | Final Val Loss: %.4f", total_time, last_val)
 
     if eval_test:
-        test_loss = trainer.evaluate(splits.test)
-        logger.info("Test holdout evaluation: %.4f loss across %d cases", test_loss, len(splits.test))
+        test_cases = Dataset().load("test")
+        test_loss = trainer.evaluate(test_cases)
+        logger.info("Test holdout evaluation: %.4f loss across %d cases", test_loss, len(test_cases))

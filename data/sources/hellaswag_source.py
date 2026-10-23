@@ -51,6 +51,7 @@ class HellaSwagSource(IDataSource):
                         candidates=cleaned_endings,
                         probabilities=probs,
                         meta=CaseMeta(
+                                option_type='choice',
                             category="adversarial_grounding",
                             split="test" if is_test else "train",
                             source="rowan_hellaswag",

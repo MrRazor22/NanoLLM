@@ -2,7 +2,7 @@ from dataclasses import replace
 import logging
 import random
 from typing import Optional, Protocol, Sequence, runtime_checkable
-from data.case import DataSplits, DecisionCase
+from data.case import DecisionCase
 from data.split.policies.balancer import ICaseBalancer, RoundRobinCaseBalancer
 from data.split.policies.leakage import ILeakagePolicy, JaccardLeakagePolicy
 
@@ -10,7 +10,7 @@ logger = logging.getLogger(__name__)
 
 @runtime_checkable
 class ISplitPolicy(Protocol):
-    def partition(self, cases: Sequence[DecisionCase]) -> DataSplits: ...
+    def partition(self, cases: Sequence[DecisionCase]) -> Sequence[DecisionCase]: ...
 
 class BudgetSplitPolicy(ISplitPolicy):
     def __init__(
@@ -29,7 +29,7 @@ class BudgetSplitPolicy(ISplitPolicy):
         self.leakage = leakage or JaccardLeakagePolicy()
         self.seed = seed
 
-    def partition(self, cases: Sequence[DecisionCase]) -> DataSplits:
+    def partition(self, cases: Sequence[DecisionCase]) -> Sequence[DecisionCase]:
         rng = random.Random(self.seed)
         by_cat: dict[str, list[DecisionCase]] = {}
         for c in cases:
@@ -45,7 +45,7 @@ class BudgetSplitPolicy(ISplitPolicy):
 
             pool = [c for c in items if c.meta.split != "test"]
             balanced_pool = self.balancer.balance(pool, len(pool), rng)
-            clean_pool = self.leakage.decontaminate(balanced_pool, cat_test)
+            clean_pool = self.leakage.decontaminate(balanced_pool, cat_test) if cat_test else balanced_pool
 
             target_quota = self.max_val + self.max_train
             selected = clean_pool[:target_quota]
@@ -55,6 +55,6 @@ class BudgetSplitPolicy(ISplitPolicy):
             train_all.extend(replace(c, meta=replace(c.meta, split="train")) for c in selected[self.max_val:])
 
         logger.info("Budget partition: %d train, %d val, %d test across %d categories", len(train_all), len(val_all), len(test_all), len(by_cat))
-        return DataSplits(train=train_all, val=val_all, test=test_all)
+        return [*train_all, *val_all, *test_all]
 
 __all__ = ["ISplitPolicy", "BudgetSplitPolicy"]

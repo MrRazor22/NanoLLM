@@ -52,6 +52,7 @@ class COPASource(IDataSource):
                         candidates=options,
                         probabilities=probs,
                         meta=CaseMeta(
+                                option_type='choice',
                             category="causal_reasoning",
                             split="test" if is_test else "train",
                             source="superglue_copa",

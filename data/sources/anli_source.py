@@ -46,6 +46,7 @@ class ANLISource(IDataSource):
                             candidates=NLI_OPTIONS,
                             probabilities=probs,
                             meta=CaseMeta(
+                                option_type='choice',
                                 category="adversarial_reasoning",
                                 split="test" if is_test else "train",
                                 source="facebook_anli",
