@@ -1,5 +1,5 @@
 import json
-from typing import Optional, Sequence
+from typing import Iterator, Optional, Sequence
 
 from data.case import CaseMeta, DecisionCase
 from data.sources.source import IDataSource
@@ -18,13 +18,10 @@ class TypedDecisionsSource(IDataSource):
         self.test_limit = test_limit
         self.cache = cache or HFCache()
 
-    def cases(self) -> Sequence[DecisionCase]:
-        train_rows = self.cache.load("LocalLLaMA/typed-decisions", split="train", subset="all", limit=self.train_limit)
-        test_rows = self.cache.load("LocalLLaMA/typed-decisions", split="test", subset="all", limit=self.test_limit)
-
-        cases: list[DecisionCase] = []
-        for split, rows in (("train", train_rows), ("test", test_rows)):
-            for d in rows:
+    def stream(self) -> Iterator[Sequence[DecisionCase]]:
+        for split_name in ("train", "test"):
+            limit = self.test_limit if split_name == "test" else self.train_limit
+            for d in self.cache.stream("LocalLLaMA/typed-decisions", split=split_name, subset="all", limit=limit):
                 state = str(d.get("state") or "")
                 cat = str(d.get("category") or d.get("workflow") or "decision")
                 qs = json.loads(d["questions"]) if isinstance(d.get("questions"), str) else (d.get("questions") or {})
@@ -54,19 +51,19 @@ class TypedDecisionsSource(IDataSource):
 
                     instr = spec.get("instructions")
                     full_state = f"{state}\n{instr}" if instr and instr not in state else state
-                    cases.append(
+                    yield (
                         DecisionCase(
                             state=full_state,
                             candidates=candidates,
                             instruction=str(instr or ""),
                             probabilities=probs,
                             meta=CaseMeta(
-                                candidate_type='choice',
+                                candidate_type="choice",
                                 category=cat,
                                 source=self.name,
-                                split=split,
+                                split=split_name,
                             ),
-                        )
+                        ),
                     )
 
-        return cases
+__all__ = ["TypedDecisionsSource"]

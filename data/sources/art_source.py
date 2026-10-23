@@ -1,12 +1,10 @@
-from typing import List, Optional, Sequence
+from typing import Iterator, Optional, Sequence
 
 from data.case import CaseMeta, DecisionCase
 from data.sources.source import IDataSource
 from data.sources.hf_cache import HFCache, IRawCachePolicy
 
 class ARTSource(IDataSource):
-    """Abductive Reasoning in Natural Language (aNLI / ART) Source: deduces latent unstated hypotheses."""
-
     def __init__(
         self,
         train_limit: Optional[int] = None,
@@ -17,12 +15,10 @@ class ARTSource(IDataSource):
         self.test_limit = test_limit
         self.cache = cache or HFCache()
 
-    def cases(self) -> Sequence[DecisionCase]:
-        cases: List[DecisionCase] = []
+    def stream(self) -> Iterator[Sequence[DecisionCase]]:
         for split_name, is_test in [("train", False), ("validation", True)]:
             limit = self.test_limit if is_test else self.train_limit
-            rows = self.cache.load("allenai/art", split=split_name, limit=limit)
-            for r in rows:
+            for r in self.cache.stream("allenai/art", split=split_name, limit=limit):
                 obs1 = str(r.get("observation_1", "")).strip()
                 obs2 = str(r.get("observation_2", "")).strip()
                 hyp1 = str(r.get("hypothesis_1", "")).strip()
@@ -46,20 +42,19 @@ class ARTSource(IDataSource):
                 target_str = options[target_idx]
                 probs = {c: (1.0 if c == target_str else 0.0) for c in options}
 
-                cases.append(
+                yield (
                     DecisionCase(
                         state=state,
                         candidates=options,
+                        instruction="",
                         probabilities=probs,
                         meta=CaseMeta(
-                                candidate_type='choice',
+                            candidate_type="choice",
                             category="abductive_reasoning",
                             split="test" if is_test else "train",
                             source="allenai_art",
                         ),
-                    )
+                    ),
                 )
-
-        return cases
 
 __all__ = ["ARTSource"]

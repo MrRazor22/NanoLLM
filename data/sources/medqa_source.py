@@ -1,4 +1,4 @@
-from typing import List, Optional, Sequence
+from typing import Iterator, Optional, Sequence
 
 from data.case import CaseMeta, DecisionCase
 from data.sources.source import IDataSource
@@ -17,13 +17,11 @@ class MedQASource(IDataSource):
         self.test_limit = test_limit
         self.cache = cache or HFCache()
 
-    def cases(self) -> Sequence[DecisionCase]:
-        cases: List[DecisionCase] = []
+    def stream(self) -> Iterator[Sequence[DecisionCase]]:
         for split_name in ("train", "test"):
             limit = self.test_limit if split_name == "test" else self.train_limit
-            rows = self.cache.load("GBaker/MedQA-USMLE-4-options", split=split_name, limit=limit)
             is_test = split_name == "test"
-            for r in rows:
+            for r in self.cache.stream("GBaker/MedQA-USMLE-4-options", split=split_name, limit=limit):
                 state = str(r.get("question", "")).strip()
                 opts_dict = r.get("options", {})
                 answer_str = str(r.get("answer", "")).strip()
@@ -37,20 +35,19 @@ class MedQASource(IDataSource):
 
                 probs = {c: (1.0 if c == answer_str else 0.0) for c in options_tuple}
 
-                cases.append(
+                yield (
                     DecisionCase(
                         state=state,
                         candidates=options_tuple,
+                        instruction="",
                         probabilities=probs,
                         meta=CaseMeta(
-                                candidate_type='choice',
+                            candidate_type="choice",
                             category="differential_elimination",
                             split="test" if is_test else "train",
                             source="gbaker_medqa",
                         ),
-                    )
+                    ),
                 )
-
-        return cases
 
 __all__ = ["MedQASource"]

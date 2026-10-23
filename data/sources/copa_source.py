@@ -1,4 +1,4 @@
-from typing import List, Optional, Sequence
+from typing import Iterator, Optional, Sequence
 
 from data.case import CaseMeta, DecisionCase
 from data.sources.source import IDataSource
@@ -17,13 +17,10 @@ class COPASource(IDataSource):
         self.test_limit = test_limit
         self.cache = cache or HFCache()
 
-    def cases(self) -> Sequence[DecisionCase]:
-        cases: List[DecisionCase] = []
+    def stream(self) -> Iterator[Sequence[DecisionCase]]:
         for split_name, is_test in [("train", False), ("validation", True)]:
             limit = self.test_limit if is_test else self.train_limit
-            rows = self.cache.load("aps/super_glue", split=split_name, subset="copa", limit=limit)
-
-            for r in rows:
+            for r in self.cache.stream("aps/super_glue", split=split_name, subset="copa", limit=limit):
                 premise = str(r.get("premise", "")).strip()
                 choice1 = str(r.get("choice1", "")).strip()
                 choice2 = str(r.get("choice2", "")).strip()
@@ -46,20 +43,19 @@ class COPASource(IDataSource):
                 probs = {c: (1.0 if c == target_str else 0.0) for c in options}
                 state = f"{premise}\nWhat was the {question}?" if question else premise
 
-                cases.append(
+                yield (
                     DecisionCase(
                         state=state,
                         candidates=options,
+                        instruction="",
                         probabilities=probs,
                         meta=CaseMeta(
-                                candidate_type='choice',
+                            candidate_type="choice",
                             category="causal_reasoning",
                             split="test" if is_test else "train",
                             source="superglue_copa",
                         ),
-                    )
+                    ),
                 )
-
-        return cases
 
 __all__ = ["COPASource"]

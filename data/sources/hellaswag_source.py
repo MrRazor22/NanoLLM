@@ -1,4 +1,4 @@
-from typing import List, Optional, Sequence
+from typing import Iterator, Optional, Sequence
 
 from data.case import CaseMeta, DecisionCase
 from data.sources.source import IDataSource
@@ -17,13 +17,10 @@ class HellaSwagSource(IDataSource):
         self.test_limit = test_limit
         self.cache = cache or HFCache()
 
-    def cases(self) -> Sequence[DecisionCase]:
-        cases: List[DecisionCase] = []
+    def stream(self) -> Iterator[Sequence[DecisionCase]]:
         for split_name, is_test in [("train", False), ("validation", True)]:
             limit = self.test_limit if is_test else self.train_limit
-            rows = self.cache.load("Rowan/hellaswag", split=split_name, limit=limit)
-
-            for r in rows:
+            for r in self.cache.stream("Rowan/hellaswag", split=split_name, limit=limit):
                 ctx_a = str(r.get("ctx_a", "")).strip()
                 ctx_b = str(r.get("ctx_b", "")).strip()
                 state = f"{ctx_a} {ctx_b}".strip() if ctx_b else ctx_a
@@ -45,20 +42,19 @@ class HellaSwagSource(IDataSource):
                 target_str = cleaned_endings[target_idx]
                 probs = {c: (1.0 if c == target_str else 0.0) for c in cleaned_endings}
 
-                cases.append(
+                yield (
                     DecisionCase(
                         state=state,
                         candidates=cleaned_endings,
+                        instruction="",
                         probabilities=probs,
                         meta=CaseMeta(
-                                candidate_type='choice',
+                            candidate_type="choice",
                             category="adversarial_grounding",
                             split="test" if is_test else "train",
                             source="rowan_hellaswag",
                         ),
-                    )
+                    ),
                 )
-
-        return cases
 
 __all__ = ["HellaSwagSource"]

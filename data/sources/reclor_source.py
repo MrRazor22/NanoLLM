@@ -1,4 +1,4 @@
-from typing import List, Optional, Sequence
+from typing import Iterator, Optional, Sequence
 
 from data.case import CaseMeta, DecisionCase
 from data.sources.source import IDataSource
@@ -17,12 +17,10 @@ class ReClorSource(IDataSource):
         self.test_limit = test_limit
         self.cache = cache or HFCache()
 
-    def cases(self) -> Sequence[DecisionCase]:
-        cases: List[DecisionCase] = []
+    def stream(self) -> Iterator[Sequence[DecisionCase]]:
         for split_name, is_test in [("train", False), ("validation", True)]:
             limit = self.test_limit if is_test else self.train_limit
-            rows = self.cache.load("metaeval/reclor", split=split_name, limit=limit)
-            for r in rows:
+            for r in self.cache.stream("metaeval/reclor", split=split_name, limit=limit):
                 context = str(r.get("context", "")).strip()
                 question = str(r.get("question", "")).strip()
                 answers = [str(a).strip() for a in r.get("answers", [])]
@@ -44,20 +42,19 @@ class ReClorSource(IDataSource):
                 tgt_str = cands_tuple[idx]
                 probs = {c: (1.0 if c == tgt_str else 0.0) for c in cands_tuple}
 
-                cases.append(
+                yield (
                     DecisionCase(
                         state=state,
                         candidates=cands_tuple,
+                        instruction="",
                         probabilities=probs,
                         meta=CaseMeta(
-                                candidate_type='choice',
+                            candidate_type="choice",
                             category="logical_reasoning",
                             split="test" if is_test else "train",
                             source="reclor",
                         ),
-                    )
+                    ),
                 )
-
-        return cases
 
 __all__ = ["ReClorSource"]

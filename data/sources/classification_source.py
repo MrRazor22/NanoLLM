@@ -1,5 +1,5 @@
 from dataclasses import dataclass
-from typing import List, Optional, Sequence
+from typing import Iterator, Optional, Sequence
 
 from data.case import CaseMeta, DecisionCase
 from data.sources.source import IDataSource
@@ -39,33 +39,24 @@ class ClassificationSource(IDataSource):
         self.test_limit = test_limit
         self.cache = cache or HFCache()
 
-    def cases(self) -> Sequence[DecisionCase]:
+    def stream(self) -> Iterator[Sequence[DecisionCase]]:
         source_tag = f"{self.spec.dataset.replace('/', '_')}_{self.spec.subset}" if self.spec.subset else self.spec.dataset.replace("/", "_")
-        split_rows = {
-            s: self.cache.load(
-                self.spec.dataset,
-                split=s,
-                subset=self.spec.subset,
-                limit=(self.test_limit if s == "test" else self.train_limit),
-            )
-            for s in self.spec.splits
-        }
 
         if self.spec.label_names:
-            all_options = list(self.spec.label_names)
+            all_options = tuple(self.spec.label_names)
         else:
-            all_rows = [r for rows in split_rows.values() for r in rows]
-            labels = {
-                str(r[self.spec.label_field]).replace("_", " ").strip()
-                for r in all_rows
-                if self.spec.label_field in r and r[self.spec.label_field] is not None
-            }
-            all_options = sorted(list(labels))
+            labels: set[str] = set()
+            for s in self.spec.splits:
+                limit = self.test_limit if s == "test" else self.train_limit
+                for r in self.cache.stream(self.spec.dataset, split=s, subset=self.spec.subset, limit=limit):
+                    if self.spec.label_field in r and r[self.spec.label_field] is not None:
+                        labels.add(str(r[self.spec.label_field]).replace("_", " ").strip())
+            all_options = tuple(sorted(labels))
 
-        cases: List[DecisionCase] = []
-        for split_name, rows in split_rows.items():
+        for split_name in self.spec.splits:
+            limit = self.test_limit if split_name == "test" else self.train_limit
             is_test = split_name == "test"
-            for r in rows:
+            for r in self.cache.stream(self.spec.dataset, split=split_name, subset=self.spec.subset, limit=limit):
                 text = str(r.get(self.spec.text_field, "")).strip()
                 if not text or self.spec.label_field not in r or r[self.spec.label_field] is None:
                     continue
@@ -77,24 +68,22 @@ class ClassificationSource(IDataSource):
 
                 options = all_options
                 if label_str not in options:
-                    options = sorted(list(set(options + [label_str])))
+                    options = tuple(sorted(set(options + (label_str,))))
 
-                cands_tuple = tuple(options)
-                probs = {c: (1.0 if c == label_str else 0.0) for c in cands_tuple}
-
-                case = DecisionCase(
-                    state=text,
-                    candidates=cands_tuple,
-                    probabilities=probs,
-                    meta=CaseMeta(
-                                candidate_type='choice',
-                        category=self.spec.category,
-                        source=source_tag,
-                        split="test" if is_test else "train",
+                probs = {c: (1.0 if c == label_str else 0.0) for c in options}
+                yield (
+                    DecisionCase(
+                        state=text,
+                        candidates=options,
+                        instruction="",
+                        probabilities=probs,
+                        meta=CaseMeta(
+                            candidate_type="choice",
+                            category=self.spec.category,
+                            source=source_tag,
+                            split="test" if is_test else "train",
+                        ),
                     ),
                 )
-                cases.append(case)
-
-        return cases
 
 __all__ = ["TextClassificationSpec", "ClassificationSource"]

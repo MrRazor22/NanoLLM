@@ -1,15 +1,20 @@
 import logging
-from typing import List, Optional, Protocol, Sequence, runtime_checkable
+from typing import Iterator, Optional, Protocol, Sequence, runtime_checkable
 from data.case import DecisionCase
 
 logger = logging.getLogger(__name__)
 
 @runtime_checkable
 class IDataSource(Protocol):
-    def cases(self) -> Sequence[DecisionCase]: ...
+    def stream(self) -> Iterator[Sequence[DecisionCase]]: ...
 
 class MultiSource(IDataSource):
-    def __init__(self, sources: Optional[Sequence[IDataSource]] = None):
+    def __init__(
+        self,
+        sources: Optional[Sequence[IDataSource]] = None,
+        chunk_size: int = 3000,
+    ):
+        self.chunk_size = chunk_size
         if sources is not None:
             self.sources = list(sources)
         else:
@@ -39,13 +44,15 @@ class MultiSource(IDataSource):
                 *(MultiChoiceSource(s) for s in STANDARD_MULTICHOICE),
             ]
 
-    def cases(self) -> Sequence[DecisionCase]:
-        cases: List[DecisionCase] = []
+    def stream(self) -> Iterator[Sequence[DecisionCase]]:
+        buffer: list[DecisionCase] = []
         for src in self.sources:
-            src_cases = src.cases()
-            logger.info("Ingested %s: %d cases", type(src).__name__, len(src_cases))
-            cases.extend(src_cases)
-        logger.info("Consolidated %d decision cases across %d sources", len(cases), len(self.sources))
-        return cases
+            for chunk in src.stream():
+                buffer.extend(chunk)
+                while len(buffer) >= self.chunk_size:
+                    yield tuple(buffer[:self.chunk_size])
+                    buffer = buffer[self.chunk_size:]
+        if buffer:
+            yield tuple(buffer)
 
 __all__ = ["IDataSource", "MultiSource"]

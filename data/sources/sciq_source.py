@@ -1,4 +1,4 @@
-from typing import List, Optional, Sequence
+from typing import Iterator, Optional, Sequence
 
 from data.case import CaseMeta, DecisionCase
 from data.sources.source import IDataSource
@@ -17,13 +17,11 @@ class SciQSource(IDataSource):
         self.test_limit = test_limit
         self.cache = cache or HFCache()
 
-    def cases(self) -> Sequence[DecisionCase]:
-        cases: List[DecisionCase] = []
+    def stream(self) -> Iterator[Sequence[DecisionCase]]:
         for split_name in ("train", "test"):
             limit = self.test_limit if split_name == "test" else self.train_limit
-            rows = self.cache.load("allenai/sciq", split=split_name, limit=limit)
             is_test = split_name == "test"
-            for r in rows:
+            for r in self.cache.stream("allenai/sciq", split=split_name, limit=limit):
                 question = str(r.get("question", "")).strip()
                 correct = str(r.get("correct_answer", "")).strip()
                 d1 = str(r.get("distractor1", "")).strip()
@@ -40,20 +38,19 @@ class SciQSource(IDataSource):
                 options = tuple(sorted(opts))
                 probs = {c: (1.0 if c == correct else 0.0) for c in options}
 
-                cases.append(
+                yield (
                     DecisionCase(
                         state=question,
                         candidates=options,
+                        instruction="",
                         probabilities=probs,
                         meta=CaseMeta(
-                                candidate_type='choice',
+                            candidate_type="choice",
                             category="scientific_reasoning",
                             split="test" if is_test else "train",
                             source="allenai_sciq",
                         ),
-                    )
+                    ),
                 )
-
-        return cases
 
 __all__ = ["SciQSource"]

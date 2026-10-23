@@ -1,5 +1,5 @@
 from dataclasses import dataclass
-from typing import List, Optional, Sequence
+from typing import Iterator, Optional, Sequence
 from data.case import CaseMeta, DecisionCase
 from data.sources.source import IDataSource
 from data.sources.hf_cache import HFCache, IRawCachePolicy
@@ -34,21 +34,13 @@ class MultiChoiceSource(IDataSource):
         self.test_limit = test_limit
         self.cache = cache or HFCache()
 
-    def cases(self) -> Sequence[DecisionCase]:
+    def stream(self) -> Iterator[Sequence[DecisionCase]]:
         source_tag = f"{self.spec.dataset.replace('/', '_')}_{self.spec.subset}" if self.spec.subset else self.spec.dataset.replace("/", "_")
-        cases: List[DecisionCase] = []
 
         for split_name in self.spec.splits:
             is_test = split_name in ("test", "validation", "val")
             limit = self.test_limit if is_test else self.train_limit
-            rows = self.cache.load(
-                self.spec.dataset,
-                split=split_name,
-                subset=self.spec.subset,
-                limit=limit,
-            )
-
-            for r in rows:
+            for r in self.cache.stream(self.spec.dataset, split=split_name, subset=self.spec.subset, limit=limit):
                 state = str(r.get(self.spec.question_field, "")).strip()
                 choices_raw = r.get(self.spec.choices_field, {})
                 ans_key = str(r.get(self.spec.answer_field, "")).strip()
@@ -72,22 +64,23 @@ class MultiChoiceSource(IDataSource):
                 if target_idx is None or target_idx >= len(texts):
                     continue
 
-                tgt_str = texts[target_idx]
                 cands_tuple = tuple(texts)
+                tgt_str = cands_tuple[target_idx]
                 probs = {c: (1.0 if c == tgt_str else 0.0) for c in cands_tuple}
-                case = DecisionCase(
-                    state=state,
-                    candidates=cands_tuple,
-                    probabilities=probs,
-                    meta=CaseMeta(
-                                candidate_type='choice',
-                        category=self.spec.category,
-                        split="test" if is_test else "train",
-                        source=source_tag,
+
+                yield (
+                    DecisionCase(
+                        state=state,
+                        candidates=cands_tuple,
+                        instruction="",
+                        probabilities=probs,
+                        meta=CaseMeta(
+                            candidate_type="choice",
+                            category=self.spec.category,
+                            source=source_tag,
+                            split="test" if is_test else "train",
+                        ),
                     ),
                 )
-                cases.append(case)
-
-        return cases
 
 __all__ = ["MultiChoiceSpec", "MultiChoiceSource"]

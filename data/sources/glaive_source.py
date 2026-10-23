@@ -1,5 +1,5 @@
 import re
-from typing import List, Optional, Sequence
+from typing import Iterator, Optional, Sequence
 from data.case import CaseMeta, DecisionCase
 from data.sources.source import IDataSource
 from data.sources.hf_cache import HFCache, IRawCachePolicy
@@ -9,11 +9,8 @@ class GlaiveSource(IDataSource):
         self.train_limit = train_limit
         self.cache = cache or HFCache()
 
-    def cases(self) -> Sequence[DecisionCase]:
-        rows = self.cache.load("glaiveai/glaive-function-calling-v2", split="train", limit=self.train_limit)
-
-        cases: List[DecisionCase] = []
-        for row in rows:
+    def stream(self) -> Iterator[Sequence[DecisionCase]]:
+        for row in self.cache.stream("glaiveai/glaive-function-calling-v2", split="train", limit=self.train_limit):
             system, chat = row.get("system", ""), row.get("chat", "")
             fn_match = re.search(r'<functioncall>\s*\{\s*"name":\s*"([^"]+)"', chat)
             user_match = re.search(r'USER:\s*(.*?)(?=\n\s*(?:ASSISTANT:|<\|endoftext\|>|$))', chat, re.DOTALL)
@@ -27,17 +24,19 @@ class GlaiveSource(IDataSource):
             cands_tuple = tuple(tools.keys())
             probs = {c: (1.0 if c == fn_name else 0.0) for c in cands_tuple}
 
-            case = DecisionCase(
-                state=user_query,
-                candidates=cands_tuple,
-                instruction="",
-                probabilities=probs,
-                meta=CaseMeta(
-                    category="function_calling",
-                    source="glaive_tools",
-                    candidate_type="choice",
-                    split="train",
+            yield (
+                DecisionCase(
+                    state=user_query,
+                    candidates=cands_tuple,
+                    instruction="",
+                    probabilities=probs,
+                    meta=CaseMeta(
+                        category="function_calling",
+                        source="glaive_tools",
+                        candidate_type="choice",
+                        split="train",
+                    ),
                 ),
             )
-            cases.append(case)
-        return cases
+
+__all__ = ["GlaiveSource"]
