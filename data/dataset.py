@@ -1,10 +1,10 @@
+from collections import defaultdict
 import logging
 from typing import Optional, Protocol, Sequence, runtime_checkable
 
-from data.case import DecisionCase
+from data.case import CaseMeta, DecisionCase
 from data.policies.balancer import ICaseBalancer, RoundRobinCaseBalancer
 from data.policies.leakage import ILeakagePolicy, JaccardLeakagePolicy
-from data.policies.split import ISplitPolicy, RatioSplitPolicy
 from data.sources.source import IDataSource, MultiSource
 from data.storage import DiskStoragePolicy, IStoragePolicy
 
@@ -46,20 +46,20 @@ class Dataset(IDataset):
     def __init__(
         self,
         source: Optional[IDataSource] = None,
-        split_policy: Optional[ISplitPolicy] = None,
         leakage_policy: Optional[ILeakagePolicy] = None,
         balancer_policy: Optional[ICaseBalancer] = None,
         storage_policy: Optional[IStoragePolicy] = None,
-        train_limit: Optional[int] = 1500,
-        val_limit: Optional[int] = 150,
+        quota_per_category: int = 1500,
+        val_ratio: float = 0.10,
+        chunk_factor: int = 2,
     ):
         self.source = source or default_corpus_source()
-        self.split_policy = split_policy or RatioSplitPolicy()
         self.leakage_policy = leakage_policy or JaccardLeakagePolicy()
         self.balancer_policy = balancer_policy or RoundRobinCaseBalancer()
         self.storage_policy = storage_policy or DiskStoragePolicy()
-        self.train_limit = train_limit
-        self.val_limit = val_limit
+        self.quota_per_category = quota_per_category
+        self.val_ratio = val_ratio
+        self.chunk_factor = chunk_factor
 
     def prepare(self, source: Optional[IDataSource] = None) -> Sequence[DecisionCase]:
         src = source or self.source
@@ -67,26 +67,89 @@ class Dataset(IDataset):
         if not cases:
             raise ValueError("No decision cases available for dataset preparation.")
 
-        holdouts = [c for c in cases if c.meta and c.meta.split == "test"]
-        pool = [c for c in cases if not (c.meta and c.meta.split == "test")]
-        clean_pool = self.leakage_policy.decontaminate(pool, holdouts) if holdouts else pool
+        holdouts: list[DecisionCase] = []
+        pool_by_category: dict[str, list[DecisionCase]] = defaultdict(list)
+        holdouts_by_category: dict[str, list[DecisionCase]] = defaultdict(list)
 
-        partitioned = self.split_policy.partition(clean_pool)
-        train_pool = [c for c in partitioned if c.meta and c.meta.split == "train"]
-        val_pool = [c for c in partitioned if c.meta and c.meta.split == "val"]
+        for c in cases:
+            if not c.meta:
+                continue
+            cat = c.meta.category
+            if c.meta.split == "test":
+                holdouts.append(c)
+                holdouts_by_category[cat].append(c)
+            else:
+                pool_by_category[cat].append(c)
 
-        train = self.balancer_policy.balance(train_pool, limit=self.train_limit)
-        val = self.balancer_policy.balance(val_pool, limit=self.val_limit)
+        prepared_train: list[DecisionCase] = []
+        prepared_val: list[DecisionCase] = []
 
-        all_cases = [*holdouts, *train, *val]
+        for cat, cat_pool in pool_by_category.items():
+            cat_holdouts = holdouts_by_category.get(cat, [])
+            clean_collected: list[DecisionCase] = []
+            cursor = 0
+            pool_len = len(cat_pool)
+
+            while len(clean_collected) < self.quota_per_category and cursor < pool_len:
+                needed = self.quota_per_category - len(clean_collected)
+                chunk_size = needed * self.chunk_factor
+                raw_chunk = cat_pool[cursor : cursor + chunk_size]
+                cursor += chunk_size
+
+                balanced_chunk = self.balancer_policy.balance(raw_chunk)
+                clean_chunk = (
+                    self.leakage_policy.decontaminate(balanced_chunk, cat_holdouts)
+                    if cat_holdouts
+                    else balanced_chunk
+                )
+                clean_collected.extend(clean_chunk)
+
+            final_clean = self.balancer_policy.balance(clean_collected, limit=self.quota_per_category)
+            if not final_clean:
+                continue
+
+            val_count = max(1, int(len(final_clean) * self.val_ratio)) if len(final_clean) > 1 else 0
+            val_cases = final_clean[:val_count]
+            train_cases = final_clean[val_count:]
+
+            for c in val_cases:
+                prepared_val.append(
+                    DecisionCase(
+                        state=c.state,
+                        candidates=c.candidates,
+                        probabilities=c.probabilities,
+                        instruction=c.instruction,
+                        meta=CaseMeta(
+                            category=c.meta.category,
+                            source=c.meta.source,
+                            candidate_type=c.meta.candidate_type,
+                            split="val",
+                        ),
+                    )
+                )
+
+            for c in train_cases:
+                prepared_train.append(
+                    DecisionCase(
+                        state=c.state,
+                        candidates=c.candidates,
+                        probabilities=c.probabilities,
+                        instruction=c.instruction,
+                        meta=CaseMeta(
+                            category=c.meta.category,
+                            source=c.meta.source,
+                            candidate_type=c.meta.candidate_type,
+                            split="train",
+                        ),
+                    )
+                )
+
+        all_cases = [*holdouts, *prepared_train, *prepared_val]
         self.storage_policy.save(all_cases)
+        logger.info(
+            f"Dataset prepared: {len(holdouts)} test holdouts, {len(prepared_train)} train, {len(prepared_val)} val."
+        )
         return all_cases
 
     def load(self, split: Optional[str] = None) -> Sequence[DecisionCase]:
-        try:
-            return self.storage_policy.load(split)
-        except FileNotFoundError:
-            all_cases = self.prepare()
-            return [c for c in all_cases if c.meta and c.meta.split == split] if split is not None else all_cases
-
-__all__ = ["IDataset", "Dataset", "default_corpus_source"]
+        return self.storage_policy.load(split=split)
