@@ -1,10 +1,10 @@
-from dataclasses import replace
 import logging
-import random
 from typing import Optional, Protocol, Sequence, runtime_checkable
 
 from data.case import DecisionCase
 from data.policies.balancer import ICaseBalancer, RoundRobinCaseBalancer
+from data.policies.leakage import ILeakagePolicy, JaccardLeakagePolicy
+from data.policies.split import ISplitPolicy, RatioSplitPolicy
 from data.sources.source import IDataSource, MultiSource
 from data.storage import DiskStoragePolicy, IStoragePolicy
 
@@ -12,7 +12,7 @@ logger = logging.getLogger(__name__)
 
 @runtime_checkable
 class IDataset(Protocol):
-    def prepare(self) -> Sequence[DecisionCase]: ...
+    def prepare(self, source: Optional[IDataSource] = None) -> Sequence[DecisionCase]: ...
     def load(self, split: Optional[str] = None) -> Sequence[DecisionCase]: ...
 
 def default_corpus_source() -> IDataSource:
@@ -46,58 +46,32 @@ class Dataset(IDataset):
     def __init__(
         self,
         source: Optional[IDataSource] = None,
-        balancer: Optional[ICaseBalancer] = None,
-        storage: Optional[IStoragePolicy] = None,
-        max_train: int = 1500,
-        max_val: int = 150,
-        max_test: int = 400,
-        seed: int = 42,
+        split_policy: Optional[ISplitPolicy] = None,
+        leakage_policy: Optional[ILeakagePolicy] = None,
+        balancer_policy: Optional[ICaseBalancer] = None,
+        storage_policy: Optional[IStoragePolicy] = None,
     ):
         self.source = source or default_corpus_source()
-        self.balancer = balancer or RoundRobinCaseBalancer()
-        self.storage = storage or DiskStoragePolicy()
-        self.max_train = max_train
-        self.max_val = max_val
-        self.max_test = max_test
-        self.seed = seed
+        self.split_policy = split_policy or RatioSplitPolicy()
+        self.leakage_policy = leakage_policy or JaccardLeakagePolicy()
+        self.balancer_policy = balancer_policy or RoundRobinCaseBalancer()
+        self.storage_policy = storage_policy or DiskStoragePolicy()
 
-    def prepare(self) -> Sequence[DecisionCase]:
-        raw_cases = self.source.cases()
-        if not raw_cases:
+    def prepare(self, source: Optional[IDataSource] = None) -> Sequence[DecisionCase]:
+        src = source or self.source
+        cases = src.cases()
+        if not cases:
             raise ValueError("No decision cases available for dataset preparation.")
 
-        rng = random.Random(self.seed)
-        by_cat: dict[str, list[DecisionCase]] = {}
-        for c in raw_cases:
-            if not c.meta:
-                raise ValueError("DecisionCase missing CaseMeta.")
-            by_cat.setdefault(c.meta.category, []).append(c)
-
-        all_cases: list[DecisionCase] = []
-        for cat, items in by_cat.items():
-            pre_test = [c for c in items if c.meta.split == "test"]
-            pool = [c for c in items if c.meta.split != "test"]
-
-            cat_test = list(self.balancer.balance(pre_test if pre_test else pool, self.max_test, rng)) if (pre_test or pool) else []
-            test_ids = {id(c) for c in cat_test}
-            pool = [c for c in pool if id(c) not in test_ids]
-
-            cat_val = list(self.balancer.balance(pool, self.max_val, rng, holdouts=cat_test)) if pool else []
-            val_ids = {id(c) for c in cat_val}
-            pool = [c for c in pool if id(c) not in val_ids]
-
-            cat_train = list(self.balancer.balance(pool, self.max_train, rng, holdouts=cat_test)) if pool else []
-
-            all_cases.extend(replace(c, meta=replace(c.meta, split="test")) for c in cat_test)
-            all_cases.extend(replace(c, meta=replace(c.meta, split="val")) for c in cat_val)
-            all_cases.extend(replace(c, meta=replace(c.meta, split="train")) for c in cat_train)
-
-        self.storage.save(all_cases)
-        return all_cases
+        splits = self.split_policy.partition(cases)
+        clean = self.leakage_policy.decontaminate(splits)
+        balanced = self.balancer_policy.balance(clean)
+        self.storage_policy.save(balanced)
+        return balanced
 
     def load(self, split: Optional[str] = None) -> Sequence[DecisionCase]:
         try:
-            return self.storage.load(split)
+            return self.storage_policy.load(split)
         except FileNotFoundError:
             all_cases = self.prepare()
             return [c for c in all_cases if c.meta and c.meta.split == split] if split is not None else all_cases

@@ -1,7 +1,6 @@
-from collections.abc import Callable
 import logging
 import re
-from typing import Protocol, Sequence, runtime_checkable
+from typing import Optional, Protocol, Sequence, runtime_checkable
 
 from data.case import DecisionCase
 
@@ -15,31 +14,36 @@ def jaccard(a: set[str], b: set[str]) -> float:
 
 @runtime_checkable
 class ILeakagePolicy(Protocol):
-    def filter(self, holdouts: Sequence[DecisionCase]) -> Callable[[DecisionCase], bool]: ...
-    def decontaminate(self, cases: Sequence[DecisionCase], holdouts: Sequence[DecisionCase]) -> Sequence[DecisionCase]: ...
+    def decontaminate(self, cases: Sequence[DecisionCase], holdouts: Optional[Sequence[DecisionCase]] = None) -> Sequence[DecisionCase]: ...
 
 class JaccardLeakagePolicy(ILeakagePolicy):
     def __init__(self, threshold: float = 0.80):
         self.threshold = threshold
 
-    def filter(self, holdouts: Sequence[DecisionCase]) -> Callable[[DecisionCase], bool]:
-        if not holdouts:
-            return lambda _: True
-        holdout_sets = [words for h in holdouts if (words := case_words(h))]
-        return lambda c: bool(words := case_words(c)) and not any(jaccard(words, h) >= self.threshold for h in holdout_sets)
+    def decontaminate(self, cases: Sequence[DecisionCase], holdouts: Optional[Sequence[DecisionCase]] = None) -> Sequence[DecisionCase]:
+        if not cases:
+            return ()
 
-    def decontaminate(self, cases: Sequence[DecisionCase], holdouts: Sequence[DecisionCase]) -> Sequence[DecisionCase]:
-        if not cases or not holdouts:
-            raise ValueError("Decontamination requires non-empty cases and holdouts.")
-        is_clean = self.filter(holdouts)
-        clean = [c for c in cases if is_clean(c)]
+        resolved_holdouts = holdouts if holdouts is not None else [c for c in cases if c.meta and c.meta.split == "test"]
+        if not resolved_holdouts:
+            return cases
+
+        holdout_sets = [words for h in resolved_holdouts if (words := case_words(h))]
+        pool = [c for c in cases if not (c.meta and c.meta.split == "test")]
+
+        clean_pool = [
+            c for c in pool
+            if (words := case_words(c))
+            and not any(jaccard(words, h) >= self.threshold for h in holdout_sets)
+        ]
+
         logger.info(
-            "Decontamination: retained %d of %d records against %d holdouts (%d pruned)",
-            len(clean),
-            len(cases),
-            len(holdouts),
-            len(cases) - len(clean),
+            "Decontamination: retained %d of %d pool cases against %d holdouts (%d pruned)",
+            len(clean_pool),
+            len(pool),
+            len(resolved_holdouts),
+            len(pool) - len(clean_pool),
         )
-        return clean
+        return [*resolved_holdouts, *clean_pool]
 
-__all__ = ["ILeakagePolicy", "JaccardLeakagePolicy"]
+__all__ = ["ILeakagePolicy", "JaccardLeakagePolicy", "case_words", "jaccard"]
