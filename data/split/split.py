@@ -1,5 +1,4 @@
 from dataclasses import replace
-import itertools
 import logging
 import random
 from typing import Optional, Protocol, Sequence, runtime_checkable
@@ -42,14 +41,14 @@ class BudgetSplitPolicy(ISplitPolicy):
 
         for cat, items in by_cat.items():
             tests = [c for c in items if c.meta.split == "test"]
-            cat_test = list(itertools.islice(self.stratifier.balance(tests, rng), self.max_test)) if tests else []
+            cat_test = list(self.stratifier.balance(tests, self.max_test, rng)) if tests else []
 
             pool = [c for c in items if c.meta.split != "test"]
-            balanced_stream = self.stratifier.balance(pool, rng)
-            clean_stream = self.leakage.decontaminate(balanced_stream, cat_test)
+            stratified_pool = self.stratifier.balance(pool, len(pool), rng)
+            clean_pool = self.leakage.decontaminate(stratified_pool, cat_test)
 
             target_quota = self.max_val + self.max_train
-            selected = list(itertools.islice(clean_stream, target_quota))
+            selected = clean_pool[:target_quota]
 
             test_all.extend(replace(c, meta=replace(c.meta, split="test")) for c in cat_test)
             val_all.extend(replace(c, meta=replace(c.meta, split="val")) for c in selected[:self.max_val])
