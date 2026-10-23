@@ -50,13 +50,18 @@ class Dataset(IDataset):
 
         for cat, cat_train_pool in train_by_category.items():
             cat_test_cases = test_by_category.get(cat, [])
-            self.balancer_policy.prepare(cat_train_pool)
+            active_buckets = set(self.balancer_policy.bucket(c) for c in cat_train_pool)
+            if not active_buckets:
+                continue
 
-            category_cases: list[DecisionCase] = []
+            target_per_bucket = max(1, -(-category_quota // len(active_buckets)))
+            category_buckets: dict[tuple, list[DecisionCase]] = defaultdict(list)
+            pending_buckets = set(active_buckets)
+
             cursor = 0
             pool_len = len(cat_train_pool)
 
-            while len(category_cases) < category_quota and cursor < pool_len:
+            while pending_buckets and cursor < pool_len:
                 raw_chunk = cat_train_pool[cursor : cursor + self.chunk_size_per_category]
                 cursor += self.chunk_size_per_category
 
@@ -65,14 +70,22 @@ class Dataset(IDataset):
                     if cat_test_cases
                     else raw_chunk
                 )
-                balanced_chunk = self.balancer_policy.balance(clean_chunk)
-                category_cases.extend(balanced_chunk)
 
-            train_count = min(len(category_cases), self.train_quota_per_category)
-            val_count = min(len(category_cases) - train_count, self.val_quota_per_category)
+                for c in clean_chunk:
+                    b = self.balancer_policy.bucket(c)
+                    if b in pending_buckets:
+                        category_buckets[b].append(c)
+                        if len(category_buckets[b]) >= target_per_bucket:
+                            pending_buckets.remove(b)
 
-            prepared_train.extend(c.with_split("train") for c in category_cases[:train_count])
-            prepared_val.extend(c.with_split("val") for c in category_cases[train_count : train_count + val_count])
+            collected_cases: list[DecisionCase] = [c for items in category_buckets.values() for c in items]
+            balanced_cases = self.balancer_policy.balance(collected_cases)
+
+            train_count = min(len(balanced_cases), self.train_quota_per_category)
+            val_count = min(len(balanced_cases) - train_count, self.val_quota_per_category)
+
+            prepared_train.extend(c.with_split("train") for c in balanced_cases[:train_count])
+            prepared_val.extend(c.with_split("val") for c in balanced_cases[train_count : train_count + val_count])
 
         test_cases = [c for pool in test_by_category.values() for c in pool]
         all_cases = [*test_cases, *prepared_train, *prepared_val]
