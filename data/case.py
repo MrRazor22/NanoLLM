@@ -5,10 +5,10 @@ from typing import Mapping, Optional, Self, Sequence
 class CaseMeta:
     category: str
     source: str
-    option_type: str
+    candidate_type: str
     split: Optional[str] = None
 
-@dataclass(frozen=True, slots=True)
+@dataclass(slots=True)
 class DecisionCase:
     state: str
     candidates: Sequence[str]
@@ -16,8 +16,22 @@ class DecisionCase:
     probabilities: Mapping[str, float] = field(default_factory=dict)
     meta: Optional[CaseMeta] = None
 
+    def __init__(
+        self,
+        state: str,
+        candidates: Sequence[str],
+        instruction: str = "",
+        probabilities: Optional[Mapping[str, float]] = None,
+        meta: Optional[CaseMeta] = None,
+    ):
+        self.state = state.strip()
+        self.candidates = tuple(c.strip() for c in candidates)
+        self.instruction = instruction.strip()
+        self.probabilities = {k.strip(): float(v) for k, v in probabilities.items()} if probabilities else {}
+        self.meta = meta
+
     def choice(self) -> str:
-        return max(self.probabilities, key=self.probabilities.__getitem__).strip() if self.probabilities else ""
+        return max(self.probabilities, key=self.probabilities.__getitem__) if self.probabilities else ""
 
     def target_index(self) -> int:
         c = self.choice()
@@ -33,7 +47,7 @@ class DecisionCase:
             "probabilities": dict(self.probabilities),
             "category": self.meta.category,
             "source": self.meta.source,
-            "option_type": self.meta.option_type,
+            "candidate_type": self.meta.candidate_type,
         }
         if self.meta.split is not None:
             res["split"] = self.meta.split
@@ -49,7 +63,7 @@ class DecisionCase:
             meta=CaseMeta(
                 category=str(d["category"]),
                 source=str(d["source"]),
-                option_type=str(d["option_type"]),
+                candidate_type=str(d["candidate_type"]),
                 split=d.get("split"),
             ),
         )

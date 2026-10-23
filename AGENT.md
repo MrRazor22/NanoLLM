@@ -17,13 +17,13 @@
 - **Centralized Device Resolution Invariant (`model/device.py`):** All compute device resolution, backend configuration, seed generation, execution synchronization, and VRAM inspection are strictly centralized in `model/device.py` (`resolve_device`, `seed_device`, `synchronize_device`, `resolve_vram_gb`). Never introduce ad-hoc device branching, raw substrate checks (`torch.cuda.is_available()`), or fragmented device handling across callers, models, layouts, or training policies.
 - **System One Unified Candidate Decision Doctrine:**
   - **Single Universal Model Primitive:** Model boundary evaluates only $\text{Context} \to \text{Candidates} \to \mathbf{p} \in \Delta^{K-1}$. The neural backbone has zero awareness of question types.
-  - **Pure Data Primitive:** `DecisionCase` in `data/case.py` contains strictly `(state, candidates, instruction, probabilities, meta)` where `meta` is `CaseMeta(category, source, option_type, split)`. `category`, `source`, and `option_type` (`"choice"`, `"noul"`, `"score"`) are required fail-fast fields with zero defaults. `case.choice()` and `case.target_index()` are pure derived projections. All pipelines and datasets operate on `Sequence[DecisionCase]` directly (zero intermediate `DataSplits` wrapper bloat).
+  - **Pure Data Primitive:** `DecisionCase` in `data/case.py` contains strictly `(state, candidates, instruction, probabilities, meta)` where `meta` is `CaseMeta(category, source, candidate_type, split)`. `category`, `source`, and `candidate_type` (`"choice"`, `"noul"`, `"score"`) are required fail-fast fields with zero defaults. `case.choice()` and `case.target_index()` are pure derived projections. All pipelines and datasets operate on `Sequence[DecisionCase]` directly (zero intermediate `DataSplits` wrapper bloat).
   - **Case Balancer Doctrine (`data/split/policies/balancer.py`):**
     - **Single Universal Balancer Primitive:** `ICaseBalancer` protocol implemented by `RoundRobinCaseBalancer`.
     - **7-Dimension Compound Slot Invariant:** Groups cases into balanced round-robin slots via:
       1. `meta.category` (domain category)
       2. `meta.source` (dataset origin)
-      3. `meta.option_type` (`choice`, `noul`, `score`)
+      3. `meta.candidate_type` (`choice`, `noul`, `score`)
       4. `xxhash.xxh64_intdigest(instruction)` (64-bit prompt template signature)
       5. `len(candidates)` (candidate topology)
       6. `target_index()` (positional ground-truth balance)

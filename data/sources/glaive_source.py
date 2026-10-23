@@ -32,7 +32,7 @@ class GlaiveSource(IDataSource):
                 candidates=cands_tuple,
                 probabilities=probs,
                 meta=CaseMeta(
-                                option_type='choice',
+                                candidate_type='choice',
                     category="function_calling",
                     source="glaive_tools",
                     split="train",

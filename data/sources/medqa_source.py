@@ -43,7 +43,7 @@ class MedQASource(IDataSource):
                         candidates=options_tuple,
                         probabilities=probs,
                         meta=CaseMeta(
-                                option_type='choice',
+                                candidate_type='choice',
                             category="differential_elimination",
                             split="test" if is_test else "train",
                             source="gbaker_medqa",

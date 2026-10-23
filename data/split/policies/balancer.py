@@ -26,7 +26,7 @@ class RoundRobinCaseBalancer(ICaseBalancer):
             return (
                 c.meta.category,
                 c.meta.source,
-                c.meta.option_type,
+                c.meta.candidate_type,
                 instruction_signature,
                 len(c.candidates),
                 c.target_index(),

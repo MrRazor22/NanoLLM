@@ -87,7 +87,7 @@ class ClassificationSource(IDataSource):
                     candidates=cands_tuple,
                     probabilities=probs,
                     meta=CaseMeta(
-                                option_type='choice',
+                                candidate_type='choice',
                         category=self.spec.category,
                         source=source_tag,
                         split="test" if is_test else "train",

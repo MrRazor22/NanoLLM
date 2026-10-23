@@ -80,7 +80,7 @@ class MultiChoiceSource(IDataSource):
                     candidates=cands_tuple,
                     probabilities=probs,
                     meta=CaseMeta(
-                                option_type='choice',
+                                candidate_type='choice',
                         category=self.spec.category,
                         split="test" if is_test else "train",
                         source=source_tag,
