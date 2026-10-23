@@ -44,11 +44,19 @@ class BudgetSplitPolicy(ISplitPolicy):
             cat_test = list(self.balancer.balance(tests, self.max_test, rng)) if tests else []
 
             pool = [c for c in items if c.meta.split != "test"]
-            balanced_pool = self.balancer.balance(pool, len(pool), rng)
-            clean_pool = self.leakage.decontaminate(balanced_pool, cat_test) if cat_test else balanced_pool
-
             target_quota = self.max_val + self.max_train
-            selected = clean_pool[:target_quota]
+
+            if cat_test and pool:
+                candidate_quota = min(len(pool), target_quota * 2)
+                candidate_pool = self.balancer.balance(pool, candidate_quota, rng)
+                clean_pool = self.leakage.decontaminate(candidate_pool, cat_test)
+                if len(clean_pool) < target_quota and len(candidate_pool) < len(pool):
+                    clean_pool = self.leakage.decontaminate(pool, cat_test)
+                selected = list(self.balancer.balance(clean_pool, min(len(clean_pool), target_quota), rng))
+            elif pool:
+                selected = list(self.balancer.balance(pool, min(len(pool), target_quota), rng))
+            else:
+                selected = []
 
             test_all.extend(replace(c, meta=replace(c.meta, split="test")) for c in cat_test)
             val_all.extend(replace(c, meta=replace(c.meta, split="val")) for c in selected[:self.max_val])
