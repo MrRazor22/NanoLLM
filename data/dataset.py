@@ -50,12 +50,16 @@ class Dataset(IDataset):
         leakage_policy: Optional[ILeakagePolicy] = None,
         balancer_policy: Optional[ICaseBalancer] = None,
         storage_policy: Optional[IStoragePolicy] = None,
+        train_limit: Optional[int] = 1500,
+        val_limit: Optional[int] = 150,
     ):
         self.source = source or default_corpus_source()
         self.split_policy = split_policy or RatioSplitPolicy()
         self.leakage_policy = leakage_policy or JaccardLeakagePolicy()
         self.balancer_policy = balancer_policy or RoundRobinCaseBalancer()
         self.storage_policy = storage_policy or DiskStoragePolicy()
+        self.train_limit = train_limit
+        self.val_limit = val_limit
 
     def prepare(self, source: Optional[IDataSource] = None) -> Sequence[DecisionCase]:
         src = source or self.source
@@ -63,11 +67,20 @@ class Dataset(IDataset):
         if not cases:
             raise ValueError("No decision cases available for dataset preparation.")
 
-        splits = self.split_policy.partition(cases)
-        clean = self.leakage_policy.decontaminate(splits)
-        balanced = self.balancer_policy.balance(clean)
-        self.storage_policy.save(balanced)
-        return balanced
+        holdouts = [c for c in cases if c.meta and c.meta.split == "test"]
+        pool = [c for c in cases if not (c.meta and c.meta.split == "test")]
+        clean_pool = self.leakage_policy.decontaminate(pool, holdouts) if holdouts else pool
+
+        partitioned = self.split_policy.partition(clean_pool)
+        train_pool = [c for c in partitioned if c.meta and c.meta.split == "train"]
+        val_pool = [c for c in partitioned if c.meta and c.meta.split == "val"]
+
+        train = self.balancer_policy.balance(train_pool, limit=self.train_limit)
+        val = self.balancer_policy.balance(val_pool, limit=self.val_limit)
+
+        all_cases = [*holdouts, *train, *val]
+        self.storage_policy.save(all_cases)
+        return all_cases
 
     def load(self, split: Optional[str] = None) -> Sequence[DecisionCase]:
         try:
