@@ -21,6 +21,7 @@ from training.policies.schedule import ISchedule, CosineSchedule
 from data.dataset import IDataset, Dataset
 from data.case import DecisionCase
 from data.storage import IStoragePolicy, DiskStoragePolicy
+from data.policies.bucket import IBucketPolicy, CaseBucketPolicy, CategoryBucket
 from data.policies.balancer import ICaseBalancer, RoundRobinCaseBalancer
 from data.policies.leakage import ILeakagePolicy, JaccardLeakagePolicy
 from data.sources.source import IDataSource, MultiSource
