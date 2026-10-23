@@ -22,17 +22,17 @@ class Dataset(IDataset):
         leakage_policy: Optional[ILeakagePolicy] = None,
         balancer_policy: Optional[ICaseBalancer] = None,
         storage_policy: Optional[IStoragePolicy] = None,
-        quota_per_category: int = 1500,
-        val_ratio: float = 0.10,
-        chunk_factor: int = 2,
+        train_quota_per_category: int = 1500,
+        val_quota_per_category: int = 150,
+        chunk_size_per_category: int = 3000,
     ):
         self.source = source or MultiSource()
         self.leakage_policy = leakage_policy or JaccardLeakagePolicy()
         self.balancer_policy = balancer_policy or RoundRobinCaseBalancer()
         self.storage_policy = storage_policy or DiskStoragePolicy()
-        self.quota_per_category = quota_per_category
-        self.val_ratio = val_ratio
-        self.chunk_factor = chunk_factor
+        self.train_quota_per_category = train_quota_per_category
+        self.val_quota_per_category = val_quota_per_category
+        self.chunk_size_per_category = chunk_size_per_category
 
     def prepare(self, source: Optional[IDataSource] = None) -> Sequence[DecisionCase]:
         src = source or self.source
@@ -40,46 +40,41 @@ class Dataset(IDataset):
         if not cases:
             raise ValueError("No decision cases available for dataset preparation.")
 
-        test_cases: list[DecisionCase] = []
-        train_by_category: dict[str, list[DecisionCase]] = defaultdict(list)
-        test_by_category: dict[str, list[DecisionCase]] = defaultdict(list)
-
+        train_by_category, test_by_category = defaultdict(list), defaultdict(list)
         for c in cases:
-            cat = c.meta.category
-            if c.meta.split == "test":
-                test_cases.append(c)
-                test_by_category[cat].append(c)
-            else:
-                train_by_category[cat].append(c)
+            (test_by_category if c.meta.split == "test" else train_by_category)[c.meta.category].append(c)
 
-        train_cases: list[DecisionCase] = []
+        prepared_train: list[DecisionCase] = []
+        prepared_val: list[DecisionCase] = []
+        category_quota = self.train_quota_per_category + self.val_quota_per_category
+
         for cat, cat_train_pool in train_by_category.items():
             cat_test_cases = test_by_category.get(cat, [])
-            clean_collected: list[DecisionCase] = []
+            self.balancer_policy.prepare(cat_train_pool)
+
+            category_cases: list[DecisionCase] = []
             cursor = 0
             pool_len = len(cat_train_pool)
 
-            while len(clean_collected) < self.quota_per_category and cursor < pool_len:
-                needed = self.quota_per_category - len(clean_collected)
-                chunk_size = needed * self.chunk_factor
-                raw_chunk = cat_train_pool[cursor : cursor + chunk_size]
-                cursor += chunk_size
+            while len(category_cases) < category_quota and cursor < pool_len:
+                raw_chunk = cat_train_pool[cursor : cursor + self.chunk_size_per_category]
+                cursor += self.chunk_size_per_category
 
-                balanced_chunk = self.balancer_policy.balance(raw_chunk)
                 clean_chunk = (
-                    self.leakage_policy.decontaminate(balanced_chunk, cat_test_cases)
+                    self.leakage_policy.decontaminate(raw_chunk, cat_test_cases)
                     if cat_test_cases
-                    else balanced_chunk
+                    else raw_chunk
                 )
-                clean_collected.extend(clean_chunk)
+                balanced_chunk = self.balancer_policy.balance(clean_chunk)
+                category_cases.extend(balanced_chunk)
 
-            final_clean = self.balancer_policy.balance(clean_collected, limit=self.quota_per_category)
-            train_cases.extend(final_clean)
+            train_count = min(len(category_cases), self.train_quota_per_category)
+            val_count = min(len(category_cases) - train_count, self.val_quota_per_category)
 
-        val_count = max(1, int(len(train_cases) * self.val_ratio)) if len(train_cases) > 1 else 0
-        prepared_val = [c.with_split("val") for c in train_cases[:val_count]]
-        prepared_train = [c.with_split("train") for c in train_cases[val_count:]]
+            prepared_train.extend(c.with_split("train") for c in category_cases[:train_count])
+            prepared_val.extend(c.with_split("val") for c in category_cases[train_count : train_count + val_count])
 
+        test_cases = [c for pool in test_by_category.values() for c in pool]
         all_cases = [*test_cases, *prepared_train, *prepared_val]
         self.storage_policy.save(all_cases)
         logger.info(
