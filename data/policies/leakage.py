@@ -24,12 +24,12 @@ class JaccardLeakagePolicy(ILeakagePolicy):
         if not cases:
             return ()
 
-        resolved_holdouts = holdouts if holdouts is not None else [c for c in cases if c.meta and c.meta.split == "test"]
+        resolved_holdouts = holdouts if holdouts is not None else [c for c in cases if c.meta.split == "test"]
         if not resolved_holdouts:
             return cases
 
         holdout_sets = [words for h in resolved_holdouts if (words := case_words(h))]
-        pool = [c for c in cases if not (c.meta and c.meta.split == "test")]
+        pool = [c for c in cases if c.meta.split != "test"]
 
         clean_pool = [
             c for c in pool

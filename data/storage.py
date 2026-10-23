@@ -21,7 +21,7 @@ class DiskStoragePolicy(IStoragePolicy):
         self.corpus_dir.mkdir(parents=True, exist_ok=True)
         counts = {}
         for tag in ("train", "val", "test"):
-            items = [c for c in cases if c.meta and c.meta.split == tag]
+            items = [c for c in cases if c.meta.split == tag]
             target = self.corpus_dir / f"{tag}.jsonl"
             payload = b"\n".join(orjson.dumps(s.to_dict(), default=str) for s in items)
             target.write_bytes(payload + (b"\n" if payload else b""))

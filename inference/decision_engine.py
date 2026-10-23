@@ -3,7 +3,7 @@ import logging
 from typing import Optional, Protocol, Self, runtime_checkable
 import scipy.special as sp
 
-from data.case import DecisionCase
+from data.case import CaseMeta, DecisionCase
 from inference.options import (
     ChoiceAnswer, ChoiceOption, IAnswer, IOption, NoulAnswer, NoulOption, ScoreAnswer, ScoreOption,
 )
@@ -38,7 +38,13 @@ class DecisionEngine(IDecisionEngine):
             case _:
                 raise ValueError(f"Unsupported option: {type(option)}")
 
-        scores = self.model.score([DecisionCase(state=state, candidates=candidates, instruction=inst)])[0]
+        scores = self.model.score([DecisionCase(
+            state=state,
+            candidates=candidates,
+            instruction=inst,
+            probabilities={},
+            meta=CaseMeta.runtime(option.candidate_type),
+        )])[0]
         probs = sp.softmax(scores.tolist())
 
         match option:

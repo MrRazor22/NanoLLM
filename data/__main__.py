@@ -14,9 +14,9 @@ def main() -> None:
     t0 = time.perf_counter()
 
     cases = Dataset().prepare()
-    train_cases = [c for c in cases if c.meta and c.meta.split == "train"]
-    val_cases = [c for c in cases if c.meta and c.meta.split == "val"]
-    test_cases = [c for c in cases if c.meta and c.meta.split == "test"]
+    train_cases = [c for c in cases if c.meta.split == "train"]
+    val_cases = [c for c in cases if c.meta.split == "val"]
+    test_cases = [c for c in cases if c.meta.split == "test"]
 
     print(f"\n[data] Built corpus in {time.perf_counter()-t0:.2f}s:")
     print(f"  train: {len(train_cases):,} | val: {len(val_cases):,} | test: {len(test_cases):,}")

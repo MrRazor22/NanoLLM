@@ -26,12 +26,12 @@ class RoundRobinCaseBalancer(ICaseBalancer):
             return ()
 
         rng = random.Random(self.seed)
-        source_choice_counts = Counter((c.meta.source, c.choice()) for c in cases if c.meta and c.choice())
+        source_choice_counts = Counter((c.meta.source, c.choice()) for c in cases if c.choice())
 
         def case_slot(c: DecisionCase) -> tuple:
             choice = c.choice()
-            source = c.meta.source if c.meta else ""
-            candidate_type = c.meta.candidate_type if c.meta else ""
+            source = c.meta.source
+            candidate_type = c.meta.candidate_type
             choice_signature = choice if source_choice_counts.get((source, choice), 0) >= 2 else ""
             instruction_signature = xxhash.xxh64_intdigest(c.instruction.encode()) if c.instruction else 0
             return (

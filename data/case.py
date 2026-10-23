@@ -8,26 +8,36 @@ class CaseMeta:
     candidate_type: str
     split: Optional[str] = None
 
+    def __post_init__(self):
+        if not self.category or not self.source or not self.candidate_type:
+            raise ValueError("CaseMeta requires non-empty category, source, and candidate_type.")
+
+    @classmethod
+    def runtime(cls, candidate_type: str) -> "CaseMeta":
+        return cls(category="runtime", source="runtime", candidate_type=candidate_type)
+
 @dataclass(slots=True)
 class DecisionCase:
     state: str
     candidates: Sequence[str]
-    instruction: str = ""
-    probabilities: Mapping[str, float] = field(default_factory=dict)
-    meta: Optional[CaseMeta] = None
+    instruction: str
+    probabilities: Mapping[str, float]
+    meta: CaseMeta
 
     def __init__(
         self,
         state: str,
         candidates: Sequence[str],
-        instruction: str = "",
-        probabilities: Optional[Mapping[str, float]] = None,
-        meta: Optional[CaseMeta] = None,
+        instruction: str,
+        probabilities: Mapping[str, float],
+        meta: CaseMeta,
     ):
+        if not isinstance(meta, CaseMeta):
+            raise TypeError("DecisionCase requires a valid CaseMeta.")
         self.state = state.strip()
         self.candidates = tuple(c.strip() for c in candidates)
         self.instruction = instruction.strip()
-        self.probabilities = {k.strip(): float(v) for k, v in probabilities.items()} if probabilities else {}
+        self.probabilities = {k.strip(): float(v) for k, v in probabilities.items()}
         self.meta = meta
 
     def choice(self) -> str:
@@ -38,8 +48,6 @@ class DecisionCase:
         return self.candidates.index(c) if c in self.candidates else 0
 
     def with_split(self, split: str) -> "DecisionCase":
-        if self.meta is None:
-            raise ValueError("Cannot assign split to DecisionCase without CaseMeta.")
         return DecisionCase(
             state=self.state,
             candidates=self.candidates,
@@ -54,8 +62,6 @@ class DecisionCase:
         )
 
     def to_dict(self) -> dict:
-        if self.meta is None:
-            raise ValueError("DecisionCase must contain CaseMeta for serialization.")
         res = {
             "state": self.state,
             "instruction": self.instruction,

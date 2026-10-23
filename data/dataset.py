@@ -40,37 +40,35 @@ class Dataset(IDataset):
         if not cases:
             raise ValueError("No decision cases available for dataset preparation.")
 
-        holdouts: list[DecisionCase] = []
-        pool_by_category: dict[str, list[DecisionCase]] = defaultdict(list)
-        holdouts_by_category: dict[str, list[DecisionCase]] = defaultdict(list)
+        test_cases: list[DecisionCase] = []
+        train_by_category: dict[str, list[DecisionCase]] = defaultdict(list)
+        test_by_category: dict[str, list[DecisionCase]] = defaultdict(list)
 
         for c in cases:
-            if not c.meta:
-                continue
             cat = c.meta.category
             if c.meta.split == "test":
-                holdouts.append(c)
-                holdouts_by_category[cat].append(c)
+                test_cases.append(c)
+                test_by_category[cat].append(c)
             else:
-                pool_by_category[cat].append(c)
+                train_by_category[cat].append(c)
 
         train_cases: list[DecisionCase] = []
-        for cat, cat_pool in pool_by_category.items():
-            cat_holdouts = holdouts_by_category.get(cat, [])
+        for cat, cat_train_pool in train_by_category.items():
+            cat_test_cases = test_by_category.get(cat, [])
             clean_collected: list[DecisionCase] = []
             cursor = 0
-            pool_len = len(cat_pool)
+            pool_len = len(cat_train_pool)
 
             while len(clean_collected) < self.quota_per_category and cursor < pool_len:
                 needed = self.quota_per_category - len(clean_collected)
                 chunk_size = needed * self.chunk_factor
-                raw_chunk = cat_pool[cursor : cursor + chunk_size]
+                raw_chunk = cat_train_pool[cursor : cursor + chunk_size]
                 cursor += chunk_size
 
                 balanced_chunk = self.balancer_policy.balance(raw_chunk)
                 clean_chunk = (
-                    self.leakage_policy.decontaminate(balanced_chunk, cat_holdouts)
-                    if cat_holdouts
+                    self.leakage_policy.decontaminate(balanced_chunk, cat_test_cases)
+                    if cat_test_cases
                     else balanced_chunk
                 )
                 clean_collected.extend(clean_chunk)
@@ -82,10 +80,10 @@ class Dataset(IDataset):
         prepared_val = [c.with_split("val") for c in train_cases[:val_count]]
         prepared_train = [c.with_split("train") for c in train_cases[val_count:]]
 
-        all_cases = [*holdouts, *prepared_train, *prepared_val]
+        all_cases = [*test_cases, *prepared_train, *prepared_val]
         self.storage_policy.save(all_cases)
         logger.info(
-            f"Dataset prepared: {len(holdouts)} test holdouts, {len(prepared_train)} train, {len(prepared_val)} val."
+            f"Dataset prepared: {len(test_cases)} test holdouts, {len(prepared_train)} train, {len(prepared_val)} val."
         )
         return all_cases
 
