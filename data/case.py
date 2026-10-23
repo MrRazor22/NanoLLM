@@ -40,12 +40,12 @@ class DecisionCase:
         self.probabilities = {k.strip(): float(v) for k, v in probabilities.items()}
         self.meta = meta
 
-    def choice(self) -> str:
+    def option(self) -> str:
         return max(self.probabilities, key=self.probabilities.__getitem__) if self.probabilities else ""
 
     def target_index(self) -> int:
-        c = self.choice()
-        return self.candidates.index(c) if c in self.candidates else 0
+        opt = self.option()
+        return self.candidates.index(opt) if opt in self.candidates else 0
 
     def with_split(self, split: str) -> "DecisionCase":
         return DecisionCase(

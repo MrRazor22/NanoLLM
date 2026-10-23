@@ -33,8 +33,7 @@ class JaccardLeakagePolicy(ILeakagePolicy):
 
         clean_pool = [
             c for c in pool
-            if (words := case_words(c))
-            and not any(jaccard(words, h) >= self.threshold for h in holdout_sets)
+            if not ((words := case_words(c)) and any(jaccard(words, h) >= self.threshold for h in holdout_sets))
         ]
 
         logger.info(
