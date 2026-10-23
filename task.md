@@ -6,8 +6,8 @@
 - [x] Eliminate `DataSplits` wrapper class: all boundaries operate on `Sequence[DecisionCase]` directly.
 - [x] Clean serialization: `to_dict` and `from_dict` include `instruction` and `candidate_type` without backward-compat shims.
 
-## 2. Case Balancer Policy (`data/split/policies/balancer.py`)
-- [x] `ICaseBalancer` protocol with `balance(cases: Sequence[DecisionCase], quota: int, rng: random.Random) -> Sequence[DecisionCase]`.
+## 2. Case Balancer Policy (`data/policies/balancer.py`)
+- [x] `ICaseBalancer` protocol with `balance(cases: Sequence[DecisionCase], quota: int, rng: random.Random, holdouts: Sequence[DecisionCase] = ()) -> Sequence[DecisionCase]`.
 - [x] `RoundRobinCaseBalancer` with 7-dimension compound slot key:
   1. `meta.category`
   2. `meta.source`
@@ -16,14 +16,15 @@
   5. `len(candidates)`
   6. `target_index()`
   7. Per-source choice signature (`c.choice()` if `source_choice_counts[(source, choice)] >= 2` else `""`)
-- [x] Remove obsolete `simhash16` bit-loop in favor of `xxhash`.
+- [x] On-demand per-bucket decontamination: pops replacement candidates from the same slot on leakage without unbalancing.
+- [x] Relocate `balancer.py` and `leakage.py` to `data/policies/` for domain symmetry.
 
-## 3. Split Pipeline & Storage Integration
-- [x] `BudgetSplitPolicy.partition` returns `Sequence[DecisionCase]`.
-- [x] `IStoragePolicy` and `DiskStoragePolicy` save and load `Sequence[DecisionCase]`.
-- [x] `Dataset.prepare` and `Dataset.load(split=...)` return `Sequence[DecisionCase]`.
+## 3. Dataset Orchestration & Elimination of `split.py`
+- [x] Eliminate `data/split/split.py` completely.
+- [x] `Dataset.prepare` orchestrates `test`, `val`, `train` directly via injected `balancer`.
+- [x] Update `piqo.py` root exports.
 - [x] Updated all 11 dataset sources to pass `candidate_type="choice"` explicitly to `CaseMeta`.
 
 ## 4. Documentation & Verification
 - [x] Updated `AGENT.md` guidelines.
-- [x] Ran fast verification on all components.
+- [x] Fast verification test passed.

@@ -1,19 +1,35 @@
 from collections import Counter, defaultdict
 import logging
 import random
-from typing import Protocol, Sequence, runtime_checkable
+from typing import Optional, Protocol, Sequence, runtime_checkable
 import xxhash
 
 from data.case import DecisionCase
+from data.policies.leakage import ILeakagePolicy, JaccardLeakagePolicy
 
 logger = logging.getLogger(__name__)
 
 @runtime_checkable
 class ICaseBalancer(Protocol):
-    def balance(self, cases: Sequence[DecisionCase], quota: int, rng: random.Random) -> Sequence[DecisionCase]: ...
+    def balance(
+        self,
+        cases: Sequence[DecisionCase],
+        quota: int,
+        rng: random.Random,
+        holdouts: Sequence[DecisionCase] = (),
+    ) -> Sequence[DecisionCase]: ...
 
 class RoundRobinCaseBalancer(ICaseBalancer):
-    def balance(self, cases: Sequence[DecisionCase], quota: int, rng: random.Random) -> Sequence[DecisionCase]:
+    def __init__(self, leakage: Optional[ILeakagePolicy] = None):
+        self.leakage = leakage or JaccardLeakagePolicy()
+
+    def balance(
+        self,
+        cases: Sequence[DecisionCase],
+        quota: int,
+        rng: random.Random,
+        holdouts: Sequence[DecisionCase] = (),
+    ) -> Sequence[DecisionCase]:
         if not cases or quota <= 0:
             raise ValueError("Balancing requires non-empty cases and a positive quota.")
 
@@ -41,12 +57,18 @@ class RoundRobinCaseBalancer(ICaseBalancer):
         for group in groups:
             rng.shuffle(group)
 
+        is_clean = self.leakage.filter(holdouts) if holdouts else (lambda _: True)
+
         selected: list[DecisionCase] = []
         while len(selected) < quota and groups:
             for bucket in list(groups):
                 if len(selected) >= quota:
                     break
-                selected.append(bucket.pop())
+                while bucket:
+                    candidate = bucket.pop()
+                    if is_clean(candidate):
+                        selected.append(candidate)
+                        break
                 if not bucket:
                     groups.remove(bucket)
 

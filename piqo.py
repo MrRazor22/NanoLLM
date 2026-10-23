@@ -21,9 +21,8 @@ from training.policies.schedule import ISchedule, CosineSchedule
 from data.dataset import IDataset, Dataset
 from data.case import DecisionCase
 from data.storage import IStoragePolicy, DiskStoragePolicy
-from data.split.split import ISplitPolicy, BudgetSplitPolicy
-from data.split.policies.balancer import ICaseBalancer, RoundRobinCaseBalancer
-from data.split.policies.leakage import ILeakagePolicy, JaccardLeakagePolicy
+from data.policies.balancer import ICaseBalancer, RoundRobinCaseBalancer
+from data.policies.leakage import ILeakagePolicy, JaccardLeakagePolicy
 from data.sources.source import IDataSource, MultiSource
 from data.sources.hf_cache import IRawCachePolicy, HFCache
 from data.sources.glaive_source import GlaiveSource
@@ -58,7 +57,6 @@ __all__ = [
     "ILoss", "CalibratedLoss",
     "ISchedule", "CosineSchedule",
     "IStoragePolicy", "DiskStoragePolicy",
-    "ISplitPolicy", "BudgetSplitPolicy",
     "ICaseBalancer", "RoundRobinCaseBalancer",
     "ILeakagePolicy", "JaccardLeakagePolicy",
     "IRawCachePolicy", "HFCache",
