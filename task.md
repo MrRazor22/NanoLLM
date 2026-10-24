@@ -1,41 +1,20 @@
-# Category-First Chunked Pipeline Plan
+# Task: Refactor Census Policy and CategoryBucket Architecture
 
-## 1. Domain Modeling (`data/case.py`)
-- [x] Fail-fast `CaseMeta`: `category`, `source`, `candidate_type` (`choice`, `noul`, `score`) required.
-- [x] Clean `DecisionCase`: normalized string fields in `__init__`, zero reflection.
+## Objective
+Clean up the census and bucket architecture to strictly adhere to Primitive-First Design (PFD):
+1. **`CategoryBucket`**: Represents the discrete strata coordinates of a category (`sources`, `candidate_types`, `instructions`, `candidate_counts`, `target_indices`, `candidates`).
+2. **`DatasetCensus`**: Represents the aggregate dataset profile (`categories: tuple[CategoryBucket, ...]`, `holdouts: tuple[frozenset[int], ...]`). Implements immutable `.union(other: Self) -> Self` and `.get_bucket(category: str) -> Optional[CategoryBucket]`.
+3. **`ICensusPolicy`**: Pure contract `create(cases: Sequence[DecisionCase]) -> DatasetCensus`. Takes plain cases without streaming/generator baggage.
+4. **File Placement**: In `data/policies/census.py` (policy folder).
+5. **Caller Updates**: Update `data/policies/balancer.py`, `data/policies/leakage.py`, `data/dataset.py`, and `piqo.py`.
 
-## 2. Balancer Architecture (`data/policies/balancer.py`)
-- [ ] Refactor `ICaseBalancer`:
-  - Signature: `balance(cases: Sequence[DecisionCase], limit: Optional[int] = None) -> Sequence[DecisionCase]`.
-  - Single category focus: receives a sequence of cases belonging to a category.
-  - Balances equally across the 5 intra-category dimensions:
-    `(source, candidate_type, xxhash(instruction), len(candidates), target_index, choice_signature)`.
-  - Zero category grouping inside the balancer since all cases in the call share the same category.
+---
 
-## 3. Eliminate Split Policy
-- [ ] Delete `data/policies/split.py`.
-- [ ] Remove `ISplitPolicy` / `RatioSplitPolicy` exports from `piqo.py`.
-
-## 4. Orchestration (`data/dataset.py`)
-- [ ] Constructor configuration:
-  - `quota_per_category: int = 1500`
-  - `val_ratio: float = 0.10`
-  - `chunk_factor: int = 2`
-  - Injected `balancer_policy: ICaseBalancer` and `leakage_policy: ILeakagePolicy`.
-- [ ] `Dataset.prepare(source=None)`:
-  - Separate `test` holdouts: `holdouts = [c for c in cases if c.meta and c.meta.split == "test"]`.
-  - Group holdouts by category for localized fast decontamination.
-  - Group training pool by category.
-  - For each category:
-    - While clean quota is unfilled and category candidates remain:
-      - Slice chunk of size `(quota - collected) * chunk_factor`.
-      - Balance chunk via `balancer.balance(chunk)`.
-      - Decontaminate balanced chunk via `leakage.decontaminate(balanced_chunk, cat_holdouts)`.
-      - Collect clean cases.
-    - Final pass: `category_clean = balancer.balance(collected_clean, limit=quota_per_category)`.
-    - Carve validation split: `val_count = max(1, int(len(category_clean) * val_ratio))`.
-    - Tag `split="val"` on validation subset and `split="train"` on remainder.
-  - Save `test`, `train`, `val` via `storage_policy`.
-
-## 5. Verification
-- [ ] Unit tests for multi-category chunked balancing, decontamination, and val split.
+## Action Items
+- [x] 1. Create and update `task.md` with the full plan.
+- [x] 2. Implement `data/policies/census.py` with `CategoryBucket`, `DatasetCensus`, `ICensusPolicy`, and `CaseCensusPolicy`.
+- [x] 3. Update `data/policies/balancer.py` to consume `CategoryBucket`.
+- [x] 4. Update `data/policies/leakage.py` to accept `holdouts: Sequence[frozenset[int]]`.
+- [x] 5. Update `data/dataset.py` to accumulate `DatasetCensus` via `census = census.union(census_policy.create(chunk))` and Pass 2 balance/decontaminate.
+- [x] 6. Update `piqo.py` exports.
+- [x] 7. Fast targeted verification (imports, syntax, and contract alignment).

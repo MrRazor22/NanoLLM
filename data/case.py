@@ -1,5 +1,10 @@
-from dataclasses import dataclass, field
+from dataclasses import dataclass
+import re
 from typing import Mapping, Optional, Self, Sequence
+import xxhash
+
+def text_signature(text: str) -> int:
+    return xxhash.xxh64_intdigest(text.strip().lower().encode()) if text and text.strip() else 0
 
 @dataclass(frozen=True, slots=True)
 class CaseMeta:
@@ -47,6 +52,16 @@ class DecisionCase:
         opt = self.option()
         return self.candidates.index(opt) if opt in self.candidates else 0
 
+    def instruction_signature(self) -> int:
+        return text_signature(self.instruction)
+
+    def option_signature(self) -> int:
+        return text_signature(self.option())
+
+    def prompt_hashes(self) -> tuple[int, ...]:
+        words = re.findall(r"\w+", f"{self.state} {self.instruction}")
+        return tuple(sorted({text_signature(w) for w in words}))
+
     def with_split(self, split: str) -> "DecisionCase":
         return DecisionCase(
             state=self.state,
@@ -89,3 +104,5 @@ class DecisionCase:
                 split=d.get("split"),
             ),
         )
+
+__all__ = ["text_signature", "CaseMeta", "DecisionCase"]

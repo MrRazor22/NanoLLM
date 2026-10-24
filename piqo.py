@@ -19,9 +19,9 @@ from training.policies.learner import ILearner, AdamWLearner
 from training.policies.schedule import ISchedule, CosineSchedule
 
 from data.dataset import IDataset, Dataset
-from data.case import DecisionCase
+from data.case import CaseMeta, DecisionCase, text_signature
+from data.policies.census import CategoryBucket, DatasetCensus, ICensusPolicy, CaseCensusPolicy
 from data.storage import IStoragePolicy, DiskStoragePolicy
-from data.policies.bucket import IBucketPolicy, CaseBucketPolicy, CategoryBucket
 from data.policies.balancer import ICaseBalancer, RoundRobinCaseBalancer
 from data.policies.leakage import ILeakagePolicy, JaccardLeakagePolicy
 from data.sources.source import IDataSource, MultiSource
@@ -50,7 +50,7 @@ __all__ = [
     "IOption", "ChoiceOption", "NoulOption", "ScoreOption",
     "IAnswer", "ChoiceAnswer", "NoulAnswer", "ScoreAnswer",
     # Data Models & Sources
-    "DecisionCase",
+    "CaseMeta", "DecisionCase", "CategoryBucket", "DatasetCensus",
     "IDataSource", "MultiSource", "GlaiveSource", "TypedDecisionsSource", "ClassificationSource", "MultiChoiceSource",
     # Policies & Composition
     "ILayout", "MaskedLayout",
@@ -58,7 +58,7 @@ __all__ = [
     "ILoss", "CalibratedLoss",
     "ISchedule", "CosineSchedule",
     "IStoragePolicy", "DiskStoragePolicy",
-    "ISplitPolicy", "RatioSplitPolicy",
+    "ICensusPolicy", "CaseCensusPolicy",
     "ICaseBalancer", "RoundRobinCaseBalancer",
     "ILeakagePolicy", "JaccardLeakagePolicy",
     "IRawCachePolicy", "HFCache",
@@ -68,5 +68,5 @@ __all__ = [
     "ProfilingLayer", "CheckpointingLayer",
     # Inspection & DTOs
     "WeightInfo", "TrainingStats", "DecisionMetrics", "BenchmarkCase", "BenchmarkResult",
-    "list_weights", "resolve_device",
+    "text_signature", "list_weights", "resolve_device",
 ]
